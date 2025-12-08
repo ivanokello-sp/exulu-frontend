@@ -44,7 +44,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { FilterOperator } from "@/components/custom/recent-jobs";
+import { FilterOperator } from "@/types/models/filter";
 import { AddUserModal } from "@/app/(application)/users/components/add-user-modal";
 import { UserContext } from "@/app/(application)/authenticated";
 import { Plus } from "lucide-react";

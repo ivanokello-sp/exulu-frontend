@@ -38,9 +38,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FilterOperator } from "@/components/custom/recent-jobs";
 import { CreateEvalSetModal } from "./create-eval-set-modal";
 import { useRouter } from "next/navigation";
+import { FilterOperator } from "@/types/models/filter";
 
 export type EvalSetFilters = {
   name?: FilterOperator;

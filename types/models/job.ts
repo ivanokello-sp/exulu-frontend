@@ -5,6 +5,9 @@ export type QueueJob = {
   id: string;
   returnvalue?: any;
   stacktrace?: string[];
+  finishedOn?: number;
+  processedOn?: number;
+  attemptsMade?: number;
   failedReason?: string;
   state: string;
   data?: BullMqJobData;

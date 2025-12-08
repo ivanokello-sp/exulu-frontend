@@ -21,14 +21,14 @@ export interface Context {
     calculateVectors: string
     defaultRightsMode: "private" | "users" | "roles" | "public"/*  | "projects" */
   }
-  processors: {
-    field: string
-    description: string
-    queue: string
-    trigger: string
-    timeoutInSeconds: number
+  processor: {
+    name: string,
+    description: string,
+    queue: string,
+    trigger: string,
+    timeoutInSeconds: number,
     generateEmbeddings: boolean
-  }[]
+  }
   sources: {
     id
     name
@@ -54,17 +54,5 @@ export interface Context {
     type: ExuluFieldTypes
     label: string
     allowedFileTypes?: allFileTypes[]
-    processor?: {
-      description: string,
-      config: {
-        trigger: "manual" | "onUpdate" | "onInsert" | "always"
-        queue: {
-          name: string
-          ratelimit: number
-          concurrency: number
-        }
-      }
-      execute: "function"
-    }
   }[]
 }

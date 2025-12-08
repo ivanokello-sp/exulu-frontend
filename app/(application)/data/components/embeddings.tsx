@@ -37,7 +37,6 @@ interface DataDisplayProps {
 
 export function ContextEmbeddings(props: DataDisplayProps) {
 
-
     const [sourcesOpen, setSourcesOpen] = useState(true);
     const { toast } = useToast();
     const { data, loading, error } = useQuery<

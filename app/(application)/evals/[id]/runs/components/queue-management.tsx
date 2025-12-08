@@ -49,7 +49,7 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
   const [jobToRetry, setJobToRetry] = useState<QueueJob | null>(null);
   const [status, setStatus] = useState<JobStatus>("completed");
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const [limit, setLimit] = useState(200);
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
 
   const { data: queueData, loading: loadingQueue, refetch: refetchQueue } = useQuery(GET_QUEUE, {
@@ -333,6 +333,7 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
                 <div className="text-sm text-muted-foreground">Concurrency:</div>
                 <div className="font-semibold">Per queue global concurrency: {queue.concurrency?.queue || "None"}
                   Per worker concurrency: {queue.concurrency?.worker || "None"}.
+                  Timeout: {queue.timeoutInSeconds || "None"} seconds.
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -357,6 +358,12 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
                     <span>Failed</span>
                     <Badge variant="secondary" className="ml-1 bg-red-100 text-red-600 border-red-200">
                       {queue.jobs?.failed || 0}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="stuck" className="gap-1.5">
+                    <span>Stuck</span>
+                    <Badge variant="secondary" className="ml-1 bg-red-100 text-red-600 border-red-200">
+                      {queue.jobs?.stuck || 0}
                     </Badge>
                   </TabsTrigger>
                   <TabsTrigger value="completed" className="gap-1.5">
@@ -419,8 +426,11 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
                       </TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>ID</TableHead>
-                      <TableHead>State</TableHead>
-                      <TableHead>Timestamp</TableHead>
+                      {/* <TableHead>State</TableHead> */}
+                      <TableHead>Attempts Made</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Processed On</TableHead>
+                      <TableHead>Finished On</TableHead>
                       <TableHead>Inputs</TableHead>
                       <TableHead>Outputs</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -441,13 +451,22 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
                           {nameGenerator(job)}
                         </TableCell>
                         <TableCell>{job.id}</TableCell>
-                        <TableCell>{getStatusBadge(job.state)}</TableCell>
+                        {/* <TableCell>{getStatusBadge(job.state)}</TableCell> */}
+                        <TableCell>
+                          {job.attemptsMade}
+                        </TableCell>
                         <TableCell>
                           {job.timestamp ? format(new Date(job.timestamp), "MMM d, yyyy HH:mm:ss") : "N/A"}
                         </TableCell>
                         <TableCell>
+                          {job.processedOn ? format(new Date(job.processedOn), "MMM d, yyyy HH:mm:ss") : "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          {job.finishedOn ? format(new Date(job.finishedOn), "MMM d, yyyy HH:mm:ss") : "N/A"}
+                        </TableCell>
+                        <TableCell>
                           {job.data ? (
-                            <div className="text-xs max-w-[200px] truncate">
+                            <div className="text-xs max-w-[120px] truncate">
                               <TextPreview
                                 text={JSON.stringify(job.data)}
                               />
@@ -456,13 +475,13 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
                         </TableCell>
                         <TableCell>
                           {job.failedReason ? (
-                            <div className="text-xs text-red-600 max-w-[200px] truncate">
+                            <div className="text-xs text-red-600 max-w-[120px] truncate">
                               <TextPreview
                                 text={"Error: " + job.failedReason}
                               />
                             </div>
                           ) : (
-                            <div className="text-xs text-muted-foreground max-w-[200px] truncate">
+                            <div className="text-xs text-muted-foreground max-w-[120px] truncate">
                               <TextPreview
                                 text={JSON.stringify(job.returnvalue)}
                               />

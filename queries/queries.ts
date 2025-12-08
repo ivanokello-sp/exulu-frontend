@@ -21,8 +21,8 @@ const CONTEXT_FIELDS = `
     active
     fields
     configuration
-    processors {
-      field
+    processor {
+      name
       description
       queue
       trigger
@@ -69,6 +69,7 @@ createdAt
 embeddings_updated_at
 updatedAt
 rights_mode
+last_processed_at
 RBAC {
   type
   users {
@@ -256,13 +257,26 @@ export const GET_ITEMS = (context: string, fields: string[]) => {
   `;
 };
 
-export const PROCESS_ITEM_FIELD = (context: string) => {
+export const PROCESS_ITEM = (context: string) => {
   return gql`
-    mutation ProcessItemField${context}($item: ID!, $field: ${context}_itemsProcessorFieldEnum!) {
-      ${context}_itemsProcessItemField(item: $item, field: $field) {
+    mutation ProcessItem${context}($item: ID!) {
+      ${context}_itemsProcessItem(item: $item) {
         message
-        result
-        job
+        results
+        jobs
+      }
+    }
+  `;
+};
+
+export const PROCESS_ITEMS = (context: string) => {
+  const upperCaseContext = context.charAt(0).toUpperCase() + context.slice(1)
+  return gql`
+    mutation ${context}ProcessItems($limit: Int!, $filters: [Filter${upperCaseContext}_items], $sort: SortBy = { field: "updatedAt", direction: DESC }) {
+      ${context}_itemsProcessItems(limit: $limit, filters: $filters, sort: $sort) {
+        message
+        results
+        jobs
       }
     }
   `;
@@ -273,7 +287,7 @@ export const GET_ITEM_BY_ID = (context: string, fields: string[], chunks: boolea
     query ${context}ById($id: ID!) {
       ${context}_itemsById(id: $id) {
         ${ITEM_FIELDS(fields)}
-        ${chunks ? "chunks { fts_rank hybrid_score content source chunk_index chunk_id chunk_created_at chunk_updated_at embedding_size }" : ""}
+        ${chunks ? "chunks { chunk_content chunk_source chunk_index chunk_id chunk_created_at chunk_updated_at }" : ""}
       }
     }
   `;
@@ -1811,6 +1825,7 @@ export const GET_QUEUE = gql`
         worker
         queue
       }
+      timeoutInSeconds
       ratelimit
       isMaxed
       isPaused
@@ -1835,6 +1850,9 @@ export const GET_JOBS = gql`
         returnvalue
         stacktrace
         failedReason
+        processedOn
+        finishedOn
+        attemptsMade
         state
         data
         timestamp

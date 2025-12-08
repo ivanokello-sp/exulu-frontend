@@ -9,12 +9,12 @@ export interface Item {
     source?: string;
     tags?: string[];
     textlength?: number;
+    last_processed_at?: string;
     chunks?: {
-        id: string;
+        chunk_id: string;
         chunk_index: number;
-        content: string;
+        chunk_content: string;
         source: string;
-        embedding_size: number;
         chunk_created_at: string;
         chunk_updated_at: string;
     }[];

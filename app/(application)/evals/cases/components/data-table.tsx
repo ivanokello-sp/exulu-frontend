@@ -41,9 +41,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { FilterOperator } from "@/components/custom/recent-jobs";
 import { TestCaseModal } from "./test-case-modal";
 import { TestCase } from "@/types/models/test-case";
+import { FilterOperator } from "@/types/models/filter";
 
 export type TestCaseFilters = {
   name?: FilterOperator;

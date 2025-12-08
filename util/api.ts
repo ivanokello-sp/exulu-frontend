@@ -197,7 +197,7 @@ export const files = {
     download: async (key: string) => {
 
         const uris = await getUris();
-        let url = `${uris.files}/s3/download?key=${key}`;
+        let url = `${uris.files}/s3/download?key=${encodeURIComponent(key)}`;
 
         const token = await getToken()
 

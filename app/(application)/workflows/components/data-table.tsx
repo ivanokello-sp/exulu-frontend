@@ -44,7 +44,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { FilterOperator } from "@/components/custom/recent-jobs";
+import { FilterOperator } from "@/types/models/filter";
 
 export type WorkflowFilters = {
   name?: FilterOperator,

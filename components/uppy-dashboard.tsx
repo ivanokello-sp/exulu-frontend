@@ -59,6 +59,7 @@ export function FileDataCard({ s3key, children }: { s3key: string, children?: Re
   // Get the part after _EXULU_
   name = name.split("_EXULU_").pop() || "";
 
+  console.log("s3Key", s3key)
   return <Card>
     <CardHeader className="pb-3">
       <CardTitle className="text-sm max-w-[500px] truncate">

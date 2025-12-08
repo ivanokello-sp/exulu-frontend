@@ -38,13 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DotsHorizontalIcon } from "@radix-ui/react-icons";
 import { Button } from "@/components/ui/button";
-
-export type FilterOperator = {
-  eq?: string,
-  ne?: string,
-  in?: string[],
-  contains?: string,
-}
+import { FilterOperator } from "@/types/models/filter";
 
 export type ItemsFilters = {
   context?: FilterOperator,

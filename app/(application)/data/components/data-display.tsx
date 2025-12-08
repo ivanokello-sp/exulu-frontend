@@ -73,14 +73,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import { Item } from "@EXULU_SHARED/models/item";
 import { Context } from "@/types/models/context";
-import { DELETE_CHUNKS, DELETE_ITEM, GENERATE_CHUNKS, GET_ITEM_BY_ID, PROCESS_ITEM_FIELD, UPDATE_ITEM } from "@/queries/queries";
+import { DELETE_CHUNKS, DELETE_ITEM, GENERATE_CHUNKS, GET_ITEM_BY_ID, PROCESS_ITEM, UPDATE_ITEM } from "@/queries/queries";
 import { RBACControl } from "@/components/rbac";
 import {
   Collapsible,
@@ -103,7 +103,6 @@ interface DataDisplayProps {
 export function DataDisplay(props: DataDisplayProps) {
 
   const [data, setData] = useState<Item>();
-  const { toast } = useToast();
   const router = useRouter();
 
   const [rbac, setRbac] = useState<{
@@ -164,14 +163,12 @@ export function DataDisplay(props: DataDisplayProps) {
     }
   }>(UPDATE_ITEM(props.context.id), {
     onCompleted: () => {
-      toast({
-        title: "Item updated",
+      toast.success("Item updated", {
         description: "Item updated successfully.",
       })
     },
     onError: (error) => {
-      toast({
-        title: "Error updating item",
+      toast.error("Error updating item", {
         description: error.message,
       })
     }
@@ -181,14 +178,12 @@ export function DataDisplay(props: DataDisplayProps) {
     id: string;
   }>(DELETE_ITEM(props.context.id, []), {
     onCompleted: () => {
-      toast({
-        title: "Item deleted",
+      toast.success("Item deleted successfully.", {
         description: "Item deleted successfully.",
       })
     },
     onError: (error) => {
-      toast({
-        title: "Error deleting item",
+      toast.error("Error deleting item", {
         description: error.message,
       })
     }
@@ -203,14 +198,12 @@ export function DataDisplay(props: DataDisplayProps) {
     onCompleted: (output) => {
       const data = output[props.context.id + "_itemsGenerateChunks"];
       if (data.jobs?.length > 0) {
-        toast({
-          title: "Chunks generation started",
+        toast.success("Chunks generation started", {
           description: "Jobs have been started in the background, depending on the size of the item this may take a while.",
         })
         return;
       }
-      toast({
-        title: "Chunks generated",
+      toast.success("Chunks generated", {
         description: "Chunks generated successfully.",
       })
     },
@@ -226,34 +219,37 @@ export function DataDisplay(props: DataDisplayProps) {
     onCompleted: (output) => {
       const data = output[props.context.id + "_itemsDeleteChunks"];
       if (data.jobs?.length > 0) {
-        toast({
-          title: "Chunks deletion started",
+        toast.success("Chunks deletion started", {
           description: "Jobs have been started in the background, depending on the size of the item this may take a while.",
         })
         return;
       }
-      toast({
-        title: "Chunks deleted",
+      toast.success("Chunks deleted", {
         description: "Chunks deleted successfully.",
       })
     },
   });
 
-  const [processFieldMutation, processFieldMutationResult] = useMutation<{
+  const [processItemMutation, processItemMutationResult] = useMutation<{
     [key: string]: {
-      job: string;
-      result: string;
+      message: string;
+      jobs: string[];
+      results: string[];
     }
-  }>(PROCESS_ITEM_FIELD(props.context.id), {
-    onCompleted: () => {
-      toast({
-        title: "Field processed",
-        description: "Field processed successfully.",
-      })
+  }>(PROCESS_ITEM(props.context.id), {
+    onCompleted: (data) => {
+      console.log("data", data);
+      const result = data[`${props.context.id}_itemsProcessItem`];
+      toast.success(result.message || "Items processed successfully", {
+        description: result.jobs?.length
+          ? `${result.jobs.length} job(s) scheduled`
+          : result.results?.length
+            ? `${result.results.length} item(s) processed`
+            : undefined
+      });
     },
     onError: (error) => {
-      toast({
-        title: "Error processing field",
+      toast.error("Error processing item", {
         description: error.message,
       })
     }
@@ -544,6 +540,37 @@ export function DataDisplay(props: DataDisplayProps) {
                 <h3 className="text-lg p-5 font-semibold tracking-tight text-lg">
                   Fields
                 </h3>
+
+                {
+                  context.processor && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="secondary" size="sm" className="w-auto mt-2" onClick={() => {
+                          processItemMutation({
+                            variables: {
+                              item: data?.id,
+                            }
+                          });
+                        }} disabled={processItemMutationResult.loading}>
+                          {
+                            processItemMutationResult.loading ? (
+                              <Loading />
+                            ) : (
+                              <MessageCirclePlus className="size-4" />
+                            )
+                          }
+                          <span className="ml-2">Process</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        {context.processor.name + "\n" + context.processor.description}
+                        <span className="text-sm text-muted-foreground">
+                          {context.processor.queue}
+                        </span>
+                      </TooltipContent>
+                    </Tooltip>
+                  )
+                }
               </div>
               <div className="p-5">
                 <Form {...form}>
@@ -574,7 +601,7 @@ export function DataDisplay(props: DataDisplayProps) {
                                           await navigator.clipboard.writeText(
                                             data.name ?? "",
                                           );
-                                          toast({ title: "Copied to clipboard" });
+                                          toast.success("Copied to clipboard");
                                         }}
                                         className="flex-1 whitespace-pre-wrap text-sm cursor-copy"
                                       >
@@ -691,7 +718,7 @@ export function DataDisplay(props: DataDisplayProps) {
                                           await navigator.clipboard.writeText(
                                             data.description ?? "",
                                           );
-                                          toast({ title: "Copied to clipboard" });
+                                          toast.success("Copied to clipboard");
                                         }}
                                         className="flex-1 whitespace-pre-wrap text-sm cursor-copy"
                                       >
@@ -783,7 +810,7 @@ export function DataDisplay(props: DataDisplayProps) {
                                           await navigator.clipboard.writeText(
                                             data.external_id ?? "",
                                           );
-                                          toast({ title: "Copied to clipboard" });
+                                          toast.success("Copied to clipboard");
                                         }}
                                         className="flex-1 whitespace-pre-wrap text-sm cursor-copy"
                                       >
@@ -816,6 +843,19 @@ export function DataDisplay(props: DataDisplayProps) {
                             </TableCell>
                           </TableRow>
 
+                          {
+                            context.processor && (
+                              <TableRow key={"processor"}>
+                                <TableCell className="font-medium capitalize">
+                                  Last processed at
+                                </TableCell>
+                                <TableCell>
+                                  {data.last_processed_at}
+                                </TableCell>
+                              </TableRow>
+                            )
+                          }
+
                           {/* todo: add fixed  fields for "file" which can be a pdf, image, word doc etc...*/}
 
                           {context?.fields?.length &&
@@ -831,34 +871,6 @@ export function DataDisplay(props: DataDisplayProps) {
                                       {
                                         contextField.calculated && (
                                           <span className="text-sm text-muted-foreground">Calculated</span>
-                                        )
-                                      }
-                                      {
-                                        contextField.processor && (
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button variant="secondary" size="sm" className="w-auto mt-2" onClick={() => {
-                                                processFieldMutation({
-                                                  variables: {
-                                                    item: data?.id,
-                                                    field: contextField.name
-                                                  }
-                                                });
-                                              }} disabled={processFieldMutationResult.loading}>
-                                                {
-                                                  processFieldMutationResult.loading ? (
-                                                    <Loading />
-                                                  ) : (
-                                                    <MessageCirclePlus className="size-4" />
-                                                  )
-                                                }
-                                                <span className="ml-2">Process</span>
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent className="max-w-xs">
-                                              {contextField.processor.description}
-                                            </TooltipContent>
-                                          </Tooltip>
                                         )
                                       }
                                     </TableCell>
@@ -884,9 +896,7 @@ export function DataDisplay(props: DataDisplayProps) {
                                                   await navigator.clipboard.writeText(
                                                     data[contextField.name],
                                                   );
-                                                  toast({
-                                                    title: "Copied to clipboard",
-                                                  });
+                                                  toast.success("Copied to clipboard");
                                                 }}>
                                                 {data[contextField.name]}
                                               </p>
@@ -923,9 +933,7 @@ export function DataDisplay(props: DataDisplayProps) {
                                                   await navigator.clipboard.writeText(
                                                     data[contextField.name],
                                                   );
-                                                  toast({
-                                                    title: "Copied to clipboard",
-                                                  });
+                                                  toast.success("Copied to clipboard");
                                                 }}
                                               >
                                                 {data[contextField.name]}
@@ -938,9 +946,7 @@ export function DataDisplay(props: DataDisplayProps) {
                                                   await navigator.clipboard.writeText(
                                                     data[contextField.name],
                                                   );
-                                                  toast({
-                                                    title: "Copied to clipboard",
-                                                  });
+                                                  toast.success("Copied to clipboard");
                                                 }}
                                               >
                                                 {data[contextField.name] ?? ""}
@@ -1200,15 +1206,12 @@ export function DataDisplay(props: DataDisplayProps) {
                       {
                         data?.chunks?.length ? (
                           data?.chunks?.length && data.chunks.map((chunk) => (
-                            <TableRow key={chunk.id}>
+                            <TableRow key={chunk.chunk_id}>
                               <TableCell className="font-medium capitalize">
                                 {chunk.chunk_index + 1}
                               </TableCell>
                               <TableCell>
-                                <TextPreview text={chunk.content} />
-                              </TableCell>
-                              <TableCell>
-                                {chunk.embedding_size || 0}
+                                <TextPreview text={chunk.chunk_content} />
                               </TableCell>
                               <TableCell>
                                 {new Date(chunk.chunk_created_at).toLocaleString()}

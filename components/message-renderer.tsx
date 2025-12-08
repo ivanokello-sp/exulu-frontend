@@ -6,12 +6,48 @@ import { Actions, Action } from '@/components/ai-elements/actions'
 import { Response } from '@/components/ai-elements/response'
 import { Reasoning, ReasoningTrigger, ReasoningContent } from "@/components/ai-elements/reasoning"
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai-elements/source"
-import { RefreshCcwIcon, CopyIcon } from "lucide-react"
+import { RefreshCcwIcon, CopyIcon, ChevronDown, ChevronRight, Search, FileText, Database } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
 import { TodoList } from "./ai-elements/todo-list"
 import { FileItem } from "./uppy-dashboard"
+import { Card, CardContent } from "@/components/ui/card";
+import { useRouter } from "next/navigation"
+import { KnowledgeSourceSearchResultChunk } from "@/types/models/knowledge-source-search-results"
+import { Badge } from "@/components/ui/badge"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { useState } from "react"
+
+interface ItemWithChunks {
+  id: string,
+  external_id: string,
+  name: string,
+  updatedAt: string,
+  createdAt: string,
+  context: {
+    name: string,
+    id: string
+  },
+  chunks: KnowledgeSourceSearchResultChunk[]
+}
+
+function camelCaseToLabel(camelCaseString) {
+  if (!camelCaseString || typeof camelCaseString !== 'string') {
+    return ''; // Return empty string for null, undefined, or non-string inputs
+  }
+
+  // 1. Insert a space before all capital letters that are not at the start of the string.
+  let spacedString = camelCaseString.replace(/([A-Z])/g, ' $1');
+
+  // 2. Trim any leading/trailing spaces (if they were introduced at the beginning).
+  let trimmedString = spacedString.trim();
+
+  // 3. Capitalize the first letter of the resulting string.
+  let finalLabel = trimmedString.charAt(0).toUpperCase() + trimmedString.slice(1);
+
+  return finalLabel;
+}
 
 interface MessageRendererProps {
   messages: UIMessage[]
@@ -157,7 +193,7 @@ export function MessageRenderer({
                   return <iframe src={pdfUrl} style={{ width: '100%', height: '100vh' }} title="PDF viewer" />
                 }
 
-                if (part.type?.toLowerCase() === 'tool-todo_write' || part.type?.toLowerCase() === 'tool-todo_read') {
+                if (part.type?.toLowerCase() === 'tool-todo_write') {
                   const dynamicToolPart = part as any;
                   const output = dynamicToolPart.output as {
                     result: {
@@ -173,6 +209,58 @@ export function MessageRenderer({
                   const state: "input-streaming" | "input-available" | "output-available" | "output-error" = dynamicToolPart.state;
                   return (
                     <TodoList todos={output.result} showPriority={true} state={state} />
+                  )
+                }
+                
+                if (part.type?.toLowerCase() === 'tool-todo_read') {
+                  return null;
+                }
+
+                if (part.type?.toLowerCase().includes('context_search')) {
+                  const dynamicToolPart = part as any;
+                  let output = dynamicToolPart.output as {
+                    result: KnowledgeSourceSearchResultChunk[]
+                  };
+                  if (typeof output === "string") {
+                    output = JSON.parse(output)
+                  }
+                  if (typeof output?.result === "string") {
+                    output.result = JSON.parse(output?.result)
+                  }
+                  console.log("output", output);
+                  console.log("output.result", output?.result);
+                  if (!output?.result?.length) {
+                    return null;
+                  }
+                  // Map the chunks to items
+                  const itemsMap = new Map<string, ItemWithChunks>();
+                  const context = output.result[0]?.context?.name;
+                  for (const chunk of output.result) {
+                    if (itemsMap.has(chunk.item_id)) {
+                      itemsMap.get(chunk.item_id)?.chunks.push(chunk);
+                    } else {
+                      itemsMap.set(chunk.item_id, {
+                        id: chunk.item_id,
+                        updatedAt: chunk.item_updated_at,
+                        createdAt: chunk.item_created_at,
+                        external_id: chunk.item_external_id,
+                        name: chunk.item_name,
+                        context: {
+                          name: chunk.context?.name,
+                          id: chunk.context?.id
+                        },
+                        chunks: [chunk]
+                      });
+                    }
+                  }
+                  return (
+                    <ContextSearchResults
+                      key={`${message.id}-${i}`}
+                      input={dynamicToolPart.input}
+                      context={context}
+                      items={Array.from(itemsMap.values())}
+                      totalChunks={output.result.length}
+                    />
                   )
                 }
 
@@ -295,4 +383,165 @@ export function MessageRenderer({
       })}
     </>
   )
+}
+
+const ContextSearchResults = ({
+  context,
+  input,
+  items,
+  totalChunks
+}: {
+  context: string;
+  input: Record<string, any>;
+  items: ItemWithChunks[];
+  totalChunks: number;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [showAllItems, setShowAllItems] = useState(false);
+
+  const uniqueContexts = new Set(items.map(item => item.context.name));
+  const displayItems = showAllItems ? items : items.slice(0, 3);
+
+  return (
+    <div className="my-3 border rounded-lg overflow-hidden bg-card">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger className="w-full">
+          <div className="flex items-center justify-between p-4 hover:bg-accent/50 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-md bg-primary/10">
+                <Search className="h-4 w-4 text-primary" />
+              </div>
+              <div className="text-left">
+                <div className="font-medium text-sm flex items-center gap-2">
+                  Context Search Results for {context}
+                  <Badge variant="secondary" className="text-xs">
+                    {items.length} {items.length === 1 ? 'item' : 'items'}
+                  </Badge>
+                </div>
+                <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+                  <span className="flex items-center gap-1">
+                    <FileText className="h-3 w-3" />
+                    {totalChunks} chunks
+                  </span>
+                  {uniqueContexts.size > 0 && (
+                    <span className="flex items-center gap-1">
+                      <Database className="h-3 w-3" />
+                      {uniqueContexts.size} {uniqueContexts.size === 1 ? 'context' : 'contexts'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            {isOpen ? (
+              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            )}
+          </div>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          <div className="border-t">
+            {/* Search Parameters */}
+            {Object.keys(input).length > 0 && (
+              <div className="p-4 bg-muted/30 border-b">
+                <div className="text-xs font-medium text-muted-foreground mb-2">Search Parameters</div>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(input).map(([key, value]) => (
+                    <Badge key={key} variant="outline" className="text-xs">
+                      <span className="font-medium">{camelCaseToLabel(key)}:</span>
+                      <span className="ml-1 font-normal">
+                        {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                      </span>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Results Grid */}
+            <div className="p-4">
+              {items.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {displayItems.map((item) => (
+                      <SearchResultItem key={item.id} item={item} />
+                    ))}
+                  </div>
+                  {items.length > 3 && (
+                    <div className="mt-4 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowAllItems(!showAllItems);
+                        }}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        {showAllItems ? 'Show less' : `Show ${items.length - 3} more items`}
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  No items found.
+                </div>
+              )}
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
+};
+
+const SearchResultItem = ({ item }: { item: ItemWithChunks }) => {
+
+  const router = useRouter();
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  return (<Card className="group relative overflow-hidden hover:shadow-md transition-all duration-200 hover:border-primary/50 cursor-pointer" onClick={() => {
+    router.push(`/data/${item.context.id}/${item.id}`);
+  }}>
+    <CardContent className="p-4">
+      {/* Item Name */}
+      <div className="mb-2">
+        <h4 className="font-medium text-sm line-clamp-2 min-h-[2.5rem]">
+          {item.name || "Untitled"}
+        </h4>
+      </div>
+
+      {item.external_id && (
+        <small className="text-xs text-muted-foreground">
+          {item.external_id}
+        </small>
+      )}
+
+      {/* Metadata Section */}
+      <div className="space-y-2 pt-2 border-t">
+        {/* Context Type */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          {item.updatedAt && (
+            <span className="text-xs text-muted-foreground whitespace-nowrap">
+              {formatDate(item.updatedAt)}
+            </span>
+          )}
+        </div>
+
+        {/* Text Length Indicator */}
+        {item.chunks && item.chunks.length > 0 && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span className="text-xs">• {item.chunks.length} chunks</span>
+          </div>
+        )}
+        {/* TODO provide a dialog modal that allows the user to view the chunks */}
+        {/* TODO if metadata includes a source file name, show a link to the file */}
+      </div>
+    </CardContent>
+  </Card>)
 }
