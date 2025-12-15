@@ -83,9 +83,37 @@ export function MessageRenderer({
 }: MessageRendererProps) {
   const { toast } = useToast()
 
+  const todoToolType = 'tool-todo_write';
+  
+  // 1. Find all message indices that contain the specified tool part
+  const todoMessageIndices = messages
+    ?.map((message, index) => ({
+      index,
+      hasTodoPart: message.parts.some(part => part.type.toLowerCase() === todoToolType)
+    }))
+    .filter(item => item.hasTodoPart)
+    .map(item => item.index) ?? [];
+
+  // 2. Determine which messages to keep and which to filter out
+  let filteredMessages = messages;
+  
+  if (todoMessageIndices.length > 1) {
+    // If there is more than one message with the todo part, filter out all but the last one.
+    const lastIndex = todoMessageIndices[todoMessageIndices.length - 1];
+    
+    // Create a Set of indices to be removed for quick lookup
+    const indicesToRemove = new Set(todoMessageIndices.filter(index => index !== lastIndex));
+
+    filteredMessages = messages?.filter((_, index) => !indicesToRemove.has(index));
+  }
+  
+  // Use filteredMessages in the rendering logic
+  const messagesToRender = filteredMessages;
+
+
   return (
     <>
-      {messages?.map((message, messageIndex) => {
+      {messagesToRender?.map((message, messageIndex) => {
         const isFirstMessage = messageIndex === 0
         const messageMetadata = message.metadata as any
         // iterate through all parts and find the ones that have a type of 'text' and contain '<file name="', if so
@@ -463,7 +491,7 @@ const ContextSearchResults = ({
             <div className="p-4">
               {items.length > 0 ? (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-3">
                     {displayItems.map((item) => (
                       <SearchResultItem key={item.id} item={item} />
                     ))}
@@ -511,14 +539,14 @@ const SearchResultItem = ({ item }: { item: ItemWithChunks }) => {
     <CardContent className="p-4">
       {/* Item Name */}
       <div className="mb-2">
-        <h4 className="font-medium text-sm line-clamp-2 min-h-[2.5rem]">
+        <h4 className="font-medium text-sm line-clamp-2">
           {item.name || "Untitled"}
         </h4>
       </div>
 
       {item.external_id && (
         <small className="text-xs text-muted-foreground">
-          {item.external_id}
+          {item.context.name} {item.external_id && `| ${item.external_id}`} | {item.id}
         </small>
       )}
 

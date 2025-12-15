@@ -227,6 +227,7 @@ export function DataDisplay(props: DataDisplayProps) {
       toast.success("Chunks deleted", {
         description: "Chunks deleted successfully.",
       })
+      refetch();
     },
   });
 
