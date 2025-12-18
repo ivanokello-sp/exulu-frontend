@@ -4,41 +4,34 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ArrowDownIcon } from "lucide-react";
 import type { ComponentProps } from "react";
-import React, { useCallback } from "react";
+import { useCallback } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
-import type { StickToBottomProps } from "use-stick-to-bottom";
 
-export type ConversationProps = StickToBottomProps;
+export type ConversationProps = ComponentProps<typeof StickToBottom>;
 
-  return (
-    <StickToBottom
-      className={cn("relative flex-1 overflow-y-hidden", className)}
-      initial="smooth"
-      resize="smooth"
-      role="log"
-      {...props}
-    />
-  ) as React.ReactElement;
-};
+export const Conversation = ({ className, ...props }: ConversationProps) => (
+  <StickToBottom
+    className={cn("relative flex-1 overflow-y-hidden", className)}
+    initial="smooth"
+    resize="smooth"
+    role="log"
+    {...props}
+  />
+);
 
-export type ConversationContentProps = Omit<
-  React.HTMLAttributes<HTMLDivElement>,
-  "children"
-> & {
-  children: React.ReactNode;
-};
+export type ConversationContentProps = ComponentProps<
+  typeof StickToBottom.Content
+>;
 
 export const ConversationContent = ({
   className,
   ...props
-}: ConversationContentProps) => {
-  return (
-    <StickToBottom.Content
-      className={cn("flex flex-col gap-8 p-4", className)}
-      {...props}
-    />
-  ) as React.ReactElement;
-};
+}: ConversationContentProps) => (
+  <StickToBottom.Content
+    className={cn("flex flex-col gap-8 p-4", className)}
+    {...props}
+  />
+);
 
 export type ConversationEmptyStateProps = ComponentProps<"div"> & {
   title?: string;

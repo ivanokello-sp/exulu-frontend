@@ -15,12 +15,7 @@ const config = {
       "graphql-compose-mongoose",
       "graphql-compose",
     ],
-  },
-  webpack( config,
-           { buildId, dev, isServer, defaultLoaders, nextRuntime, webpack }) {
-    config.externals.push({ vectordb: "vectordb" });
-    return config;
-  },
+  }
 };
 
 if (process.env.DOCKER) {
