@@ -67,9 +67,9 @@ export function DataList({
     activeItem,
     archived,
 }: {
-    activeFolder: "archived" | "csv" | "api" | "files" | "all";
+    activeFolder: string;
     activeItem?: string;
-    archived: boolean;
+    archived: boolean | null | undefined;
 }) {
 
     const path = usePathname();
@@ -265,7 +265,7 @@ export function DataList({
                             }
                         });
                     }}
-                    disabled={createItemMutationResult.loading || archived}
+                    disabled={createItemMutationResult.loading || archived || false}
                     className="ml-2 ml-auto lg:flex">
                     {createItemMutationResult.loading ? <Loading /> : <Plus size={18} />}
                 </Button>

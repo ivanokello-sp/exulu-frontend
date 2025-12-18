@@ -25,7 +25,7 @@ export default async function DataPage({
 
   try {
 
-    const data = await fetchGraphQLServerSide(GET_CONTEXT_BY_ID.loc.source.body, {
+    const data = await fetchGraphQLServerSide(GET_CONTEXT_BY_ID.loc?.source.body || "", {
       id: query[0]
     });
 
@@ -75,7 +75,7 @@ export default async function DataPage({
         itemId={item}
       />
     );
-  } catch (error) {
+  } catch (error: any) {
     return <Alert variant="destructive">
       <ExclamationTriangleIcon className="size-4" />
       <AlertTitle>Error</AlertTitle>

@@ -1,6 +1,5 @@
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -51,9 +50,9 @@ export const NodeDescription = (props: NodeDescriptionProps) => (
   <CardDescription {...props} />
 );
 
-export type NodeActionProps = ComponentProps<typeof CardAction>;
+export type NodeActionProps = ComponentProps<typeof CardFooter>;
 
-export const NodeAction = (props: NodeActionProps) => <CardAction {...props} />;
+export const NodeAction = (props: NodeActionProps) => <CardFooter {...props} />;
 
 export type NodeContentProps = ComponentProps<typeof CardContent>;
 

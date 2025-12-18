@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -104,10 +103,10 @@ export const PlanDescription = ({
   );
 };
 
-export type PlanActionProps = ComponentProps<typeof CardAction>;
+export type PlanActionProps = ComponentProps<typeof CardFooter>;
 
 export const PlanAction = (props: PlanActionProps) => (
-  <CardAction data-slot="plan-action" {...props} />
+  <CardFooter data-slot="plan-action" {...props} />
 );
 
 export type PlanContentProps = ComponentProps<typeof CardContent>;

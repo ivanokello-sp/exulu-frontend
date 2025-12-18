@@ -10,6 +10,7 @@ import remarkMath from 'remark-math';
 import { CodeBlock, CodeBlockCopyButton } from './code-block';
 import 'katex/dist/katex.min.css';
 import hardenReactMarkdown from 'harden-react-markdown';
+import { BundledLanguage } from 'shiki';
 
 /**
  * Parses markdown text and removes incomplete tokens to prevent partial rendering
@@ -324,9 +325,9 @@ const components: Options['components'] = {
     if (
       isValidElement(children) &&
       children.props &&
-      typeof children.props.children === 'string'
+      typeof (children.props as { children?: unknown }).children === 'string'
     ) {
-      code = children.props.children;
+      code = (children.props as { children: string }).children;
     } else if (typeof children === 'string') {
       code = children;
     }
@@ -335,7 +336,7 @@ const components: Options['components'] = {
       <CodeBlock
         className={cn('my-4 h-auto', className)}
         code={code}
-        language={language}
+        language={language as BundledLanguage}
       >
         <CodeBlockCopyButton
           onCopy={() => console.log('Copied code to clipboard')}

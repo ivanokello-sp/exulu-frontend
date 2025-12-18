@@ -1,19 +1,22 @@
 import { DataList } from "@/app/(application)/data/components/data-list";
-import { Tabs } from "@/components/ui/tabs";
 import {
     TooltipProvider,
 } from "@/components/ui/tooltip";
 import Contexts from "@/app/(application)/data/[[...query]]/contexts";
 
-export default async function DataLayout({ children, params }: { children: any, params: Promise<{ query }>; }) {
+export default async function DataLayout({ children, params }: {
+    children: any,
+    params: Promise<{ query?: string[] }>;
+}) {
 
     const { query } = await params;
     const archived = query && query[1] === "archived";
     const sources = query && query[1] === "sources";
     const embeddings = query && query[1] === "embeddings";
     const processors = query && query[1] === "processors";
-    const context = query && query[0];
-    let item = null;
+    const context: string | null | undefined = query && query[0];
+
+    let item: string | null = null;
     if (query && archived) {
         item = query[2] || null;
     } else if (query && !sources && !embeddings) {
@@ -35,7 +38,7 @@ export default async function DataLayout({ children, params }: { children: any, 
                         <DataList
                             activeFolder={context}
                             activeItem={item ?? undefined}
-                            archived={archived}
+                            archived={archived || false}
                         />
                     </div>
                 }

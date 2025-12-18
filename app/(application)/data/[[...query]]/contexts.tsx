@@ -69,17 +69,17 @@ const Contexts = ({
     activeEmbeddings,
     activeProcessors
 }: {
-    activeFolder: string,
-    activeArchived: boolean,
-    activeSources: boolean,
-    activeEmbeddings: boolean,
-    activeProcessors: boolean
+    activeFolder?: string | null,
+    activeArchived?: boolean | null,
+    activeSources?: boolean | null,
+    activeEmbeddings?: boolean | null,
+    activeProcessors?: boolean | null
 }) => {
 
     const { data, loading, error } = useContexts();
 
     return (<>
-        <div key={activeFolder + activeArchived + activeSources + activeEmbeddings + activeProcessors}
+        <div key={activeFolder || "" + activeArchived || "" + activeSources || "" + activeEmbeddings || "" + activeProcessors || ""}
             className="flex flex-col gap-4 py-2 pb-5 px-2 border-r w-[250px] shrink-0">
             {
                 activeFolder ? <div className="flex items-center gap-2 px-2 w-full">
@@ -119,28 +119,28 @@ const Contexts = ({
                                     }}></ContextLink>
                                     <ContextLink index={index + 1000} indented={true} folder={{
                                         label: `Archived data`,
-                                        active: activeArchived,
+                                        active: activeArchived || false,
                                         icon: ArchiveX,
                                         variant: activeArchived ? "default" : "ghost",
                                         href: `/data/${folder.id}/archived`,
                                     }} />
                                     <ContextLink index={index + 1000} indented={true} folder={{
                                         label: `Sources`,
-                                        active: activeSources,
+                                        active: activeSources || false,
                                         icon: Database,
                                         variant: activeSources ? "default" : "ghost",
                                         href: `/data/${folder.id}/sources`,
                                     }} />
                                     <ContextLink index={index + 1000} indented={true} folder={{
                                         label: `Processors`,
-                                        active: activeProcessors,
+                                        active: activeProcessors || false,
                                         icon: StepForward,
                                         variant: activeProcessors ? "default" : "ghost",
                                         href: `/data/${folder.id}/processors`,
                                     }} />
                                     <ContextLink index={index + 1000} indented={true} folder={{
                                         label: `Embeddings`,
-                                        active: activeEmbeddings,
+                                        active: activeEmbeddings || false,
                                         icon: FileStack,
                                         variant: activeEmbeddings ? "default" : "ghost",
                                         href: `/data/${folder.id}/embeddings`,
