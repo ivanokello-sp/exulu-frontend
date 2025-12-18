@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ChevronLeft, Info, Search, Star } from "lucide-react"
+import { ChevronLeft, Search, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useQuery, useMutation } from "@apollo/client";
@@ -9,7 +9,6 @@ import * as React from "react";
 import { TruncatedText } from "./truncated-text";
 import { useParams, usePathname } from "next/navigation";
 import { Skeleton } from "./ui/skeleton";
-import { AgentDetailsSheet } from "@/app/(application)/agents/components/agent-details-sheet";
 import { UserContext } from "@/app/(application)/authenticated";
 import { useContext, useState, useEffect } from "react";
 import { User } from "@/types/models/user";
@@ -17,8 +16,6 @@ import { ChatSessionsComponent } from "@/app/(application)/chat/[agent]/chat-ses
 
 export function AgentNav() {
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [selectedAgentId, setSelectedAgentId] = React.useState<string | null>(null);
-  const [sheetOpen, setSheetOpen] = React.useState(false);
   const [showAllFavorites, setShowAllFavorites] = React.useState(false);
   const [showAllAgents, setShowAllAgents] = React.useState(false);
   const params = useParams();
@@ -61,13 +58,6 @@ export function AgentNav() {
       setUser({ ...user, favourite_agents: data.usersUpdateOneById?.item?.favourite_agents });
     },
   });
-
-  const handleInfoClick = (agentId: string, event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setSelectedAgentId(agentId);
-    setSheetOpen(true);
-  };
 
   const handleFavouriteToggle = (agentId: string, event: React.MouseEvent) => {
     event.preventDefault();
@@ -170,14 +160,6 @@ export function AgentNav() {
                     >
                       <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 flex-shrink-0"
-                      onClick={(e) => handleInfoClick(selectedAgent.id, e)}
-                    >
-                      <Info className="h-3 w-3" />
-                    </Button>
                   </div>
                 )
               }
@@ -217,14 +199,6 @@ export function AgentNav() {
                                     onClick={(e) => handleFavouriteToggle(agent.id, e)}
                                   >
                                     <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 flex-shrink-0"
-                                    onClick={(e) => handleInfoClick(agent.id, e)}
-                                  >
-                                    <Info className="h-3 w-3" />
                                   </Button>
                                 </div>
                               ))}
@@ -281,14 +255,6 @@ export function AgentNav() {
                               >
                                 <Star className={`h-3 w-3 ${user?.favourite_agents?.includes(agent.id) ? 'fill-yellow-400 text-yellow-400' : ''}`} />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 flex-shrink-0"
-                                onClick={(e) => handleInfoClick(agent.id, e)}
-                              >
-                                <Info className="h-3 w-3" />
-                              </Button>
                             </div>
                           ))}
                           {!searchQuery && regularAgentsList.length > 4 && (
@@ -328,19 +294,6 @@ export function AgentNav() {
           )
         }
       </div>
-
-      {selectedAgentId && (
-        <AgentDetailsSheet
-          agentId={selectedAgentId}
-          open={sheetOpen}
-          onOpenChange={(open) => {
-            setSheetOpen(open);
-            if (!open) {
-              setSelectedAgentId(null);
-            }
-          }}
-        />
-      )}
     </>
   )
 }

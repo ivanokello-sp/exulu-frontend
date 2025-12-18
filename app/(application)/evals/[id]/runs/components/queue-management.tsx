@@ -27,6 +27,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Trash2, Pause, Droplet, Play, RefreshCcw, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
@@ -46,10 +53,11 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
   const [drainDialogOpen, setDrainDialogOpen] = useState(false);
   const [resumeDialogOpen, setResumeDialogOpen] = useState(false);
   const [jobsToDelete, setJobsToDelete] = useState<QueueJob[]>([]);
-  const [jobToRetry, setJobToRetry] = useState<QueueJob | null>(null);
+  const [jobsToRetry, setJobsToRetry] = useState<QueueJob[]>([]);
+  const [deleteOriginalJob, setDeleteOriginalJob] = useState(false);
   const [status, setStatus] = useState<JobStatus>("completed");
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(200);
+  const [limit, setLimit] = useState(20);
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
 
   const { data: queueData, loading: loadingQueue, refetch: refetchQueue } = useQuery(GET_QUEUE, {
@@ -141,8 +149,13 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
     setJobsToDelete(jobsToDeleteArray);
   };
 
+  const handleBulkRetry = () => {
+    const jobsToRetryArray = jobs.items.filter(job => selectedJobs.has(job.id));
+    setJobsToRetry(jobsToRetryArray);
+  };
+
   const handleRetryJob = (job: QueueJob) => {
-    setJobToRetry(job);
+    setJobsToRetry([job]);
   };
 
   const toggleJobSelection = (jobId: string) => {
@@ -308,39 +321,52 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Queue Stats - Compact Layout */}
+          {/* Queue Stats */}
           {queue && (
-            <div className="flex items-center gap-8 p-4 bg-muted/50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className="text-sm text-muted-foreground">Status:</div>
-                <div>
-                  {queue.isPaused ? (
-                    <Badge variant="outline" className="bg-gray-100 text-gray-800">
-                      Paused
-                    </Badge>
-                  ) : queue.isMaxed ? (
-                    <Badge variant="outline" className="bg-red-100 text-red-800">
-                      Maxed
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="bg-green-100 text-green-800">
-                      Active
-                    </Badge>
-                  )}
+            <div className="space-y-4">
+              <div className="p-4 bg-muted/50 rounded-lg space-y-4">
+                <div className="flex items-center gap-8">
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm text-muted-foreground">Status:</div>
+                    <div>
+                      {queue.isPaused ? (
+                        <Badge variant="outline" className="bg-gray-100 text-gray-800">
+                          Paused
+                        </Badge>
+                      ) : queue.isMaxed ? (
+                        <Badge variant="outline" className="bg-red-100 text-red-800">
+                          Maxed
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-green-100 text-green-800">
+                          Active
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="h-8 w-px bg-border" />
+                  <div className="flex items-center gap-6">
+                    <div className="flex flex-col gap-1">
+                      <div className="text-xs text-muted-foreground">Max Queue Concurrency</div>
+                      <div className="text-sm font-semibold">{queue.concurrency?.queue || "None"}</div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="text-xs text-muted-foreground">Max Worker Concurrency</div>
+                      <div className="text-sm font-semibold">{queue.concurrency?.worker || "None"}</div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="text-xs text-muted-foreground">Job Timeout</div>
+                      <div className="text-sm font-semibold">{queue.timeoutInSeconds || "None"}s</div>
+                    </div>
+                  </div>
+                  <div className="h-8 w-px bg-border" />
+                  <div className="flex flex-col gap-1">
+                    <div className="text-xs text-muted-foreground">Max Rate Limit</div>
+                    <div className="text-sm font-semibold">{queue.ratelimit || "None"} jobs/sec</div>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="text-sm text-muted-foreground">Concurrency:</div>
-                <div className="font-semibold">Per queue global concurrency: {queue.concurrency?.queue || "None"}
-                  Per worker concurrency: {queue.concurrency?.worker || "None"}.
-                  Timeout: {queue.timeoutInSeconds || "None"} seconds.
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="text-sm text-muted-foreground">Rate Limit:</div>
-                <div className="font-semibold">{queue.ratelimit || "None"}</div>
-              </div>
-              <Tabs value={status} onValueChange={(value) => setStatus(value as JobStatus)} className="w-auto">
+                <div className="border-t pt-4">
+                  <Tabs value={status} onValueChange={(value) => setStatus(value as JobStatus)} className="w-auto">
                 <TabsList>
                   <TabsTrigger value="active" className="gap-1.5">
                     <span>Active</span>
@@ -374,6 +400,8 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
+                </div>
+              </div>
             </div>
           )}
 
@@ -385,16 +413,48 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
                 <p className="text-xs text-muted-foreground">All jobs currently in the {queueName} queue</p>
               </div>
               <div className="flex items-center gap-2">
-                {selectedJobs.size > 0 && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleBulkDelete}
-                    disabled={deletingJob}
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-muted-foreground">Show</p>
+                  <Select
+                    value={`${limit}`}
+                    onValueChange={(value) => {
+                      setLimit(Number(value));
+                      setPage(1);
+                    }}
                   >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete {selectedJobs.size} job{selectedJobs.size === 1 ? '' : 's'}
-                  </Button>
+                    <SelectTrigger className="h-8 w-[70px]">
+                      <SelectValue placeholder={limit} />
+                    </SelectTrigger>
+                    <SelectContent side="bottom">
+                      {[20, 50, 100, 200].map((pageSize) => (
+                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                          {pageSize}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedJobs.size > 0 && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleBulkRetry}
+                      disabled={deletingJob}
+                    >
+                      <RefreshCcw className="mr-2 h-4 w-4" />
+                      Retry {selectedJobs.size} job{selectedJobs.size === 1 ? '' : 's'}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleBulkDelete}
+                      disabled={deletingJob}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete {selectedJobs.size} job{selectedJobs.size === 1 ? '' : 's'}
+                    </Button>
+                  </>
                 )}
                 <Badge variant="outline">
                   Auto Refresh: <Loader2 className="h-4 w-4 animate-spin text-muted-foreground ml-1" />
@@ -592,23 +652,83 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Job Confirmation Dialog */}
-      <AlertDialog open={!!jobToRetry} onOpenChange={(open) => !open && setJobToRetry(null)}>
+      {/* Retry Jobs Confirmation Dialog */}
+      <AlertDialog open={jobsToRetry.length > 0} onOpenChange={(open) => {
+        if (!open) {
+          setJobsToRetry([]);
+          setDeleteOriginalJob(false);
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Retry Job?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {jobsToRetry.length === 1 ? "Retry Job?" : `Retry ${jobsToRetry.length} Jobs?`}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to retry the job "{jobToRetry?.name}"? This will schedule a new job with the same data.
+              {jobsToRetry.length === 1
+                ? "This will create a new job (not overwrite the current one) with the same inputs as the original job. Are you sure you want to continue?"
+                : `This will create ${jobsToRetry.length} new jobs (not overwrite the current ones) with the same inputs as the original jobs. Are you sure you want to continue?`
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="flex items-center space-x-2 py-4">
+            <Checkbox
+              id="delete-original-bulk"
+              checked={deleteOriginalJob}
+              onCheckedChange={(checked) => setDeleteOriginalJob(checked as boolean)}
+            />
+            <label
+              htmlFor="delete-original-bulk"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Delete the original {jobsToRetry.length === 1 ? 'job' : 'jobs'} after retrying
+            </label>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              if (!jobToRetry) {
-                return;
+            <AlertDialogAction onClick={async () => {
+              // Retry all jobs
+              for (const job of jobsToRetry) {
+                retryJob(job);
               }
-              retryJob(jobToRetry);
+
+              // Delete original jobs if checkbox is checked
+              if (deleteOriginalJob) {
+                try {
+                  await Promise.all(
+                    jobsToRetry
+                      .filter(job => job.id)
+                      .map(job =>
+                        deleteJob({
+                          variables: {
+                            queue: queueName,
+                            id: job.id,
+                          },
+                        })
+                      )
+                  );
+
+                  toast({
+                    title: jobsToRetry.length === 1 ? "Job deleted" : "Jobs deleted",
+                    description: `Successfully deleted ${jobsToRetry.length} original job${jobsToRetry.length === 1 ? '' : 's'}.`,
+                  });
+                  refetchJobs();
+                  refetchQueue();
+                } catch (error) {
+                  // Error toast already handled by mutation onError
+                }
+              }
+
+              toast({
+                title: jobsToRetry.length === 1 ? "Job retried" : "Jobs retried",
+                description: `Successfully retried ${jobsToRetry.length} job${jobsToRetry.length === 1 ? '' : 's'}.`,
+              });
+
+              setJobsToRetry([]);
+              setDeleteOriginalJob(false);
+              setSelectedJobs(new Set());
             }} disabled={deletingJob}>
+              {deletingJob && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Retry
             </AlertDialogAction>
           </AlertDialogFooter>

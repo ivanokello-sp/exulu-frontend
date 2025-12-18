@@ -749,7 +749,7 @@ export function ChatLayout({
               </div>
               {agent.description && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  {agent.description}
+                  {agent.description?.length > 100 ? agent.description?.substring(0, 100) + "..." : agent.description}
                 </p>
               )}
               <hr className="my-2" />

@@ -3,7 +3,7 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { DotsHorizontalIcon } from "@radix-ui/react-icons";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
-import { PlusIcon, Search } from "lucide-react";
+import { MessageSquarePlus, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useContext, useEffect, useState } from "react";
@@ -45,13 +45,13 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
   const pathname = usePathname();
   const { toast } = useToast();
   const { user } = useContext(UserContext);
-  const [sessionName, setSessionName] = useState("");
   const isMobile = useIsMobile();
   const router = useRouter();
   let [search, setSearch]: any = useState({ searchString: null });
-  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
+  const [sessionDialogMode, setSessionDialogMode] = useState<"create" | "rename">("create");
   const [renameSessionId, setRenameSessionId] = useState<string | null>(null);
-  const [newSessionName, setNewSessionName] = useState("");
+  const [sessionDialogName, setSessionDialogName] = useState("");
 
   const sessionsQuery = useQuery(GET_AGENT_SESSIONS, {
     returnPartialData: true,
@@ -106,27 +106,46 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
   }, [search]);
 
   const handleCreateSession = async () => {
+    if (!sessionDialogName.trim()) return;
+
     const newSession = await createAgentSession({
       variables: {
         user: user.id,
         agent: agent,
         type: "FLOW",
-        title: sessionName.trim(),
+        title: sessionDialogName.trim(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
     });
     if (newSession.errors) {
       console.error("error", newSession.errors);
+      toast({
+        title: "Error",
+        description: "Failed to create session.",
+        variant: "destructive",
+      });
       return;
     }
     if (
       !newSession.data?.agent_sessionsCreateOne?.item?.id
     ) {
       console.error("error", "failed to create session");
+      toast({
+        title: "Error",
+        description: "Failed to create session.",
+        variant: "destructive",
+      });
       return;
     }
-    setSessionName("");
+
+    toast({
+      title: "Session created",
+      description: "The session has been created successfully.",
+    });
+
+    setSessionDialogOpen(false);
+    setSessionDialogName("");
     sessionsQuery.refetch();
     router.push(
       `/chat/${agent}/${newSession.data?.agent_sessionsCreateOne?.item?.id}`,
@@ -134,12 +153,12 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
   }
 
   const handleRenameSession = async () => {
-    if (!renameSessionId || !newSessionName.trim()) return;
+    if (!renameSessionId || !sessionDialogName.trim()) return;
 
     const result = await updateSessionTitle({
       variables: {
         id: renameSessionId,
-        title: newSessionName.trim(),
+        title: sessionDialogName.trim(),
       },
     });
 
@@ -158,9 +177,17 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
       description: "The session has been renamed successfully.",
     });
 
-    setRenameDialogOpen(false);
+    setSessionDialogOpen(false);
     setRenameSessionId(null);
-    setNewSessionName("");
+    setSessionDialogName("");
+  }
+
+  const handleSessionDialogSubmit = async () => {
+    if (sessionDialogMode === "create") {
+      await handleCreateSession();
+    } else {
+      await handleRenameSession();
+    }
   }
 
   return (
@@ -170,7 +197,33 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
       x-chunk="dashboard-03-chunk-0">
       <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">Sessions</h2>
 
-      <div className="bg-background/95 w-full backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className={`w-full px-2 flex flex-col items-start gap-0 rounded-none border-none text-left text-sm mb-2`}>
+        <div
+          key="new-session"
+          onClick={() => {
+            setSessionDialogMode("create");
+            setSessionDialogName("");
+            setSessionDialogOpen(true);
+          }}
+          className={cn(
+            `bg-muted cursor-pointer group p-2 w-full flex flex-col items-start gap-2 rounded-md py-2 pl-0 pr-2 text-left text-sm transition-all hover:bg-accent`
+          )}
+        >
+          <div className="flex w-full flex-col px-2">
+            <div className="flex items-center justify-between w-full gap-2">
+              <div className="flex flex-col min-w-0 flex-1">
+                <div className="text-md font-medium truncate flex items-center gap-2">
+                  <MessageSquarePlus className="size-4" />
+                  <p className="text-sm font-medium">New session</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <div className="bg-background/95 w-full px-2 backdrop-blur supports-[backdrop-filter]:bg-background/60 mb-2">
         <form>
           <div className="relative">
             <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
@@ -186,39 +239,20 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
         </form>
       </div>
 
-      <div className="flex w-full items-center gap-2 p-3 border-t justify-between">
-        <Input
-          autoFocus={true}
-          value={sessionName}
-          onChange={(e) => setSessionName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              handleCreateSession();
-            }
-          }}
-          placeholder="Name"
-          className="flex-1"
-        />
-        <Button
-          variant="secondary"
-          tabIndex={1}
-          disabled={createAgentSessionResult.loading || !sessionName.trim()}
-          onClick={async () => {
-            // create a new session
-            handleCreateSession();
-          }}
-        >
-          <div className="font-semibold">
-            <PlusIcon />
-          </div>
-        </Button>
-      </div>
       {sessionsQuery.loading && (
         <div className="w-full flex flex-col p-2 pt-0 pb-2">
-          <Skeleton className="w-full rounded h-[70px] rounded-md" />
-          <Skeleton className="w-full rounded h-[70px] rounded-md mt-3" />
-          <Skeleton className="w-full rounded h-[70px] rounded-md mt-3" />
-          <Skeleton className="w-full rounded h-[70px] rounded-md mt-3" />
+          <Skeleton className="w-full rounded h-[30px] rounded-md" />
+          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
+          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
+          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
+          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
+          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
+          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
+          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
+          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
+          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
+          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
+          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
         </div>
       )}
 
@@ -247,23 +281,22 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
                   key={item.id}
                   href={`/chat/${agent}/${item.id}`}
                   className={cn(
-                    `p-2 w-full flex flex-col items-start gap-2 rounded-md p-3 text-left text-sm transition-all hover:bg-accent`,
+                    `group p-2 w-full flex flex-col items-start gap-2 rounded-md py-2 pl-0 pr-2 text-left text-sm transition-all hover:bg-accent`,
                     pathname.includes(item.id) && "bg-muted",
-                    writeAccess ? "border border-l-4 border-r-0 border-y-0 border-gray-700" : "border border-l-4 border-r-0 border-y-0 border-yellow-900",
                   )}
                 >
                   <div className="flex w-full flex-col px-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-col gap-2">
-                        <div className="text-md font-medium max-w-[80%] truncate">
+                    <div className="flex items-center justify-between w-full gap-2">
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <div className="text-md font-medium truncate">
                           {item.title
-                            ? item.title?.substring(0, 20)
+                            ? item.title?.substring(0, 40)
                             : "No title"}
                         </div>
 
                         <div
                           className={cn(
-                            "ml-0 text-xs capitalize",
+                            "ml-0 text-xs capitalize max-h-0 opacity-0 overflow-hidden group-hover:max-h-10 group-hover:opacity-100 transition-all duration-200",
                             pathname.includes(item.id)
                               ? "text-foreground"
                               : "text-muted-foreground",
@@ -285,7 +318,7 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
-                              className="flex size-8 p-0 data-[state=open]:bg-muted"
+                              className="flex size-8 p-0 data-[state=open]:bg-muted flex-shrink-0 max-h-0 max-w-0 opacity-0 group-hover:max-h-10 group-hover:max-w-10 group-hover:opacity-100 transition-all duration-200"
                             >
                               <DotsHorizontalIcon className="size-4" />
                               <span className="sr-only">Open menu</span>
@@ -299,9 +332,10 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
+                                setSessionDialogMode("rename");
                                 setRenameSessionId(item.id);
-                                setNewSessionName(item.title || "");
-                                setRenameDialogOpen(true);
+                                setSessionDialogName(item.title || "");
+                                setSessionDialogOpen(true);
                               }}>
                               Rename
                             </DropdownMenuItem>
@@ -324,9 +358,6 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
                         </DropdownMenu>
                       )}
                     </div>
-                    <small className="text-xs text-muted-foreground">
-                      {item.agent?.name}
-                    </small>
                   </div>
                 </Link>
               </div>
@@ -335,40 +366,48 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
         )
         : null}
 
-      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+      <Dialog open={sessionDialogOpen} onOpenChange={setSessionDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rename Session</DialogTitle>
+            <DialogTitle>
+              {sessionDialogMode === "create" ? "Create New Session" : "Rename Session"}
+            </DialogTitle>
             <DialogDescription>
-              Enter a new name for this session.
+              {sessionDialogMode === "create"
+                ? "Enter a name for your new session."
+                : "Enter a new name for this session."}
             </DialogDescription>
           </DialogHeader>
           <Input
-            value={newSessionName}
-            onChange={(e) => setNewSessionName(e.target.value)}
+            value={sessionDialogName}
+            onChange={(e) => setSessionDialogName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                handleRenameSession();
+                handleSessionDialogSubmit();
               }
             }}
             placeholder="Session name"
+            autoFocus
           />
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => {
-                setRenameDialogOpen(false);
+                setSessionDialogOpen(false);
                 setRenameSessionId(null);
-                setNewSessionName("");
+                setSessionDialogName("");
               }}
             >
               Cancel
             </Button>
             <Button
-              onClick={handleRenameSession}
-              disabled={updateSessionTitleResult.loading || !newSessionName.trim()}
+              onClick={handleSessionDialogSubmit}
+              disabled={
+                (sessionDialogMode === "rename" ? updateSessionTitleResult.loading : createAgentSessionResult.loading)
+                || !sessionDialogName.trim()
+              }
             >
-              Rename
+              {sessionDialogMode === "create" ? "Create" : "Rename"}
             </Button>
           </DialogFooter>
         </DialogContent>

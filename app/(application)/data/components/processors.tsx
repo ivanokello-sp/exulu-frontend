@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { GET_CONTEXT_BY_ID, PROCESS_ITEMS } from "@/queries/queries";
+import { GET_CONTEXT_BY_ID, PROCESS_ITEM, PROCESS_ITEMS } from "@/queries/queries";
 import { Context } from "@/types/models/context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -98,6 +98,31 @@ export function ContextProcessors(props: DataDisplayProps) {
             }
         }
     );
+
+    const [processItemMutation, processItemMutationResult] = useMutation<{
+        [key: string]: {
+            message: string;
+            jobs: string[];
+            results: string[];
+        }
+    }>(PROCESS_ITEM(props.context), {
+        onCompleted: (data) => {
+            console.log("data", data);
+            const result = data[`${props.context}_itemsProcessItem`];
+            toast.success(result.message || "Items processed successfully", {
+                description: result.jobs?.length
+                    ? `${result.jobs.length} job(s) scheduled`
+                    : result.results?.length
+                        ? `${result.results.length} item(s) processed`
+                        : undefined
+            });
+        },
+        onError: (error) => {
+            toast.error("Error processing item", {
+                description: error.message,
+            })
+        }
+    });
 
     const handleTriggerSource = (
         params?: { name: string; description: string; default: string }[]
@@ -192,9 +217,9 @@ export function ContextProcessors(props: DataDisplayProps) {
 
                     <Card className="border-0 rounded-none">
                         <CardHeader>
-                            <CardTitle>Sources</CardTitle>
+                            <CardTitle>Processors</CardTitle>
                             <CardDescription>
-                                Sources are used to fetch external data and ingest them into the context.
+                                Processors are used to convert data before generating embeddings.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -278,7 +303,7 @@ export function ContextProcessors(props: DataDisplayProps) {
                                 </TooltipProvider>
                             ) : (
                                 <div className="text-center text-muted-foreground p-5 border rounded-md">
-                                    No sources found.
+                                    No processors found.
                                 </div>
                             )}
                         </CardContent>
@@ -320,12 +345,6 @@ export function ContextProcessors(props: DataDisplayProps) {
                                                                 </Badge>
                                                             </div>
                                                             <div className="space-y-1">
-                                                                <p className="text-xs text-muted-foreground">Timeout</p>
-                                                                <Badge variant="secondary" className="font-mono text-xs">
-                                                                    {context.processor.timeoutInSeconds}s
-                                                                </Badge>
-                                                            </div>
-                                                            <div className="space-y-1">
                                                                 <p className="text-xs text-muted-foreground">Embeddings</p>
                                                                 <Badge
                                                                     variant={context.processor.generateEmbeddings ? "default" : "secondary"}
@@ -345,10 +364,14 @@ export function ContextProcessors(props: DataDisplayProps) {
                                                                 return `Processor update`;
                                                             }}
                                                             retryJob={(job: QueueJob) => {
-                                                                if (!job.data?.source || !job.data?.context) {
+                                                                if (!job.data?.item) {
                                                                     return;
                                                                 }
-                                                                // todo trigger job
+                                                                processItemMutation({
+                                                                    variables: {
+                                                                      item: job.data?.item,
+                                                                    }
+                                                                  });
                                                             }}
                                                         />
                                                     </CardContent>

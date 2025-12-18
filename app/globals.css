@@ -248,3 +248,7 @@
 .dark .chat-response-container p {
   color: white;
 }
+
+.lucide {
+  stroke-width: 1;
+}

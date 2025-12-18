@@ -1,15 +1,15 @@
 {
-    "name": "@exulu/frontend",
-    "version": "0.0.1",
-    "main": "index.js",
-    "bin": {
-      "exulu-frontend": "./index.js"
-    },
-    "scripts": {
-      "start": "node index.js"
-    },
-    "dependencies": {
-      "next": "^14.2.5",
-      "dotenv": "17.2.3"
-    }
+  "name": "@exulu/frontend",
+  "version": "0.0.1",
+  "main": "index.js",
+  "bin": {
+    "exulu-frontend": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "next": "14.2.35",
+    "dotenv": "17.2.3"
   }
+}

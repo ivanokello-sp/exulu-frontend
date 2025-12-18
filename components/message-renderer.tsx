@@ -18,7 +18,8 @@ import { KnowledgeSourceSearchResultChunk } from "@/types/models/knowledge-sourc
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { useState } from "react"
-
+import { Fragment } from 'react';
+import { MessageActions, MessageAction } from '@/components/ai-elements/message'
 interface ItemWithChunks {
   id: string,
   external_id: string,
@@ -84,7 +85,7 @@ export function MessageRenderer({
   const { toast } = useToast()
 
   const todoToolType = 'tool-todo_write';
-  
+
   // 1. Find all message indices that contain the specified tool part
   const todoMessageIndices = messages
     ?.map((message, index) => ({
@@ -96,17 +97,17 @@ export function MessageRenderer({
 
   // 2. Determine which messages to keep and which to filter out
   let filteredMessages = messages;
-  
+
   if (todoMessageIndices.length > 1) {
     // If there is more than one message with the todo part, filter out all but the last one.
     const lastIndex = todoMessageIndices[todoMessageIndices.length - 1];
-    
+
     // Create a Set of indices to be removed for quick lookup
     const indicesToRemove = new Set(todoMessageIndices.filter(index => index !== lastIndex));
 
     filteredMessages = messages?.filter((_, index) => !indicesToRemove.has(index));
   }
-  
+
   // Use filteredMessages in the rendering logic
   const messagesToRender = filteredMessages;
 
@@ -115,7 +116,10 @@ export function MessageRenderer({
     <>
       {messagesToRender?.map((message, messageIndex) => {
         const isFirstMessage = messageIndex === 0
+        const isLastMessage =
+          messageIndex === messages.length - 1;
         const messageMetadata = message.metadata as any
+
         // iterate through all parts and find the ones that have a type of 'text' and contain '<file name="', if so
         // extract the filename and content, and return an array of objects with the filename and content
         // Remove the <file name="...">...</file> from the text and return the text without the file parts
@@ -133,280 +137,288 @@ export function MessageRenderer({
           }) ?? []
         }) ?? [];
         console.log("files", files);
+
         return (
-          <Message
-            className={cn(
-              message.role === 'assistant' && (
-                config?.customAssistantClassnames ? config?.customAssistantClassnames : ''
-              ),
-              isFirstMessage && (
-                config?.marginTopFirstMessage ? config?.marginTopFirstMessage : 'mt-12'
-              ), className
-            )}
-            from={message.role}
-            key={message.id}
-          >
-            <MessageContent>
-              {message.parts.map((part, i) => {
-                if (part.type === 'step-start') {
-                  return null
-                }
+          <Fragment key={message.id}>
+            <Message
+              className={cn(
+                message.role === 'assistant' && (
+                  config?.customAssistantClassnames ? config?.customAssistantClassnames : ''
+                ),
+                isFirstMessage && (
+                  config?.marginTopFirstMessage ? config?.marginTopFirstMessage : 'mt-12'
+                ), className
+              )}
+              from={message.role}
+              key={message.id}
+            >
+              <MessageContent>
+                {message.parts.map((part, i) => {
+                  if (part.type === 'step-start') {
+                    return null
+                  }
 
-                if (part.type === 'text') {
-                  let text = part.text.replace(/<file name="([^"]+)">([^<]+)<\/file>/g, '');
-                  return <Response className="chat-response-container" key={`${message.id}-${i}` + "_response"}>
-                    {text}
-                  </Response>
-                }
+                  if (part.type === 'text') {
+                    let text = part.text.replace(/<file name="([^"]+)">([^<]+)<\/file>/g, '');
+                    return <Response className="chat-response-container" key={`${message.id}-${i}` + "_response"}>
+                      {text}
+                    </Response>
+                  }
 
-                if (part.type === 'tool-askForConfirmation' && onAddToolResult) {
-                  const callId = part.toolCallId
+                  if (part.type === 'tool-askForConfirmation' && onAddToolResult) {
+                    const callId = part.toolCallId
 
-                  switch (part.state) {
-                    case 'input-streaming':
-                      return (
-                        <div key={callId}>Loading confirmation request...</div>
-                      )
-                    case 'input-available':
-                      return (
-                        <div key={callId}>
-                          {(part.input as { message: string }).message}
-                          <div>
-                            <button
-                              onClick={() =>
-                                onAddToolResult({
-                                  tool: 'askForConfirmation',
-                                  toolCallId: callId,
-                                  output: 'Yes, confirmed',
-                                })
-                              }
-                            >
-                              Yes
-                            </button>
-                            <button
-                              onClick={() =>
-                                onAddToolResult({
-                                  tool: 'askForConfirmation',
-                                  toolCallId: callId,
-                                  output: 'No, denied',
-                                })
-                              }
-                            >
-                              No
-                            </button>
+                    switch (part.state) {
+                      case 'input-streaming':
+                        return (
+                          <div key={callId}>Loading confirmation request...</div>
+                        )
+                      case 'input-available':
+                        return (
+                          <div key={callId}>
+                            {(part.input as { message: string }).message}
+                            <div>
+                              <button
+                                onClick={() =>
+                                  onAddToolResult({
+                                    tool: 'askForConfirmation',
+                                    toolCallId: callId,
+                                    output: 'Yes, confirmed',
+                                  })
+                                }
+                              >
+                                Yes
+                              </button>
+                              <button
+                                onClick={() =>
+                                  onAddToolResult({
+                                    tool: 'askForConfirmation',
+                                    toolCallId: callId,
+                                    output: 'No, denied',
+                                  })
+                                }
+                              >
+                                No
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      )
-                    case 'output-available':
-                      return (
-                        <div key={callId}>
-                          Tool call allowed: {part.output as string}
-                        </div>
-                      )
-                    case 'output-error':
-                      return <div key={callId}>Error: {part.errorText}</div>
-                  }
-                }
-
-                if (part.type?.toLowerCase().includes('preview_pdf') || part.type?.toLowerCase().includes('pdf_file_in_a_web_view')) {
-                  const dynamicToolPart = part as any;
-                  const output = JSON.parse(dynamicToolPart.output?.result ?? '{}') as {
-                    url: string
-                    page: number
-                  };
-                  if (!output?.url) {
-                    return <div>No URL provided for PDF preview {JSON.stringify(output)}</div>;
-                  }
-                  const pdfUrl = `${output.url}#page=${output.page ?? 1}`;
-                  return <iframe src={pdfUrl} style={{ width: '100%', height: '100vh' }} title="PDF viewer" />
-                }
-
-                if (part.type?.toLowerCase() === 'tool-todo_write') {
-                  const dynamicToolPart = part as any;
-                  const output = dynamicToolPart.output as {
-                    result: {
-                      content: string
-                      status: "pending" | "in_progress" | "completed" | "cancelled"
-                      priority: "high" | "medium" | "low"
-                      id: string
-                    }[]
-                  };
-                  if (!output?.result) {
-                    return null;
-                  }
-                  const state: "input-streaming" | "input-available" | "output-available" | "output-error" = dynamicToolPart.state;
-                  return (
-                    <TodoList todos={output.result} showPriority={true} state={state} />
-                  )
-                }
-                
-                if (part.type?.toLowerCase() === 'tool-todo_read') {
-                  return null;
-                }
-
-                if (part.type?.toLowerCase().includes('context_search')) {
-                  const dynamicToolPart = part as any;
-                  let output = dynamicToolPart.output as {
-                    result: KnowledgeSourceSearchResultChunk[]
-                  };
-                  if (typeof output === "string") {
-                    output = JSON.parse(output)
-                  }
-                  if (typeof output?.result === "string") {
-                    output.result = JSON.parse(output?.result)
-                  }
-                  console.log("output", output);
-                  console.log("output.result", output?.result);
-                  if (!output?.result?.length) {
-                    return null;
-                  }
-                  // Map the chunks to items
-                  const itemsMap = new Map<string, ItemWithChunks>();
-                  const context = output.result[0]?.context?.name;
-                  for (const chunk of output.result) {
-                    if (itemsMap.has(chunk.item_id)) {
-                      itemsMap.get(chunk.item_id)?.chunks.push(chunk);
-                    } else {
-                      itemsMap.set(chunk.item_id, {
-                        id: chunk.item_id,
-                        updatedAt: chunk.item_updated_at,
-                        createdAt: chunk.item_created_at,
-                        external_id: chunk.item_external_id,
-                        name: chunk.item_name,
-                        context: {
-                          name: chunk.context?.name,
-                          id: chunk.context?.id
-                        },
-                        chunks: [chunk]
-                      });
+                        )
+                      case 'output-available':
+                        return (
+                          <div key={callId}>
+                            Tool call allowed: {part.output as string}
+                          </div>
+                        )
+                      case 'output-error':
+                        return <div key={callId}>Error: {part.errorText}</div>
                     }
                   }
-                  return (
-                    <ContextSearchResults
-                      key={`${message.id}-${i}`}
-                      input={dynamicToolPart.input}
-                      context={context}
-                      items={Array.from(itemsMap.values())}
-                      totalChunks={output.result.length}
-                    />
-                  )
-                }
 
-                if (
-                  (part.type.startsWith('tool-') || part.type === 'dynamic-tool') &&
-                  UntypedToolPartComponent &&
-                  addToContext
-                ) {
-                  const untypedToolPart = part as DynamicToolUIPart
-                  const callId = untypedToolPart.toolCallId
-                  return (
-                    <UntypedToolPartComponent
-                      key={callId}
-                      untypedToolPart={untypedToolPart}
-                      callId={callId}
-                      addToContext={addToContext}
-                    />
-                  )
-                }
+                  if (part.type?.toLowerCase().includes('preview_pdf') || part.type?.toLowerCase().includes('pdf_file_in_a_web_view')) {
+                    const dynamicToolPart = part as any;
+                    const output = JSON.parse(dynamicToolPart.output?.result ?? '{}') as {
+                      url: string
+                      page: number
+                    };
+                    if (!output?.url) {
+                      return <div>No URL provided for PDF preview {JSON.stringify(output)}</div>;
+                    }
+                    const pdfUrl = `${output.url}#page=${output.page ?? 1}`;
+                    return <iframe src={pdfUrl} style={{ width: '100%', height: '100vh' }} title="PDF viewer" />
+                  }
 
-                if (part.type === 'file') {
-                  if (part.mediaType?.startsWith('image/')) {
+                  if (part.type?.toLowerCase() === 'tool-todo_write') {
+                    const dynamicToolPart = part as any;
+                    const output = dynamicToolPart.output as {
+                      result: {
+                        content: string
+                        status: "pending" | "in_progress" | "completed" | "cancelled"
+                        priority: "high" | "medium" | "low"
+                        id: string
+                      }[]
+                    };
+                    if (!output?.result) {
+                      return null;
+                    }
+                    const state: "input-streaming" | "input-available" | "output-available" | "output-error" = dynamicToolPart.state;
                     return (
-                      <Image
+                      <TodoList todos={output.result} showPriority={true} state={state} />
+                    )
+                  }
+
+                  if (part.type?.toLowerCase() === 'tool-todo_read') {
+                    return null;
+                  }
+
+                  if (part.type?.toLowerCase().includes('context_search')) {
+                    const dynamicToolPart = part as any;
+                    let output = dynamicToolPart.output as {
+                      result: KnowledgeSourceSearchResultChunk[]
+                    };
+                    if (typeof output === "string") {
+                      output = JSON.parse(output)
+                    }
+                    if (typeof output?.result === "string") {
+                      output.result = JSON.parse(output?.result)
+                    }
+                    console.log("output", output);
+                    console.log("output.result", output?.result);
+                    if (!output?.result?.length) {
+                      return null;
+                    }
+                    // Map the chunks to items
+                    const itemsMap = new Map<string, ItemWithChunks>();
+                    const context = output.result[0]?.context?.name;
+                    for (const chunk of output.result) {
+                      if (itemsMap.has(chunk.item_id)) {
+                        itemsMap.get(chunk.item_id)?.chunks.push(chunk);
+                      } else {
+                        itemsMap.set(chunk.item_id, {
+                          id: chunk.item_id,
+                          updatedAt: chunk.item_updated_at,
+                          createdAt: chunk.item_created_at,
+                          external_id: chunk.item_external_id,
+                          name: chunk.item_name,
+                          context: {
+                            name: chunk.context?.name,
+                            id: chunk.context?.id
+                          },
+                          chunks: [chunk]
+                        });
+                      }
+                    }
+                    return (
+                      <ContextSearchResults
                         key={`${message.id}-${i}`}
-                        src={part.url}
-                        width={300}
-                        height={300}
-                        alt={"Generated image"}
+                        input={dynamicToolPart.input}
+                        context={context}
+                        items={Array.from(itemsMap.values())}
+                        totalChunks={output.result.length}
                       />
                     )
                   }
-                }
 
-                if (part.type === 'source-url') {
-                  return (
-                    <Sources key={`${message.id}-${i}`}>
-                      <SourcesTrigger
-                        count={message.parts.filter(
-                          (part) => part.type === 'source-url'
-                        ).length}
+                  if (
+                    (part.type.startsWith('tool-') || part.type === 'dynamic-tool') &&
+                    UntypedToolPartComponent &&
+                    addToContext
+                  ) {
+                    const untypedToolPart = part as DynamicToolUIPart
+                    const callId = untypedToolPart.toolCallId
+                    return (
+                      <UntypedToolPartComponent
+                        key={callId}
+                        untypedToolPart={untypedToolPart}
+                        callId={callId}
+                        addToContext={addToContext}
                       />
-                      <SourcesContent key={`${message.id}`}>
-                        {message.parts.map((part, i) => {
-                          switch (part.type) {
-                            case 'source-url':
-                              return (
-                                <Source
-                                  key={`${message.id}-${i}`}
-                                  href={part.url}
-                                  title={part.title}
-                                />
-                              )
-                          }
-                        })}
-                      </SourcesContent>
-                    </Sources>
-                  )
-                }
+                    )
+                  }
 
-                if (part.type === 'reasoning') {
-                  return (
-                    <Reasoning
-                      key={`${message.id}-${i}`}
-                      className="w-full"
-                      isStreaming={status === 'streaming'}
-                    >
-                      <ReasoningTrigger />
-                      <ReasoningContent>{part.text}</ReasoningContent>
-                    </Reasoning>
-                  )
-                }
-
-                return null
-              })}
-
-              {files.length > 0 && (
-                <div className="grid grid-cols-6 min-w-[500px] gap-2 mt-3 mb-3">
-                  {files.map((file) => (
-                    <FileItem key={file.s3Key + "_file_item_" + message.id} s3Key={file.s3Key} onRemove={() => { }} active={false} disabled={false} />
-                  ))}
-                </div>
-              )}
-
-              {showActions && message.role === 'assistant' && (
-                <Actions className="mt-2">
-                  {onRegenerate && (
-                    <Action
-                      onClick={() => onRegenerate()}
-                      label="Retry"
-                      disabled={!writeAccess}
-                    >
-                      <RefreshCcwIcon className="size-3" />
-                    </Action>
-                  )}
-                  <Action
-                    onClick={() => {
-                      navigator.clipboard.writeText(
-                        message.parts.map((part: any) => part?.text || "").join('\n')
+                  if (part.type === 'file') {
+                    if (part.mediaType?.startsWith('image/')) {
+                      return (
+                        <Image
+                          key={`${message.id}-${i}`}
+                          src={part.url}
+                          width={300}
+                          height={300}
+                          alt={"Generated image"}
+                        />
                       )
-                      toast({
-                        title: "Copied message",
-                        description: "The message was copied to your clipboard.",
-                      })
-                    }}
-                    label="Copy"
-                  >
-                    <CopyIcon className="size-3" />
-                  </Action>
-                  {messageMetadata?.totalTokens && (
-                    <small className="text-muted-foreground">
-                      {Intl.NumberFormat('en-US').format(messageMetadata?.totalTokens)} tokens
-                    </small>
-                  )}
-                </Actions>
-              )}
-            </MessageContent>
-          </Message>
+                    }
+                  }
+
+                  if (part.type === 'source-url') {
+                    return (
+                      <Sources key={`${message.id}-${i}`}>
+                        <SourcesTrigger
+                          count={message.parts.filter(
+                            (part) => part.type === 'source-url'
+                          ).length}
+                        />
+                        <SourcesContent key={`${message.id}`}>
+                          {message.parts.map((part, i) => {
+                            switch (part.type) {
+                              case 'source-url':
+                                return (
+                                  <Source
+                                    key={`${message.id}-${i}`}
+                                    href={part.url}
+                                    title={part.title}
+                                  />
+                                )
+                            }
+                          })}
+                        </SourcesContent>
+                      </Sources>
+                    )
+                  }
+
+                  if (part.type === 'reasoning') {
+                    return (
+                      <Reasoning
+                        key={`${message.id}-${i}`}
+                        className="w-full"
+                        isStreaming={status === 'streaming'}
+                      >
+                        <ReasoningTrigger />
+                        <ReasoningContent>{part.text}</ReasoningContent>
+                      </Reasoning>
+                    )
+                  }
+
+                  return null
+                })}
+
+                {files.length > 0 && (
+                  <div className="grid grid-cols-6 min-w-[500px] gap-2 mt-3 mb-3">
+                    {files.map((file) => (
+                      <FileItem key={file.s3Key + "_file_item_" + message.id} s3Key={file.s3Key} onRemove={() => { }} active={false} disabled={false} />
+                    ))}
+                  </div>
+                )}
+
+                {showActions && (
+
+                  message.role === 'assistant' && (
+                    <MessageActions className="mt-2">
+                      {onRegenerate && (
+                        <MessageAction
+                          className="mr-1"
+                          onClick={() => onRegenerate()}
+                          label="Retry"
+                          disabled={!writeAccess}
+                        >
+                          <RefreshCcwIcon className="size-3" />
+                        </MessageAction>
+                      )}
+                      <MessageAction
+                        className="mr-1"
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            message.parts.map((part: any) => part?.text || "").join('\n')
+                          )
+                          toast({
+                            title: "Copied message",
+                            description: "The message was copied to your clipboard.",
+                          })
+                        }}
+                        label="Copy"
+                      >
+                        <CopyIcon className="size-3" />
+                      </MessageAction>
+                      {messageMetadata?.totalTokens && (
+                        <small className="text-muted-foreground">
+                          {Intl.NumberFormat('en-US').format(messageMetadata?.totalTokens)} tokens
+                        </small>
+                      )}
+                    </MessageActions>
+                  )
+                )}
+              </MessageContent>
+            </Message>
+          </Fragment>
         )
       })}
     </>
