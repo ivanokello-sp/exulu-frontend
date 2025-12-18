@@ -1,55 +1,46 @@
-"use client";
-
-import * as React from "react";
 import AgentForm from "@/app/(application)/agents/edit/[id]/form";
-import { useQuery } from "@apollo/client";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import { GET_AGENT_BY_ID } from "@/queries/queries";
-import { Agent } from "@/types/models/agent";
+import { fetchGraphQLServerSide } from "@/util/fetch-graphql-server-side";
+
 export const dynamic = "force-dynamic";
 
-export default function Page({ params }: { params: { id: string } }) {
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
 
-  const { data, loading, error, refetch } = useQuery<{
-    agentById: Agent
-  }>(GET_AGENT_BY_ID, {
-    variables: {
-      id: params.id,
-    },
-  });
+  const { id } = await params;
 
-  if (loading) {
-    return <div>
-      <Skeleton className="w-full h-full" />
-    </div>
-  }
+  try {
+    const agentData = await fetchGraphQLServerSide(
+      GET_AGENT_BY_ID.loc?.source.body || "",
+      {
+        id: id,
+      }
+    );
 
-  if (error) {
+    if (!agentData?.agentById) {
+      return <Alert variant="destructive">
+        <ExclamationTriangleIcon className="size-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>
+          Error loading agent.
+        </AlertDescription>
+      </Alert>
+    }
+
+    return (
+      <AgentForm
+        agent={agentData.agentById}
+      />
+    );
+
+  } catch (error) {
     return <Alert variant="destructive">
       <ExclamationTriangleIcon className="size-4" />
       <AlertTitle>Error</AlertTitle>
       <AlertDescription>
-        Error loading agent.
+        {error instanceof Error ? error.message : "Error loading agent or session"}
       </AlertDescription>
     </Alert>
   }
-
-  if (!data?.agentById) {
-    return <Alert variant="destructive">
-      <ExclamationTriangleIcon className="size-4" />
-      <AlertTitle>Error</AlertTitle>
-      <AlertDescription>
-        Agent not found.
-      </AlertDescription>
-    </Alert>
-  }
-
-  return (
-    <AgentForm
-      agent={data.agentById}
-      refetch={refetch}
-    />
-  );
 }

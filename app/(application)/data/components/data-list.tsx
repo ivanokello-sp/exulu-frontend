@@ -109,7 +109,7 @@ export function DataList({
         variables: {
             context: activeFolder,
             page: page ?? 1,
-            limit: 10,
+            limit: 11,
             sort: {
                 field: "updatedAt",
                 direction: "DESC",
@@ -233,9 +233,8 @@ export function DataList({
     </Alert>;
 
     return (
-        <>
-            <div
-                className="grid grid-flow-col grid-cols-[auto_minmax(0,1fr)] grid-rows-1 bg-background/95 p-4 backdrop-blur gap-2 supports-[backdrop-filter]:bg-background/60">
+        <div className="w-[300px]">
+            <div className="grid grid-flow-col grid-cols-[auto_minmax(0,1fr)] grid-rows-1 bg-background/95 p-4 backdrop-blur gap-2 supports-[backdrop-filter]:bg-background/60">
                 <Checkbox
                     checked={
                         table.getIsAllPageRowsSelected() ||
@@ -387,8 +386,8 @@ export function DataList({
                     </div>
                 </ScrollArea>
             ) : (
-                <div className="flex max-h-[75vh] flex-col">
-                    <ScrollArea className="h-screen grow">
+                <div className="flex h-full grow flex-col justify-between">
+                    <ScrollArea className="h-full">
                         <div className="space-y-4">
                             <div className="border-y">
                                 <Table>
@@ -447,7 +446,7 @@ export function DataList({
                         </div>
                         <div className="flex items-center space-x-6 lg:space-x-8">
                             <div className="flex items-center space-x-2">
-                                <Button 
+                                <Button
                                     variant="outline"
                                     className="hidden size-8 p-0 lg:flex"
                                     onClick={() => {
@@ -503,6 +502,6 @@ export function DataList({
                     </div>
                 </div>
             )}
-        </>
+        </div>
     );
 }

@@ -22,7 +22,7 @@ export default async function RootLayout({
     const cookieStore = await cookies()
     const defaultOpen = cookieStore.get("sidebar_state")?.value === "true"
 
-    const headersList = headers();
+    const headersList = await headers()
     const pathname = headersList.get('x-next-pathname') || '/';
 
     const user = await serverSideAuthCheck();

@@ -225,10 +225,8 @@ const agentFormSchema = z.object({
 
 export default function AgentForm({
   agent,
-  refetch,
 }: {
   agent: Agent;
-  refetch: any;
 }) {
 
   const router = useRouter();
@@ -454,7 +452,6 @@ export default function AgentForm({
                       tools: JSON.stringify(enabledTools)
                     },
                   });
-                  refetch();
                 },
                 (data) => {
                   console.error("form data invalid", data);
@@ -715,6 +712,7 @@ export default function AgentForm({
                                               {variables.map((variable: any) => (
                                                 <CommandItem
                                                   key={variable.id}
+                                                  disabled={false}
                                                   onSelect={() => {
                                                     setProviderapikey(variable.name);
                                                   }}

@@ -1,9 +1,10 @@
 "use client";
 
 import {createGraphiQLFetcher} from "@graphiql/toolkit";
-import {GraphiQL} from "graphiql";
+import { GraphiQL } from 'graphiql';
 import React from "react";
-import 'graphiql/graphiql.css';
+import 'graphiql/setup-workers/webpack';
+import 'graphiql/style.css';
 import '../../graphiql.css';
 import { useQuery } from "@tanstack/react-query";
 import { getToken } from "@/util/api";

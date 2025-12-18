@@ -79,32 +79,16 @@ import { extractVariables, fillPromptVariables } from "@/lib/prompts";
 import { useIncrementPromptUsage } from "@/hooks/use-prompts";
 import { Project } from "@/types/models/project";
 import Link from "next/link";
-
-export interface ChatProps {
-  chatId?: string;
-  agentId?: string;
-  messages?: UIMessage[];
-  input?: string;
-  handleInputChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  addToolResult?: any
-  handleSubmit?: (
-    e: React.FormEvent<HTMLFormElement>,
-    chatRequestOptions?: ChatRequestOptions,
-  ) => void;
-  isLoading: boolean;
-  onFilesSelected: (file: any[]) => void;
-  error?: undefined | Error;
-  stop?: () => void;
-}
+import { useSearchParams } from "next/navigation";
 
 export function ChatLayout({
   session,
   agent,
-  initialPromptId
+  initialMessages,
 }: {
   session: AgentSession;
   agent: Agent;
-  initialPromptId?: string;
+  initialMessages: UIMessage[];
 }) {
 
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +104,9 @@ export function ChatLayout({
   const [disabledTools, setDisabledTools] = useState<string[]>([]);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast()
+
+  const searchParams = useSearchParams();
+  const initialPromptId = searchParams.get("promptId");
 
   // Prompt selector state
   const [promptSelectorOpen, setPromptSelectorOpen] = useState(false);
@@ -166,31 +153,6 @@ export function ChatLayout({
     cachedInputTokens: 0
   });
 
-  useQuery<{
-    agent_messagesPagination: {
-      items: AgentMessage[]
-    };
-  }>(GET_AGENT_MESSAGES, {
-    returnPartialData: true,
-    fetchPolicy: "network-only",
-    nextFetchPolicy: "network-only",
-    variables: {
-      page: 1,
-      limit: 50,
-      filters: {
-        session: {
-          eq: session.id
-        }
-      },
-    },
-    onCompleted: (data) => {
-      if (data?.agent_messagesPagination) {
-        const messages = data?.agent_messagesPagination.items.map((item) => (JSON.parse(item.content)))
-        setMessages(messages as any[]);
-      }
-    },
-  });
-
   const {
     messages,
     sendMessage,
@@ -200,6 +162,7 @@ export function ChatLayout({
     setMessages,
     addToolResult
   } = useChat({
+    messages: initialMessages,
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
     // Throttle the messages and data updates to 50ms:
     experimental_throttle: 50,
@@ -809,10 +772,10 @@ export function ChatLayout({
                 <TooltipProvider>
                   <div className="space-y-1 pt-2">
                     {agent.tools && agent.tools.length > 0 ? (
-                      agent.tools.map((tool) => {
+                      agent.tools.map((tool, index) => {
                         const isEnabled = !disabledTools.includes(tool.id);
                         return (
-                          <Tooltip key={tool.name}>
+                          <Tooltip key={tool.name + "_" +index}>
                             <TooltipTrigger asChild>
                               <div className="p-2 rounded-md border text-xs bg-background flex items-center justify-between">
                                 <p className="font-medium flex items-center gap-2">

@@ -62,27 +62,38 @@ const ContextLink = ({ index, folder, edit, indented, children }: { index: numbe
     )
 }
 
-const Contexts = ({ activeFolder, activeArchived, activeSources, activeEmbeddings, activeProcessors }: { activeFolder: string, activeArchived: boolean, activeSources: boolean, activeEmbeddings: boolean, activeProcessors: boolean }) => {
+const Contexts = ({
+    activeFolder,
+    activeArchived,
+    activeSources,
+    activeEmbeddings,
+    activeProcessors
+}: {
+    activeFolder: string,
+    activeArchived: boolean,
+    activeSources: boolean,
+    activeEmbeddings: boolean,
+    activeProcessors: boolean
+}) => {
 
     const { data, loading, error } = useContexts();
 
     return (<>
-        <div key={activeFolder + activeArchived + activeSources + activeEmbeddings + activeProcessors} className="group flex flex-col gap-4 py-2 data-[collapsed=true]:py-2 pb-5">
-
+        <div key={activeFolder + activeArchived + activeSources + activeEmbeddings + activeProcessors}
+            className="flex flex-col gap-4 py-2 pb-5 px-2 border-r w-[250px] shrink-0">
             {
-                activeFolder ? <div className="flex items-center gap-2">
+                activeFolder ? <div className="flex items-center gap-2 px-2 w-full">
                     <Button variant="link" size="sm" asChild>
                         <Link href="/data">
                             <ArrowLeft className="size-4" />
                             <span className="ml-2">Back to dashboard</span>
                         </Link>
                     </Button>
-                </div> : <div className="flex items-center gap-2">
+                </div> : <div className="flex items-center gap-2 w-full">
                     <span className="text-sm text-muted-foreground ml-5 pt-3">Select a context:</span>
                 </div>
             }
-            <nav
-                className="grid gap-1 px-2 group-[[data-collapsed=true]]:justify-center group-[[data-collapsed=true]]:px-2">
+            <nav className="grid gap-1 px-2">
                 {
                     loading ? <ContextLink index={111} folder={{
                         label: `Loading...`,

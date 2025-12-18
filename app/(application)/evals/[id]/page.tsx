@@ -26,12 +26,12 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@radix-ui/r
 export const dynamic = "force-dynamic";
 
 export default function EvalSetEditorPage() {
+
   const params = useParams();
   const router = useRouter();
   const { user } = useContext(UserContext);
   const { toast } = useToast();
   const evalSetId = params.id as string;
-
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [testCases, setTestCases] = useState<string[]>([]);
