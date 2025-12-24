@@ -158,7 +158,7 @@ export const files = {
         });
         return response.json();
     },
-    list: async ({ search, continuationToken }: { search?: string, continuationToken?: string }): Promise<S3FileListOutput> => {
+    list: async ({ search, continuationToken, global }: { search?: string, continuationToken?: string, global?: boolean }): Promise<S3FileListOutput> => {
         const uris = await getUris();
         let url = `${uris.files}/s3/list`;
         const token = await getToken()
@@ -175,12 +175,16 @@ export const files = {
             url += `?continuationToken=${continuationToken}`;
         }
 
+        console.log("[EXULU] global", global)
+
         const response = await fetch(url, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`,
+                ...(global && { Global: "true" }),
             },
+
         });
         return response.json();
     },

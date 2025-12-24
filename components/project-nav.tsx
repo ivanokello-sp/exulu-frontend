@@ -121,7 +121,7 @@ export function ProjectNav() {
   const favoriteProjectsList = (favouriteProjects?.data?.projectByIds || favouriteProjects?.previousData?.projectByIds) || [];
 
   return (
-    <div className="h-full w-[250px] flex-col gap-2 p-2">
+    <div className="h-full w-[250px] flex-col gap-2 p-2 flex-shrink-0">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

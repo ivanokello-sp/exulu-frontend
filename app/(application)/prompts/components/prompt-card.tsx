@@ -23,10 +23,12 @@ import {
   Calendar,
   Clock,
   ThumbsUp,
+  FolderMinus,
+  EyeIcon,
 } from "lucide-react";
 import { checkPromptWriteAccess } from "@/lib/prompts/check-prompt-access";
 import { extractVariables } from "@/lib/prompts/extract-variables";
-import { useDeletePrompt, useTogglePromptFavorite } from "@/hooks/use-prompts";
+import { useDeletePrompt, useTogglePromptFavorite, useUpdatePrompt } from "@/hooks/use-prompts";
 import { PromptEditorModal } from "./prompt-editor-modal";
 import { toast } from "sonner";
 import { useQuery } from "@apollo/client";
@@ -37,12 +39,15 @@ interface PromptCardProps {
   prompt: PromptLibrary;
   user: UserWithRole;
   onUpdate: () => void;
+  currentFolder?: string; // Optional: If provided, shows "Remove from folder" action
+  minimal?: boolean; // Optional: If true, shows only the name and description
 }
 
-export function PromptCard({ prompt, user, onUpdate }: PromptCardProps) {
+export function PromptCard({ prompt, user, onUpdate, currentFolder, minimal = false }: PromptCardProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isFavoriting, setIsFavoriting] = useState(false);
   const [deletePrompt] = useDeletePrompt();
+  const [updatePrompt] = useUpdatePrompt();
   const { toggleFavorite } = useTogglePromptFavorite();
 
   const hasWriteAccess = checkPromptWriteAccess(prompt, user);
@@ -116,10 +121,33 @@ export function PromptCard({ prompt, user, onUpdate }: PromptCardProps) {
     toast.success("Prompt copied to clipboard");
   };
 
+  const handleRemoveFromFolder = async () => {
+    if (!currentFolder || !hasWriteAccess) return;
+
+    // Remove the current folder from the tags array
+    const updatedTags = (prompt.tags || []).filter(
+      tag => tag.toLowerCase() !== currentFolder.toLowerCase()
+    );
+
+    try {
+      await updatePrompt({
+        variables: {
+          id: prompt.id,
+          tags: updatedTags,
+        },
+      });
+      toast.success(`Removed from "${currentFolder}" folder`);
+      onUpdate();
+    } catch (error) {
+      toast.error("Failed to remove from folder");
+      console.error(error);
+    }
+  };
+
   return (
     <>
       <Card className="flex flex-col hover:shadow-md transition-shadow">
-        <CardHeader className="pb-3">
+        <CardHeader className={`pb-3 ${minimal ? "py-4" : ""}`}>
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-lg truncate">{prompt.name}</h3>
@@ -129,20 +157,23 @@ export function PromptCard({ prompt, user, onUpdate }: PromptCardProps) {
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`h-8 w-8 transition-all ${isFavoriting ? "scale-125" : ""
-                  } ${isFavorited ? "text-yellow-500" : ""}`}
-                onClick={handleToggleFavorite}
-                disabled={isFavoriting}
-              >
-                <ThumbsUp
-                  className={`h-4 w-4 transition-all ${isFavoriting ? "animate-pulse" : ""
-                    } ${isFavorited ? "fill-yellow-400 text-yellow-400" : ""}`}
-                />
-              </Button>
+            <div className={`flex items-center gap-1 ${minimal ? "my-auto" : ""}`}>
+              {!minimal && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-8 w-8 transition-all ${isFavoriting ? "scale-125" : ""
+                    } ${isFavorited ? "text-yellow-500" : ""}`}
+                  onClick={handleToggleFavorite}
+                  disabled={isFavoriting}
+                >
+                  <ThumbsUp
+                    className={`h-4 w-4 transition-all ${isFavoriting ? "animate-pulse" : ""
+                      } ${isFavorited ? "fill-yellow-400 text-yellow-400" : ""}`}
+                  />
+                </Button>
+              )}
+
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -150,16 +181,22 @@ export function PromptCard({ prompt, user, onUpdate }: PromptCardProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleCopyContent}>
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy Content
-                  </DropdownMenuItem>
                   {hasWriteAccess && (
                     <>
+                      <DropdownMenuItem onClick={() => setIsEditModalOpen(true)}>
+                        <EyeIcon className="mr-2 h-4 w-4" />
+                        Details
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setIsEditModalOpen(true)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Edit
                       </DropdownMenuItem>
+                      {currentFolder && currentFolder !== "untagged" && (
+                        <DropdownMenuItem onClick={handleRemoveFromFolder}>
+                          <FolderMinus className="mr-2 h-4 w-4" />
+                          Remove from "{currentFolder}"
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onClick={handleDelete}
                         className="text-destructive"
@@ -175,97 +212,100 @@ export function PromptCard({ prompt, user, onUpdate }: PromptCardProps) {
           </div>
         </CardHeader>
 
-        <CardContent className="flex-1 pb-3">
-          <div className="space-y-3">
-            {/* Content Preview */}
-            <p className="text-sm text-muted-foreground line-clamp-3">
-              {prompt.content}
-            </p>
+        {!minimal && (
+          <>
+            <CardContent className="flex-1 pb-3">
+              <div className="space-y-3">
+                {/* Content Preview */}
+                <p className="text-sm text-muted-foreground line-clamp-3">
+                  {prompt.content}
+                </p>
 
-            {/* Variables Badge */}
-            {variables.length > 0 && (
-              <Badge variant="outline" className="text-xs">
-                {variables.length} variable{variables.length !== 1 ? "s" : ""}
-              </Badge>
-            )}
+                {/* Variables Badge */}
+                {variables.length > 0 && (
+                  <Badge variant="outline" className="text-xs">
+                    {variables.length} variable{variables.length !== 1 ? "s" : ""}
+                  </Badge>
+                )}
 
-            {/* Assigned Agents */}
-            {assignedAgentNames.length > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Bot className="h-3 w-3" />
-                  <span className="font-medium">Works with:</span>
+                {/* Assigned Agents */}
+                {assignedAgentNames.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Bot className="h-3 w-3" />
+                      <span className="font-medium">Works with:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {assignedAgentNames.slice(0, 2).map((name, index) => (
+                        <Badge
+                          key={index}
+                          variant="default"
+                          className="text-xs bg-primary/10 text-primary hover:bg-primary/20"
+                        >
+                          {name}
+                        </Badge>
+                      ))}
+                      {assignedAgentNames.length > 2 && (
+                        <Badge
+                          variant="default"
+                          className="text-xs bg-primary/10 text-primary hover:bg-primary/20"
+                        >
+                          +{assignedAgentNames.length - 2} more
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+
+            <CardFooter className="flex flex-col gap-3 pt-3 border-t">
+              {/* Stats Row */}
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className={`flex items-center gap-1 transition-all ${isFavoriting ? "scale-125" : ""
+                    } ${isFavorited ? "text-yellow-500" : ""}`}>
+                    <ThumbsUp className="h-3.5 w-3.5" />
+                    <span>{prompt.favorite_count || 0}</span>
+
+                  </div>
+                  <div className="flex items-center gap-1" title="Times used">
+                    <Activity className="h-3.5 w-3.5" />
+                    <span>{prompt.usage_count || 0}</span>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {assignedAgentNames.slice(0, 2).map((name, index) => (
-                    <Badge
-                      key={index}
-                      variant="default"
-                      className="text-xs bg-primary/10 text-primary hover:bg-primary/20"
-                    >
-                      {name}
-                    </Badge>
-                  ))}
-                  {assignedAgentNames.length > 2 && (
-                    <Badge
-                      variant="default"
-                      className="text-xs bg-primary/10 text-primary hover:bg-primary/20"
-                    >
-                      +{assignedAgentNames.length - 2} more
-                    </Badge>
-                  )}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  onClick={() => setIsEditModalOpen(true)}
+                >
+                  Details
+                </Button>
+              </div>
+
+              {/* Metadata Row */}
+              <div className="flex flex-col gap-1.5 text-xs text-muted-foreground w-full">
+                <div className="flex items-center gap-1">
+                  <User className="h-3 w-3" />
+                  <span>Created by {creatorName}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  <span>
+                    Created {formatDistanceToNow(new Date(prompt.createdAt), { addSuffix: true })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  <span>
+                    Updated {formatDistanceToNow(new Date(prompt.updatedAt), { addSuffix: true })}
+                  </span>
                 </div>
               </div>
-            )}
-          </div>
-        </CardContent>
-
-        <CardFooter className="flex flex-col gap-3 pt-3 border-t">
-          {/* Stats Row */}
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <div className={`flex items-center gap-1 transition-all ${isFavoriting ? "scale-125" : ""
-                } ${isFavorited ? "text-yellow-500" : ""}`}>
-                <ThumbsUp className="h-3.5 w-3.5" />
-                <span>{prompt.favorite_count || 0}</span>
-
-              </div>
-              <div className="flex items-center gap-1" title="Times used">
-                <Activity className="h-3.5 w-3.5" />
-                <span>{prompt.usage_count || 0}</span>
-              </div>
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              type="button"
-              onClick={() => setIsEditModalOpen(true)}
-            >
-              <MessageSquare className="mr-2 h-3.5 w-3.5" />
-              View
-            </Button>
-          </div>
-
-          {/* Metadata Row */}
-          <div className="flex flex-col gap-1.5 text-xs text-muted-foreground w-full">
-            <div className="flex items-center gap-1">
-              <User className="h-3 w-3" />
-              <span>Created by {creatorName}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              <span>
-                Created {formatDistanceToNow(new Date(prompt.createdAt), { addSuffix: true })}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              <span>
-                Updated {formatDistanceToNow(new Date(prompt.updatedAt), { addSuffix: true })}
-              </span>
-            </div>
-          </div>
-        </CardFooter>
+            </CardFooter>
+          </>
+        )}
       </Card>
 
       <PromptEditorModal

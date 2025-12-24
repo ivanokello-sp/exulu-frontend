@@ -7,7 +7,8 @@ export const checkChatSessionWriteAccess = (session: AgentSession, user: UserWit
     const byUsers = session.rights_mode === 'users';
     const byRoles = session.rights_mode === 'roles';
     const isAdmin = user.super_admin;
-    const isCreator = session.created_by === user.id.toString();
+    const createdBy = typeof session.created_by === "string" ? session.created_by : session.created_by?.toString();
+    const isCreator = createdBy === user.id.toString();
   
     let writeAccess = false;
     if (isPrivate && isCreator) {

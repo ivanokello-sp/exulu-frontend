@@ -105,11 +105,39 @@ module.exports = {
     				to: {
     					height: '0'
     				}
+    			},
+    			'expand-width': {
+    				'0%': {
+    					width: '0%',
+    					opacity: '0'
+    				},
+    				'50%': {
+    					opacity: '1'
+    				},
+    				'100%': {
+    					width: '100%',
+    					opacity: '0.8'
+    				}
+    			},
+    			'expand-from-center': {
+    				'0%': {
+    					transform: 'scaleX(0)',
+    					opacity: '0'
+    				},
+    				'50%': {
+    					opacity: '1'
+    				},
+    				'100%': {
+    					transform: 'scaleX(1)',
+    					opacity: '0.8'
+    				}
     			}
     		},
     		animation: {
     			'accordion-down': 'accordion-down 0.2s ease-out',
-    			'accordion-up': 'accordion-up 0.2s ease-out'
+    			'accordion-up': 'accordion-up 0.2s ease-out',
+    			'expand-width': 'expand-width 1.5s ease-out forwards',
+    			'expand-from-center': 'expand-from-center 1.5s ease-out forwards'
     		}
     	}
     },

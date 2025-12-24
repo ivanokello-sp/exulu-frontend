@@ -1,11 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation, NetworkStatus } from "@apollo/client";
+import { useQuery, useMutation } from "@apollo/client";
 import { GET_QUEUE, GET_JOBS, DELETE_JOB, PAUSE_QUEUE, DRAIN_QUEUE, RESUME_QUEUE } from "@/queries/queries";
 import { QueueJob } from "@/types/models/job";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
@@ -287,7 +293,7 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
   }
 
   return (
-    <>
+    <TooltipProvider>
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -367,39 +373,39 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
                 </div>
                 <div className="border-t pt-4">
                   <Tabs value={status} onValueChange={(value) => setStatus(value as JobStatus)} className="w-auto">
-                <TabsList>
-                  <TabsTrigger value="active" className="gap-1.5">
-                    <span>Active</span>
-                    <Badge variant="secondary" className="ml-1 bg-blue-100 text-blue-600 border-blue-200">
-                      {queue.jobs?.active || 0}
-                    </Badge>
-                  </TabsTrigger>
-                  <TabsTrigger value="waiting" className="gap-1.5">
-                    <span>Waiting</span>
-                    <Badge variant="secondary" className="ml-1 bg-yellow-100 text-yellow-600 border-yellow-200">
-                      {queue.jobs?.waiting || 0}
-                    </Badge>
-                  </TabsTrigger>
-                  <TabsTrigger value="failed" className="gap-1.5">
-                    <span>Failed</span>
-                    <Badge variant="secondary" className="ml-1 bg-red-100 text-red-600 border-red-200">
-                      {queue.jobs?.failed || 0}
-                    </Badge>
-                  </TabsTrigger>
-                  <TabsTrigger value="stuck" className="gap-1.5">
-                    <span>Stuck</span>
-                    <Badge variant="secondary" className="ml-1 bg-red-100 text-red-600 border-red-200">
-                      {queue.jobs?.stuck || 0}
-                    </Badge>
-                  </TabsTrigger>
-                  <TabsTrigger value="completed" className="gap-1.5">
-                    <span>Completed</span>
-                    <Badge variant="secondary" className="ml-1 bg-green-100 text-green-600 border-green-200">
-                      {queue.jobs?.completed || 0}
-                    </Badge>
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+                    <TabsList>
+                      <TabsTrigger value="active" className="gap-1.5">
+                        <span>Active</span>
+                        <Badge variant="secondary" className="ml-1 bg-blue-100 text-blue-600 border-blue-200">
+                          {queue.jobs?.active || 0}
+                        </Badge>
+                      </TabsTrigger>
+                      <TabsTrigger value="waiting" className="gap-1.5">
+                        <span>Waiting</span>
+                        <Badge variant="secondary" className="ml-1 bg-yellow-100 text-yellow-600 border-yellow-200">
+                          {queue.jobs?.waiting || 0}
+                        </Badge>
+                      </TabsTrigger>
+                      <TabsTrigger value="failed" className="gap-1.5">
+                        <span>Failed</span>
+                        <Badge variant="secondary" className="ml-1 bg-red-100 text-red-600 border-red-200">
+                          {queue.jobs?.failed || 0}
+                        </Badge>
+                      </TabsTrigger>
+                      <TabsTrigger value="stuck" className="gap-1.5">
+                        <span>Stuck</span>
+                        <Badge variant="secondary" className="ml-1 bg-red-100 text-red-600 border-red-200">
+                          {queue.jobs?.stuck || 0}
+                        </Badge>
+                      </TabsTrigger>
+                      <TabsTrigger value="completed" className="gap-1.5">
+                        <span>Completed</span>
+                        <Badge variant="secondary" className="ml-1 bg-green-100 text-green-600 border-green-200">
+                          {queue.jobs?.completed || 0}
+                        </Badge>
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 </div>
               </div>
             </div>
@@ -487,7 +493,7 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
                       <TableHead>Name</TableHead>
                       <TableHead>ID</TableHead>
                       {/* <TableHead>State</TableHead> */}
-                      <TableHead>Attempts Made</TableHead>
+                      <TableHead>Attempts</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead>Processed On</TableHead>
                       <TableHead>Finished On</TableHead>
@@ -510,7 +516,24 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
                         <TableCell className="font-medium max-w-[200px] truncate">
                           {nameGenerator(job)}
                         </TableCell>
-                        <TableCell>{job.id}</TableCell>
+                        <TableCell className="max-w-[120px] truncate">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span onClick={() => {
+                                navigator.clipboard.writeText(job.id);
+                                toast({
+                                  title: "Copied to clipboard",
+                                  description: `The job ID: "${job.id}" was copied to your clipboard.`,
+                                });
+                              }} className="max-w-[120px] truncate cursor-copy">
+                                {job.id}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Job ID: {job.id}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TableCell>
                         {/* <TableCell>{getStatusBadge(job.state)}</TableCell> */}
                         <TableCell>
                           {job.attemptsMade}
@@ -526,8 +549,9 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
                         </TableCell>
                         <TableCell>
                           {job.data ? (
-                            <div className="text-xs max-w-[120px] truncate">
+                            <div className="text-xs text-muted-foreground max-w-[120px] truncate">
                               <TextPreview
+                                sliceLength={50}
                                 text={JSON.stringify(job.data)}
                               />
                             </div>
@@ -537,12 +561,14 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
                           {job.failedReason ? (
                             <div className="text-xs text-red-600 max-w-[120px] truncate">
                               <TextPreview
+                                sliceLength={50}
                                 text={"Error: " + job.failedReason}
                               />
                             </div>
                           ) : (
                             <div className="text-xs text-muted-foreground max-w-[120px] truncate">
                               <TextPreview
+                                sliceLength={50}
                                 text={JSON.stringify(job.returnvalue)}
                               />
                             </div>
@@ -795,6 +821,6 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </TooltipProvider>
   );
 }

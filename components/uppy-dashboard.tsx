@@ -18,7 +18,6 @@ import { files, S3FileListOutput } from "@/util/api"
 import { useTheme } from "next-themes";
 import { ConfigContext } from "./config-context";
 import { useQuery as useTanstackQuery, useMutation as useTanstackMutation } from "@tanstack/react-query";
-import { Loading } from "./ui/loading";
 import { allFileTypes } from "@/types/models/agent";
 import { Input } from "./ui/input";
 import { DoubleArrowLeftIcon } from "@radix-ui/react-icons";
@@ -117,8 +116,12 @@ export function FileDataCard({ s3key, children }: { s3key: string, children?: Re
   </Card>
 }
 
-export default function UppyDashboard({ id, allowedFileTypes, dependencies, onConfirm, selectionLimit, buttonText }: {
+export default function UppyDashboard({ id, allowedFileTypes, dependencies, onConfirm, selectionLimit, buttonText, global }: {
   id: string,
+  // if set to true, this uploads the files to a global directory
+  // instead of the user's private directory. For example used
+  // when uploading agent animations.
+  global?: boolean,
   buttonText?: string,
   allowedFileTypes?: allFileTypes[],
   selectionLimit: number,
@@ -143,6 +146,7 @@ export default function UppyDashboard({ id, allowedFileTypes, dependencies, onCo
       </DialogHeader>
       <FileGalleryAndUpload
         id={id}
+        global={global}
         allowedFileTypes={allowedFileTypes}
         dependencies={dependencies}
         selectionLimit={selectionLimit}
@@ -155,8 +159,16 @@ export default function UppyDashboard({ id, allowedFileTypes, dependencies, onCo
   </Dialog>;
 }
 
-export const FileGalleryAndUpload = ({ id, allowedFileTypes, dependencies, onConfirm, selectionLimit }: {
+export const FileGalleryAndUpload = ({
+  id,
+  global,
+  allowedFileTypes,
+  dependencies,
+  onConfirm,
+  selectionLimit
+}: {
   id: string,
+  global?: boolean,
   allowedFileTypes?: allFileTypes[],
   dependencies: any[],
   selectionLimit: number,
@@ -225,7 +237,8 @@ export const FileGalleryAndUpload = ({ id, allowedFileTypes, dependencies, onCon
     queryFn: async (): Promise<S3FileListOutput> => {
       return files.list({
         search,
-        continuationToken: currentContinuationToken
+        continuationToken: currentContinuationToken,
+        global: global,
       })
     },
   })
@@ -236,6 +249,7 @@ export const FileGalleryAndUpload = ({ id, allowedFileTypes, dependencies, onCon
   const uppy = useUppy(
     {
       backend: configContext?.backend || "",
+      global: global,
       uppyOptions: {
         id,
         allowedFileTypes

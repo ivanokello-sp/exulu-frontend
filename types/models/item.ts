@@ -4,12 +4,13 @@ export interface Item {
     description?: string,
     createdAt?: string;
     embeddings_updated_at?: string;
+    last_processed_at?: string;
+    chunks_count?: number;
     updatedAt?: string;
     external_id?: string;
     source?: string;
     tags?: string[];
     textlength?: number;
-    last_processed_at?: string;
     chunks?: {
         chunk_id: string;
         chunk_index: number;

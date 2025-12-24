@@ -1,7 +1,9 @@
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
-import { useQuery } from "@apollo/client";
+import { useQuery, useMutation } from "@apollo/client";
 import { useRef } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
+import { GENERATE_CHUNKS, DELETE_CHUNKS } from "@/queries/queries";
 import { TruncatedText } from "@/components/truncated-text";
 import { Item } from "@/types/models/item";
 import { GET_ITEMS, PAGINATION_POSTFIX } from "@/queries/queries";
@@ -21,7 +23,7 @@ export type ItemsFilters = {
   context?: FilterOperator,
 }
 
-export function RecentEmbeddings({ contextId }: { contextId: string }) {
+export function RecentProcessings({ contextId }: { contextId: string }) {
   const twentyOneDaysAgoRef = useRef(new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString());
   let { loading, data: raw } = useQuery<{
     [key: string]: {
@@ -43,15 +45,55 @@ export function RecentEmbeddings({ contextId }: { contextId: string }) {
       page: 1,
       limit: 5,
       filters: [{
-        embeddings_updated_at: {
+        last_processed_at: {
           // 21 days ago
           gte: twentyOneDaysAgoRef.current,
         },
       }],
       sort: {
-        field: "embeddings_updated_at",
+        field: "last_processed_at",
         direction: "DESC",
       }
+    },
+  });
+
+  const [generateChunksMutation, generateChunksMutationResult] = useMutation<{
+    [key: string]: {
+      jobs: string[];
+      items: number;
+    }
+  }>(GENERATE_CHUNKS(contextId), {
+    onCompleted: (output) => {
+      const data = output[contextId + "_itemsGenerateChunks"];
+      if (data.jobs?.length > 0) {
+        toast.success("Chunks generation started", {
+          description: "Jobs have been started in the background, depending on the size of the item this may take a while.",
+        })
+        return;
+      }
+      toast.success("Chunks generated", {
+        description: "Chunks generated successfully.",
+      })
+    },
+  });
+
+  const [deleteChunksMutation, deleteChunksMutationResult] = useMutation<{
+    [key: string]: {
+      jobs: string[];
+      items: number;
+    }
+  }>(DELETE_CHUNKS(contextId), {
+    onCompleted: (output) => {
+      const data = output[contextId + "_itemsDeleteChunks"];
+      if (data.jobs?.length > 0) {
+        toast.success("Chunks deletion started", {
+          description: "Jobs have been started in the background, depending on the size of the item this may take a while.",
+        })
+        return;
+      }
+      toast.success("Chunks deleted", {
+        description: "Chunks deleted successfully.",
+      })
     },
   });
 
@@ -75,9 +117,10 @@ export function RecentEmbeddings({ contextId }: { contextId: string }) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div>
-              <CardTitle>Recent Embeddings</CardTitle>
-              <CardDescription>Items with embeddings updated in the last 21 days</CardDescription>
+              <CardTitle>Recently Processed</CardTitle>
+              <CardDescription>Items processed in the last 21 days</CardDescription>
             </div>
+
             {loading && (
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             )}
@@ -88,7 +131,7 @@ export function RecentEmbeddings({ contextId }: { contextId: string }) {
         <div className="border rounded-lg">
           {data?.items?.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No recent embeddings
+              No recently processed items
             </div>
           ) : (
             <Table>
@@ -110,8 +153,8 @@ export function RecentEmbeddings({ contextId }: { contextId: string }) {
                       </Link>
                     </TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">
-                      {item.embeddings_updated_at
-                        ? formatDistanceToNow(new Date(item.embeddings_updated_at), {
+                      {item.last_processed_at
+                        ? formatDistanceToNow(new Date(item.last_processed_at), {
                           addSuffix: true,
                         })
                         : "never"}
@@ -123,6 +166,7 @@ export function RecentEmbeddings({ contextId }: { contextId: string }) {
           )}
         </div>
       </CardContent>
+
     </Card>
   );
 }

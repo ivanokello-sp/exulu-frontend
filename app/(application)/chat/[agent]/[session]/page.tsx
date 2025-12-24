@@ -14,6 +14,34 @@ export default async function SessionsPage({
   const { session, agent } = await params;
 
   try {
+
+    if (session === "new") {
+
+      // Fetch agent data with project context if available
+      const agentData = await fetchGraphQLServerSide(
+        GET_AGENT_BY_ID.loc?.source.body || "",
+        {
+          id: agent,
+        }
+      );
+
+      if (!agentData?.agentById) {
+        return <Alert variant="destructive">
+          <ExclamationTriangleIcon className="size-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            Agent not found.
+          </AlertDescription>
+        </Alert>
+      }
+
+      return <ChatLayout
+        session={null}
+        agent={agentData.agentById}
+        initialMessages={[]}
+      />;
+    }
+
     // Fetch session data first
     const sessionData = await fetchGraphQLServerSide(
       GET_AGENT_SESSION_BY_ID.loc?.source.body || "",
@@ -73,6 +101,9 @@ export default async function SessionsPage({
       agent={agentData.agentById}
       initialMessages={initialMessages}
     />;
+
+
+
 
   } catch (error) {
     return <Alert variant="destructive">

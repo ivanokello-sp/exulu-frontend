@@ -1,23 +1,20 @@
 "use client";
 
-import * as React from "react";
 import { useState, useContext } from "react";
 import { useQuery, useMutation, useApolloClient } from "@apollo/client";
-import { UPDATE_PROJECT, DELETE_PROJECT, GET_AGENT_SESSIONS, GET_AGENTS, CREATE_AGENT_SESSION, GET_ITEM_BY_ID, UPDATE_AGENT_SESSION_PROJECT, REMOVE_AGENT_SESSION_BY_ID, DELETE_ITEM } from "@/queries/queries";
+import { UPDATE_PROJECT, DELETE_PROJECT, GET_AGENT_SESSIONS, GET_ITEM_BY_ID, UPDATE_AGENT_SESSION_PROJECT, REMOVE_AGENT_SESSION_BY_ID, DELETE_ITEM } from "@/queries/queries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Plus, MessageSquare, Settings2, Files, AlertTriangle, Shield, Pencil, Search, Bot, PackageMinus } from "lucide-react";
+import { Trash2, Plus, MessageSquare, Settings2, Files, AlertTriangle, Shield, Pencil, PackageMinus } from "lucide-react";
 import { RBACControl } from "@/components/rbac";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/use-toast";
 import { Loading } from "./ui/loading";
-import { Agent } from "@/types/models/agent";
 import { useRouter } from "next/navigation";
 import { AgentSession } from "@/types/models/agent-session";
 import { Project } from "@/types/models/project";
@@ -30,9 +27,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Item } from "@/types/models/item";
-import { FileItem } from "./uppy-dashboard";
 import { ItemsSelectionModal } from "./items-selection-modal";
 import { files } from "@/util/api";
+import { AgentSelectionModalContent } from "./agent-selection-dialog";
 
 interface ProjectDetailsProps {
   project: Project;
@@ -42,7 +39,7 @@ export function ProjectDetails({ project }: ProjectDetailsProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isAgentSelectionOpen, setIsAgentSelectionOpen] = useState(false);
-  const [agentSearch, setAgentSearch] = useState("");
+  
   const [activeView, setActiveView] = useState<'overview' | 'context' | 'sessions' | 'access' | 'settings'>('overview');
   const { user } = useContext(UserContext);
   const router = useRouter();
@@ -78,32 +75,19 @@ export function ProjectDetails({ project }: ProjectDetailsProps) {
     }
   });
 
-  const { data: agentsData, loading: agentsLoading } = useQuery(GET_AGENTS, {
-    variables: {
-      page: 1,
-      limit: 100,
-      filters: [],
-      sort: { field: "updatedAt", direction: "DESC" }
-    }
-  });
-
+  
   const apolloClient = useApolloClient()
 
-  const [createAgentSession, { loading: isCreatingSession }] = useMutation(CREATE_AGENT_SESSION);
+  
 
   const [updateAgentSession, { loading: isUpdatingSession }] = useMutation(UPDATE_AGENT_SESSION_PROJECT);
 
   const [deleteSession, { loading: isDeletingSession }] = useMutation(REMOVE_AGENT_SESSION_BY_ID);
 
   const chatSessions: AgentSession[] = sessionsData?.agent_sessionsPagination?.items || [];
-  const agents: Agent[] = agentsData?.agentsPagination?.items || [];
+  
 
-  const filteredAgents = React.useMemo(() => {
-    if (!agentSearch) return agents;
-    return agents.filter(agent =>
-      agent.name.toLowerCase().includes(agentSearch.toLowerCase())
-    );
-  }, [agents, agentSearch]);
+
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
@@ -156,43 +140,6 @@ export function ProjectDetails({ project }: ProjectDetailsProps) {
 
   const handleNewChatSession = () => {
     setIsAgentSelectionOpen(true);
-  };
-
-  const handleAgentSelect = async (agent: Agent) => {
-    try {
-      const result = await createAgentSession({
-        variables: {
-          title: `New session with ${agent.name}`,
-          agent: agent.id,
-          project: project.id,
-          rights_mode: "private",
-          /* RBAC: {
-            projects: [{ id: project.id, rights: "read" }]
-          } */
-        },
-      });
-
-      const sessionId = result.data?.agent_sessionsCreateOne?.item?.id;
-
-      if (sessionId) {
-        toast({
-          title: "Success",
-          description: "Session created successfully! Sessions started in a project are accessible for viewing by project members.",
-        });
-
-        setIsAgentSelectionOpen(false);
-        setAgentSearch("");
-
-        router.push(`/chat/${agent.id}/${sessionId}`);
-      }
-    } catch (error: any) {
-      console.error("Error creating session:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create session. Please try again.",
-        variant: "destructive",
-      });
-    }
   };
 
   const handleDeleteProject = async () => {
@@ -551,7 +498,7 @@ export function ProjectDetails({ project }: ProjectDetailsProps) {
                       {chatSessions.length === 0 && !sessionsLoading && (
                         <div className="text-center py-8 text-muted-foreground">
                           <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                          <p>No sessions found</p>
+                          <small className="text-xs text-muted-foreground">No sessions found</small>
                         </div>
                       )}
 
@@ -726,82 +673,11 @@ export function ProjectDetails({ project }: ProjectDetailsProps) {
               Choose an agent to start a new chat session. Sessions started in a project are accessible for viewing by project members.
             </DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4">
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search agents..."
-                value={agentSearch}
-                onChange={(e) => setAgentSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            {/* Agents Grid */}
-            <div className="max-h-96 overflow-y-auto">
-              {agentsLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[...Array(6)].map((_, i) => (
-                    <div key={i} className="p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Skeleton className="h-12 w-12 rounded-full" />
-                        <div className="space-y-2 flex-1">
-                          <Skeleton className="h-4 w-3/4" />
-                          <Skeleton className="h-3 w-1/2" />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : filteredAgents.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {filteredAgents.map((agent) => (
-                    <div
-                      key={agent.id}
-                      className="p-4 border rounded-lg hover:border-primary cursor-pointer transition-colors"
-                      onClick={() => handleAgentSelect(agent)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                          {agent.image ? (
-                            <img
-                              src={agent.image}
-                              alt={agent.name}
-                              className="h-12 w-12 rounded-full object-cover"
-                            />
-                          ) : (
-                            <Bot className="h-6 w-6" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{agent.name}</p>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {agent.description || `${agent.type} agent`}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant={agent.active ? "default" : "secondary"} className="text-xs">
-                              {agent.active ? "Active" : "Inactive"}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {agent.type}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Bot className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>{agentSearch ? "No agents found matching your search" : "No agents available"}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
+          {/* Agents Grid */}
+          <AgentSelectionModalContent onSelect={({session, agent}) => {
+            router.push(`/chat/${agent}/${session}`);
+            setIsAgentSelectionOpen(false)
+          }} project={project.id} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAgentSelectionOpen(false)}>
               Cancel

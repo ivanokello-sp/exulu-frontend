@@ -237,6 +237,10 @@ export const getAuthOptions = async (): Promise<NextAuthOptions> => {
             await client.query('UPDATE users SET last_used = $1 WHERE email = $2', [new Date(), email])
           }
 
+          if (existingUser && !existingUser.email_verified) {
+            await client.query('UPDATE users SET "emailVerified" = $1 WHERE email = $2', [new Date(), email])
+          }
+
           // If google auth, create the user if it doesn't exist.
           if (
             !existingUser &&

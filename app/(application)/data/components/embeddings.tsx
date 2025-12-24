@@ -5,16 +5,38 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RecentEmbeddings } from "@/components/custom/recent-embeddings";
-import { CREATE_EMBEDDER_CONFIG, GET_CONTEXT_BY_ID, GET_EMBEDDER_CONFIGS, GET_VARIABLES, UPDATE_EMBEDDER_CONFIG } from "@/queries/queries";
+import { CREATE_EMBEDDER_CONFIG, DELETE_CHUNKS, GENERATE_CHUNKS, GET_CONTEXT_BY_ID, GET_EMBEDDER_CONFIGS, GET_VARIABLES, UPDATE_EMBEDDER_CONFIG } from "@/queries/queries";
 import { Context } from "@/types/models/context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
+import { DotsHorizontalIcon, ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import { useToast } from "@/components/ui/use-toast";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 import {
     Collapsible,
     CollapsibleContent,
@@ -25,9 +47,17 @@ import { VariableSelectionElement } from "../../agents/edit/[id]/form";
 import {
     ArrowLeft,
     ChevronDown,
+    Play,
 } from "lucide-react";
 import { QueueManagement } from "../../evals/[id]/runs/components/queue-management";
 import { QueueJob } from "@/types/models/job";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { ItemsFilter } from "./items-filter";
 
 interface DataDisplayProps {
     expand: boolean;
@@ -37,7 +67,9 @@ interface DataDisplayProps {
 
 export function ContextEmbeddings(props: DataDisplayProps) {
 
-    const [sourcesOpen, setSourcesOpen] = useState(true);
+    const [embeddersOpen, setEmbeddersOpen] = useState(true);
+    const [dialogRunEmbedderOpen, setDialogRunEmbedderOpen] = useState(false);
+    const [dialogDeleteEmbeddingsOpen, setDialogDeleteEmbeddingsOpen] = useState(false);
     const { toast } = useToast();
     const { data, loading, error } = useQuery<
         { contextById: Context }>(GET_CONTEXT_BY_ID, {
@@ -123,6 +155,50 @@ export function ContextEmbeddings(props: DataDisplayProps) {
         variables: { page: 1, limit: 100 },
     });
 
+    const [generateChunksMutation, generateChunksMutationResult] = useMutation<{
+        [key: string]: {
+            jobs: string[];
+            items: number;
+        }
+    }>(GENERATE_CHUNKS(props.context), {
+        onCompleted: (output) => {
+            const data = output[props.context + "_itemsGenerateChunks"];
+            if (data.jobs?.length > 0) {
+                toast({
+                    title: "Chunks generation started",
+                    description: "Jobs have been started in the background, depending on the size of the item this may take a while.",
+                })
+                return;
+            }
+            toast({
+                title: "Chunks generated",
+                description: "Chunks generated successfully.",
+            })
+        },
+    });
+
+    const [deleteChunksMutation, deleteChunksMutationResult] = useMutation<{
+        [key: string]: {
+            jobs: string[];
+            items: number;
+        }
+    }>(DELETE_CHUNKS(props.context), {
+        onCompleted: (output) => {
+            const data = output[props.context + "_itemsDeleteChunks"];
+            if (data.jobs?.length > 0) {
+                toast({
+                    title: "Chunks deletion started",
+                    description: "Jobs have been started in the background, depending on the size of the item this may take a while.",
+                })
+                return;
+            }
+            toast({
+                title: "Chunks deleted",
+                description: "Chunks deleted successfully.",
+            })
+        },
+    });
+
     const variables = variablesData?.variablesPagination?.items || [];
 
     if (loading) {
@@ -137,6 +213,7 @@ export function ContextEmbeddings(props: DataDisplayProps) {
             </div>
         )
     }
+
     if (error) {
         return (
             <Alert variant="destructive">
@@ -151,23 +228,6 @@ export function ContextEmbeddings(props: DataDisplayProps) {
 
     return (
         <div className="flex h-full flex-col">
-            {props.actions ? (
-                <>
-                    <div className="flex p-2 justify-between">
-                        <div className="flex items-center gap-2"></div>
-                        <Button
-                            onClick={() => {
-                                router.push("/context");
-                            }}
-                            variant="ghost"
-                            size="icon">
-                            <ArrowLeft className="size-4" />
-                            <span className="sr-only">Back</span>
-                        </Button>
-                    </div>
-                    <Separator />
-                </>
-            ) : null}
             {context ? (
                 <div className="flex flex-1 flex-col">
                     <Card className="border-0 rounded-none">
@@ -179,35 +239,12 @@ export function ContextEmbeddings(props: DataDisplayProps) {
                                 <div className="space-y-6 pr-4">
                                     <div>
                                         <h2 className="text-xl font-bold">{context.name}</h2>
-                                        <p className="text-muted-foreground mt-1">{context.description}</p>
-                                        <div className="mt-3 flex items-center">
-                                            <span className="text-sm font-medium mr-2">Embedder:</span>
-                                            <Badge variant="outline">{context.embedder?.name || "None"} ({context.embedder?.id})</Badge>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <span className="text-sm font-medium mr-2">Calculate Vectors:</span>
-                                        <Badge variant="secondary">
-                                            {context.configuration?.calculateVectors
-                                                ? context.configuration.calculateVectors.charAt(0).toUpperCase() + context.configuration.calculateVectors.slice(1)
-                                                : "Manual"}
-                                        </Badge>
-                                        <div className="mt-2 text-xs text-muted-foreground">
-                                            <span className="block"><b>Manual</b>: Vectors are only calculated when triggered manually.</span>
-                                            <span className="block"><b>On Update</b>: Vectors are recalculated whenever an item is updated.</span>
-                                            <span className="block"><b>On Insert</b>: Vectors are calculated when a new item is inserted.</span>
-                                            <span className="block"><b>Always</b>: Vectors are calculated on both insert and update operations.</span>
-                                        </div>
                                     </div>
                                     <div>
                                         <span className="text-sm font-medium mr-2">Embedder Configs:</span>
                                         <div className="mt-2 text-xs text-muted-foreground">
                                             {variables?.length && context?.embedder?.config?.map((config) => {
-
                                                 const currentValue = embedderConfigs?.find(x => x.name === config.name);
-                                                console.log("currentValue", currentValue);
-                                                console.log("embedderConfigs", embedderConfigs);
-                                                console.log("config", config);
                                                 return (<div key={config.name} className="space-y-2">
                                                     <VariableSelectionElement
                                                         configItem={config}
@@ -235,9 +272,6 @@ export function ContextEmbeddings(props: DataDisplayProps) {
                                                             }
 
                                                         }} />
-                                                    <span>
-                                                        {config.description}
-                                                    </span>
                                                 </div>)
                                             })}
                                         </div>
@@ -246,18 +280,96 @@ export function ContextEmbeddings(props: DataDisplayProps) {
                             </ScrollArea>
                         </CardContent>
                     </Card>
-
+                    <Card className="border-0 rounded-none">
+                        <CardHeader>
+                            <CardTitle>Embedders</CardTitle>
+                            <CardDescription>
+                                Embedders are used to generate embeddings for items.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {context.embedder ? (
+                                <TooltipProvider>
+                                    <div className="rounded-md border">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Name</TableHead>
+                                                    <TableHead>Trigger</TableHead>
+                                                    <TableHead>Queue</TableHead>
+                                                    <TableHead className="text-right">Actions</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                <TableRow key={context.embedder?.name}>
+                                                    <TableCell className="font-medium">{context.embedder?.name}</TableCell>
+                                                    <TableCell className="max-w-[300px]">
+                                                        {context.configuration.calculateVectors ? (
+                                                            <Badge variant="outline">
+                                                                {context.configuration.calculateVectors}
+                                                            </Badge>
+                                                        ) : (
+                                                            <span className="text-muted-foreground">-</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {context.embedder?.queue ? (
+                                                            <div className="cursor-help">
+                                                                <Badge variant="outline" className="cursor-help">
+                                                                    {context.embedder?.queue}
+                                                                </Badge>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-muted-foreground">-</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <DropdownMenu modal={false}>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    className="flex size-8 p-0 data-[state=open]:bg-muted ml-auto">
+                                                                    <DotsHorizontalIcon className="size-4" />
+                                                                    <span className="sr-only">Open menu</span>
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem onClick={
+                                                                    () => setDialogRunEmbedderOpen(true)
+                                                                }>
+                                                                    Generate embeddings
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    onClick={() => {
+                                                                        setDialogDeleteEmbeddingsOpen(true);
+                                                                    }}>
+                                                                    Delete embeddings
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </TableCell>
+                                                </TableRow>
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </TooltipProvider>
+                            ) : (
+                                <div className="text-center text-muted-foreground p-5 border rounded-md">
+                                    No embedders found.
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
                     <RecentEmbeddings contextId={context.id} />
-
-                    <Collapsible open={sourcesOpen} onOpenChange={setSourcesOpen}>
+                    <Collapsible open={embeddersOpen} onOpenChange={setEmbeddersOpen}>
                         <Card className="bg-none border-0 rounded-none">
                             <CardHeader>
                                 <CollapsibleTrigger asChild>
                                     <div className="flex items-center justify-between cursor-pointer">
                                         <CardTitle>Queues</CardTitle>
                                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                            <ChevronDown className={`h-4 w-4 transition-transform ${sourcesOpen ? "" : "-rotate-90"}`} />
-                                            <span className="sr-only">Toggle sources</span>
+                                            <ChevronDown className={`h-4 w-4 transition-transform ${embeddersOpen ? "" : "-rotate-90"}`} />
+                                            <span className="sr-only">Toggle sources queues</span>
                                         </Button>
                                     </div>
                                 </CollapsibleTrigger>
@@ -294,6 +406,68 @@ export function ContextEmbeddings(props: DataDisplayProps) {
                     Context not found.
                 </div>
             )}
+
+            <Dialog key="delete-embeddings" modal={true} open={dialogDeleteEmbeddingsOpen} onOpenChange={(open) => {
+                setDialogDeleteEmbeddingsOpen(open);
+            }}>
+                <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Delete Embeddings</DialogTitle>
+                        <DialogDescription>
+                            You can filter what items you want to delete embeddings for below.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ItemsFilter ctaLabel="Confirm filters and delete embeddings"
+                        context={props.context}
+                        showPreview={true}
+                        cancelLabel="Cancel"
+                        onCancel={() => setDialogDeleteEmbeddingsOpen(false)}
+                        onConfirm={async (filters, rawFilters, limit) => {
+                            await deleteChunksMutation({
+                                variables: {
+                                    limit: limit,
+                                    where: filters.length > 0 ? filters : undefined
+                                }
+                            });
+                            return;
+                        }} />
+                </DialogContent>
+            </Dialog>
+
+            <Dialog key="run-embedder" modal={true} open={dialogRunEmbedderOpen} onOpenChange={(open) => {
+                setDialogRunEmbedderOpen(open);
+            }}>
+                <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Trigger Embedder</DialogTitle>
+                        <DialogDescription>
+                            {context?.embedder?.queue ? (
+                                <>
+                                    Configure filters to select which items to generate embeddings for. Jobs will be scheduled in the <span className="font-semibold">{context.embedder.queue}</span> queue.
+                                </>
+                            ) : (
+                                <>
+                                    Configure filters to select which items to generate embeddings for. The embedder will execute immediately.
+                                </>
+                            )}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ItemsFilter ctaLabel="Confirm filters and start processing"
+                        showPreview={true}
+                        context={props.context}
+                        cancelLabel="Cancel"
+                        onCancel={() => setDialogRunEmbedderOpen(false)}
+                        onConfirm={async (filters, rawFilters, limit) => {
+                            await generateChunksMutation({
+                                variables: {
+                                    limit: limit,
+                                    where: filters.length > 0 ? filters : undefined,
+                                }
+                            });
+                            return;
+                        }} />
+                </DialogContent>
+            </Dialog>
 
 
         </div>

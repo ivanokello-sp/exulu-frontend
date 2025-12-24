@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import * as React from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { CodePreview } from "@/components/custom/code-preview";
@@ -1198,7 +1197,6 @@ export function DataDisplay(props: DataDisplayProps) {
                       <TableRow>
                         <TableHead>Index</TableHead>
                         <TableHead>Content</TableHead>
-                        <TableHead>Dimensions</TableHead>
                         <TableHead>Created At</TableHead>
                         <TableHead>Updated At</TableHead>
                       </TableRow>

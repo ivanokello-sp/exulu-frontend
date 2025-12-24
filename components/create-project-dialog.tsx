@@ -38,13 +38,8 @@ export function CreateProjectDialog({ open, onOpenChange, refetchProjects }: Cre
   
   const [createProject] = useMutation(CREATE_PROJECT, {
     refetchQueries: [
-      {
-        query: GET_PROJECTS,
-        variables: {
-          page: 1,
-          limit: 200,
-        },
-      },
+      GET_PROJECTS,
+      "GetProjects",
     ],
   });
 

@@ -10,6 +10,7 @@ import { ConfigContext } from "@/components/config-context";
 
 interface InitializeOptions {
     backend: string;
+    global?: boolean;
     callbacks?: {
         uploadSuccess?: (response: {
             file: any | null;
@@ -51,6 +52,9 @@ export const initializeUppy = async (options: InitializeOptions): Promise<Uppy> 
             headers: {      
                 Authorization: `Bearer ${token}`,
                 Session: localStorage.getItem("session") ?? "",
+                // This is used to determine if the file is being uploaded to a global directory
+                // or a user's private directory. For example used when uploading agent animations.
+                ...(options.global && { Global: "true" }),
             }
         })
         .on("file-added", async (file) => {

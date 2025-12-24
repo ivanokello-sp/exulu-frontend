@@ -11,7 +11,13 @@ import { GET_CONTEXT_BY_ID, PROCESS_ITEM, PROCESS_ITEMS } from "@/queries/querie
 import { Context } from "@/types/models/context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
+import { DotsHorizontalIcon, ExclamationTriangleIcon } from "@radix-ui/react-icons";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
     Collapsible,
     CollapsibleContent,
@@ -29,7 +35,8 @@ import {
     ArrowLeft,
     ChevronDown,
     Play,
-    Loader2,
+    CheckCircle,
+    XCircle,
 } from "lucide-react";
 import { QueueManagement } from "../../evals/[id]/runs/components/queue-management";
 import { QueueJob } from "@/types/models/job";
@@ -37,12 +44,9 @@ import {
     Dialog,
     DialogContent,
     DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
     Tooltip,
@@ -50,6 +54,8 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { RecentProcessings } from "@/components/custom/recent-processings";
+import { ItemsFilter } from "./items-filter";
 
 interface DataDisplayProps {
     expand: boolean;
@@ -62,8 +68,6 @@ export function ContextProcessors(props: DataDisplayProps) {
     const [processorsOpen, setProcessorsOpen] = useState(true);
     const router = useRouter();
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [filterValues, setFilterValues] = useState<Record<string, string>>({});
-    const [limit, setLimit] = useState(10);
 
     const { data, loading, error } = useQuery<
         { contextById: Context }>(GET_CONTEXT_BY_ID, {
@@ -71,7 +75,6 @@ export function ContextProcessors(props: DataDisplayProps) {
                 id: props.context
             }
         });
-
     const context = data?.contextById;
 
     const [executeSource, { loading: executingProcessor }] = useMutation(
@@ -81,7 +84,6 @@ export function ContextProcessors(props: DataDisplayProps) {
                 console.log("[EXULU] Processor result", data);
                 const result = data[`${props.context}_itemsProcessItems`];
                 setDialogOpen(false);
-                setFilterValues({});
 
                 toast.success(result.message || "Items processed successfully", {
                     description: result.jobs?.length
@@ -124,32 +126,8 @@ export function ContextProcessors(props: DataDisplayProps) {
         }
     });
 
-    const handleTriggerSource = (
-        params?: { name: string; description: string; default: string }[]
-    ) => {
-        // Initialize param values with defaults
-        if (params) {
-            const initialValues: Record<string, string> = {};
-            params.forEach(param => {
-                initialValues[param.name] = param.default || '';
-            });
-            setFilterValues(initialValues);
-        }
-
+    const handleTriggerSource = () => {
         setDialogOpen(true);
-    };
-
-    const confirmTrigger = () => {
-        executeSource({
-            variables: {
-                limit: limit || 10,
-                filters: filterValues,
-                sort: {
-                    field: "updatedAt",
-                    direction: "DESC"
-                }
-            }
-        });
     };
 
     if (loading) {
@@ -178,23 +156,6 @@ export function ContextProcessors(props: DataDisplayProps) {
 
     return (
         <div className="flex h-full flex-col">
-            {props.actions ? (
-                <>
-                    <div className="flex p-2 justify-between">
-                        <div className="flex items-center gap-2"></div>
-                        <Button
-                            onClick={() => {
-                                router.push("/context");
-                            }}
-                            variant="ghost"
-                            size="icon">
-                            <ArrowLeft className="size-4" />
-                            <span className="sr-only">Back</span>
-                        </Button>
-                    </div>
-                    <Separator />
-                </>
-            ) : null}
             {context ? (
                 <div className="flex flex-1 flex-col">
                     <Card className="border-0 rounded-none">
@@ -287,14 +248,23 @@ export function ContextProcessors(props: DataDisplayProps) {
                                                         )}
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => handleTriggerSource()}
-                                                            title="Manually trigger source"
-                                                        >
-                                                            <Play className="h-4 w-4" />
-                                                        </Button>
+                                                        <DropdownMenu modal={false}>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    className="flex size-8 p-0 data-[state=open]:bg-muted ml-auto">
+                                                                    <DotsHorizontalIcon className="size-4" />
+                                                                    <span className="sr-only">Open menu</span>
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem onClick={
+                                                                    () => handleTriggerSource()
+                                                                }>
+                                                                    Process items
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
                                                     </TableCell>
                                                 </TableRow>
                                             </TableBody>
@@ -309,15 +279,17 @@ export function ContextProcessors(props: DataDisplayProps) {
                         </CardContent>
                     </Card>
 
+                    <RecentProcessings contextId={context.id} />
+
                     <Collapsible open={processorsOpen} onOpenChange={setProcessorsOpen}>
                         <Card className="bg-none border-0 rounded-none">
                             <CardHeader>
                                 <CollapsibleTrigger asChild>
                                     <div className="flex items-center justify-between cursor-pointer">
-                                        <CardTitle>Processors</CardTitle>
+                                        <CardTitle>Queues</CardTitle>
                                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                                             <ChevronDown className={`h-4 w-4 transition-transform ${processorsOpen ? "" : "-rotate-90"}`} />
-                                            <span className="sr-only">Toggle processors</span>
+                                            <span className="sr-only">Toggle processor queues</span>
                                         </Button>
                                     </div>
                                 </CollapsibleTrigger>
@@ -327,7 +299,7 @@ export function ContextProcessors(props: DataDisplayProps) {
                                     {
                                         context.processor ?
                                             <div key={context.processor.queue} className="space-y-4 mb-6">
-                                                <Card className="border-l-4 border-l-primary">
+                                                <Card>
                                                     <CardHeader>
                                                         <CardTitle className="text-base flex items-center justify-between">
                                                             <Badge variant="outline">{context.processor.queue}</Badge>
@@ -339,7 +311,7 @@ export function ContextProcessors(props: DataDisplayProps) {
                                                     <CardContent>
                                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                                                             <div className="space-y-1">
-                                                                <p className="text-xs text-muted-foreground">Trigger</p>
+                                                                <p className="text-xs text-muted-foreground">Processor trigger</p>
                                                                 <Badge variant="secondary" className="font-mono text-xs">
                                                                     {context.processor.trigger}
                                                                 </Badge>
@@ -351,10 +323,13 @@ export function ContextProcessors(props: DataDisplayProps) {
                                                                     className="text-xs"
                                                                 >
                                                                     {context.processor.generateEmbeddings ?
-                                                                        "Enabled, this means embeddings will be generated after the processor finishes executing" :
-                                                                        "Disabled, this means embeddings will not be generated after the processor finishes executing"
+                                                                        <CheckCircle className="size-4" /> :
+                                                                        <XCircle className="size-4" />
                                                                     }
                                                                 </Badge>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    {context.processor.generateEmbeddings ? "Enabled, this means embeddings will be generated after the processor finishes executing" : "Disabled, this means embeddings will not be generated after the processor finishes executing"}
+                                                                </p>
                                                             </div>
                                                         </div>
                                                         <Separator className="my-4" />
@@ -369,9 +344,9 @@ export function ContextProcessors(props: DataDisplayProps) {
                                                                 }
                                                                 processItemMutation({
                                                                     variables: {
-                                                                      item: job.data?.item,
+                                                                        item: job.data?.item,
                                                                     }
-                                                                  });
+                                                                });
                                                             }}
                                                         />
                                                     </CardContent>
@@ -390,78 +365,44 @@ export function ContextProcessors(props: DataDisplayProps) {
                 </div>
             )}
 
-
-            <Dialog modal={false} open={dialogOpen} onOpenChange={(open) => {
+            <Dialog modal={true} open={dialogOpen} onOpenChange={(open) => {
                 setDialogOpen(open);
-                if (!open) {
-                    setFilterValues({});
-                }
             }}>
-                <DialogContent>
+                <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
                     <DialogHeader>
-                        <DialogTitle>Trigger Source</DialogTitle>
+                        <DialogTitle>Trigger Processor</DialogTitle>
                         <DialogDescription>
                             {context?.processor?.queue ? (
                                 <>
-                                    Are you sure you want to trigger <strong>{context.processor.name}</strong>?
-                                    <br />
-                                    <br />
-                                    A job will be scheduled and visible in the <span className="font-semibold">{context.processor.queue}</span> queue.
+                                    Configure filters to select which items to process. Jobs will be scheduled in the <span className="font-semibold">{context.processor.queue}</span> queue.
                                 </>
                             ) : (
                                 <>
-                                    Are you sure you want to trigger <strong>{context?.name}</strong>?
-                                    <br />
-                                    <br />
-                                    The processor will be executed immediately without queuing.
+                                    Configure filters to select which items to process. The processor will execute immediately.
                                 </>
                             )}
                         </DialogDescription>
                     </DialogHeader>
 
-                    <Label htmlFor={"limit"}>
-                        Limit
-                        <span className="ml-2 text-xs text-muted-foreground font-normal">
-                            Maximum number of items to process.
-                        </span>
-                    </Label>
-                    <Input
-                        id={"limit"}
-                        value={limit || ''}
-                        onChange={(e) => {
-                            setLimit(parseInt(e.target.value));
-                        }}
-                        placeholder="10"
-                        type="number"
-                        min={1}
-                        max={500}
-                        disabled={executingProcessor}
-                    />
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setDialogOpen(false)}
-                            disabled={executingProcessor}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={confirmTrigger}
-                            disabled={executingProcessor}
-                        >
-                            {executingProcessor ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Executing...
-                                </>
-                            ) : (
-                                <>
-                                    <Play className="mr-2 h-4 w-4" />
-                                    Trigger Processor
-                                </>
-                            )}
-                        </Button>
-                    </DialogFooter>
+                    <ItemsFilter
+                        ctaLabel="Confirm filters and start processing"
+                        showPreview={true}
+                        context={props.context}
+                        cancelLabel="Cancel"
+                        onCancel={() => setDialogOpen(false)}
+                        onConfirm={async (filters, rawFilters, limit) => {
+                            await executeSource({
+                                variables: {
+                                    limit: limit,
+                                    filters: filters.length > 0 ? filters : undefined,
+                                    sort: {
+                                        field: "updatedAt",
+                                        direction: "DESC"
+                                    }
+                                }
+                            });
+                            return;
+                        }} />
                 </DialogContent>
             </Dialog>
 

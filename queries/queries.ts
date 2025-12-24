@@ -67,9 +67,10 @@ tags
 external_id
 createdAt
 embeddings_updated_at
+last_processed_at
+chunks_count
 updatedAt
 rights_mode
-last_processed_at
 RBAC {
   type
   users {
@@ -113,6 +114,7 @@ modelName
 maxContextLength
 provider
 authenticationInformation
+systemInstructions
 slug
 category
 rateLimit {
@@ -197,6 +199,7 @@ export const GET_AGENT_SESSIONS = gql`
       items {
           createdAt
           updatedAt
+          created_by
           user
           title
           agent
@@ -309,8 +312,8 @@ export const CREATE_ITEM = (context: string) => {
 export const DELETE_CHUNKS = (context: string) => {
   const upperCaseContext = context.charAt(0).toUpperCase() + context.slice(1)
   return gql`
-    mutation DeleteChunks${context}($where: [Filter${upperCaseContext}_items]) {
-      ${context}_itemsDeleteChunks(where: $where) {
+    mutation DeleteChunks${context}($where: [Filter${upperCaseContext}_items], $limit: Int) {
+      ${context}_itemsDeleteChunks(where: $where, limit: $limit) {
         items
         jobs
       }
@@ -322,10 +325,31 @@ export const DELETE_CHUNKS = (context: string) => {
 export const GENERATE_CHUNKS = (context: string) => {
   const upperCaseContext = context.charAt(0).toUpperCase() + context.slice(1)
   return gql`
-    mutation GenerateChunks${context}($where: [Filter${upperCaseContext}_items]) {
-      ${context}_itemsGenerateChunks(where: $where) {
+    mutation GenerateChunks${context}($where: [Filter${upperCaseContext}_items], $limit: Int) {
+      ${context}_itemsGenerateChunks(where: $where, limit: $limit) {
         items
         jobs
+      }
+    }
+  `;
+};
+
+export const GET_CHUNK_BY_ID = (context: string) => {
+  return gql`
+    query GetChunkById${context}($id: ID!) {
+      ${context}_itemsChunkById(id: $id) {
+        chunk_id
+        chunk_content
+        chunk_index
+        chunk_source
+        chunk_metadata
+        chunk_created_at
+        chunk_updated_at
+        item_id
+        item_name
+        item_external_id
+        item_updated_at
+        item_created_at
       }
     }
   `;
@@ -759,6 +783,16 @@ export const CREATE_AGENT = gql`
         }
         createdAt
        }
+    }
+  }
+`;
+
+export const COPY_AGENT_BY_ID = gql`
+  mutation CopyAgentById($id: ID!) {
+    agentsCopyOneById(id: $id) {
+      item {
+        id
+      }
     }
   }
 `;
@@ -2194,5 +2228,11 @@ export const DELETE_PROMPT_FAVORITE = gql`
     prompt_favoritesRemoveOneById(id: $id) {
       id
     }
+  }
+`;
+
+export const GET_UNIQUE_PROMPT_TAGS = gql`
+  query GetUniquePromptTags {
+    getUniquePromptTags
   }
 `;

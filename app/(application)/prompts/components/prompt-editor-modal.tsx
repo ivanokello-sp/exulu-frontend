@@ -18,6 +18,7 @@ import { UserWithRole } from "@/types/models/user";
 import { useCreatePrompt, useUpdatePrompt } from "@/hooks/use-prompts";
 import { extractVariables, validatePromptVariables } from "@/lib/prompts";
 import { RBACControl } from "@/components/rbac";
+import { TagSelector } from "@/components/tag-selector";
 import { toast } from "sonner";
 import {
   Collapsible,
@@ -45,6 +46,7 @@ interface PromptEditorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   prompt?: PromptLibrary;
+  defaultTags?: string[];
   onSuccess: () => void;
   user: UserWithRole;
   defaultAssignedAgents?: string[];
@@ -54,6 +56,7 @@ export function PromptEditorModal({
   open,
   onOpenChange,
   prompt,
+  defaultTags,
   onSuccess,
   user,
   defaultAssignedAgents = [],
@@ -66,6 +69,7 @@ export function PromptEditorModal({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [content, setContent] = useState("");
+  const [tags, setTags] = useState<string[]>(defaultTags || []);
   const [rightsMode, setRightsMode] = useState<
     "private" | "users" | "roles" | "public"/*  | "projects" */
   >("private");
@@ -101,6 +105,7 @@ export function PromptEditorModal({
       setName(prompt.name);
       setDescription(prompt.description || "");
       setContent(prompt.content);
+      setTags(prompt.tags || defaultTags || []);
       setRightsMode(prompt.rights_mode);
       setRbacUsers(prompt.RBAC?.users || []);
       setRbacRoles(prompt.RBAC?.roles || []);
@@ -112,6 +117,9 @@ export function PromptEditorModal({
       if (defaultAssignedAgents && defaultAssignedAgents.length > 0) {
         setAssignedAgents(defaultAssignedAgents);
       }
+      if (defaultTags && defaultTags.length > 0) {
+        setTags(defaultTags.filter((tag) => tag !== "untagged"));
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prompt, open]);
@@ -120,6 +128,7 @@ export function PromptEditorModal({
     setName("");
     setDescription("");
     setContent("");
+    setTags([]);
     setRightsMode("private");
     setRbacUsers([]);
     setRbacRoles([]);
@@ -150,6 +159,7 @@ export function PromptEditorModal({
         name: name.trim(),
         description: description.trim() || undefined,
         content: content.trim(),
+        tags: tags.length > 0 ? tags : undefined,
         rights_mode: rightsMode,
         RBAC:
           rightsMode !== "private" && rightsMode !== "public"
@@ -269,6 +279,19 @@ export function PromptEditorModal({
                 Invalid variable names: {invalidVariables.join(", ")}
               </div>
             )}
+          </div>
+
+          {/* Folders */}
+          <div className="space-y-2">
+            <Label htmlFor="tags">Folders</Label>
+            <TagSelector
+              value={tags}
+              onChange={setTags}
+              placeholder="Select or create folders..."
+            />
+            <p className="text-xs text-muted-foreground">
+              Organize prompts with folders like "marketing", "hr", "support", etc.
+            </p>
           </div>
 
           {/* Assign to Agents */}

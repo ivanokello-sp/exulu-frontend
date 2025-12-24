@@ -21,6 +21,7 @@ import {
 } from "@tanstack/react-table";
 import {
     Archive,
+    FilterIcon,
     PackageOpen,
     Plus,
     Trash2,
@@ -46,6 +47,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { SearchBar } from "./search-bar";
 import { Item } from "@EXULU_SHARED/models/item";
 import { CREATE_ITEM, CREATE_ONE_POSTFIX, DELETE_ITEM, GET_ITEMS, PAGINATION_POSTFIX, UPDATE_ITEM } from "@/queries/queries";
+import { ItemsFilter, ItemFilters } from "./items-filter";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
 function usePagination() {
     const [pagination, setPagination] = useState({
@@ -82,6 +85,14 @@ export function DataList({
 
     const router = useRouter();
 
+    // Advanced search state
+    const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+    const [advancedFilters, setAdvancedFilters] = useState<any[]>([]);
+    const [savedFilterState, setSavedFilterState] = useState<{
+        filters: ItemFilters;
+        limit: number;
+    }>({ filters: {}, limit: 10 });
+
     const [rowSelection, setRowSelection] = React.useState({});
 
     const [columnVisibility, setColumnVisibility] =
@@ -114,12 +125,16 @@ export function DataList({
                 field: "updatedAt",
                 direction: "DESC",
             },
-            filters: {
-                archived: {
-                    eq: archived
+            filters: advancedFilters.length > 0
+                ? [{
+                    archived: { eq: archived },
                 },
-                ...(search ? { name: { contains: `${search}` } } : {}),
-            },
+                ...advancedFilters,
+                ]
+                : [{
+                    archived: { eq: archived },
+                    ...(search ? { name: { contains: `${search}` } } : {}),
+                }],
         },
     });
 
@@ -234,7 +249,7 @@ export function DataList({
 
     return (
         <div className="w-[300px]">
-            <div className="grid grid-flow-col grid-cols-[auto_minmax(0,1fr)] grid-rows-1 bg-background/95 p-4 backdrop-blur gap-2 supports-[backdrop-filter]:bg-background/60">
+            <div className="flex items-center bg-background/95 p-4 backdrop-blur gap-2 supports-[backdrop-filter]:bg-background/60">
                 <Checkbox
                     checked={
                         table.getIsAllPageRowsSelected() ||
@@ -242,15 +257,17 @@ export function DataList({
                     }
                     onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
                     aria-label="Select all"
-                    className="my-auto mr-3 translate-y-[2px]"
+                    className="translate-y-[2px]"
                 />
-                <div className="relative">
-                    <SearchBar onSearch={(query) => {
-                        setParams({
-                            page: 1,
-                            search: query,
-                        })
-                    }} />
+                <div className="relative flex gap-2 flex-1">
+                    <Button
+                        variant={"outline"}
+                        size="icon"
+                        onClick={() => setShowAdvancedSearch(true)}
+                        className="whitespace-nowrap w-full"
+                    >
+                        Filter items <FilterIcon className="size-4 ml-2" /> {advancedFilters.length > 0 && `(${advancedFilters.length})`}
+                    </Button>
                 </div>
                 <Button
                     onClick={() => {
@@ -266,8 +283,10 @@ export function DataList({
                         });
                     }}
                     disabled={createItemMutationResult.loading || archived || false}
-                    className="ml-2 ml-auto lg:flex">
-                    {createItemMutationResult.loading ? <Loading /> : <Plus size={18} />}
+                    className="lg:flex"
+                    size="default"
+                >
+                    {createItemMutationResult.loading ? <Loading /> : "Add new item"}
                 </Button>
             </div>
             {table.getIsSomeRowsSelected() || table.getIsAllRowsSelected() ? (
@@ -502,6 +521,48 @@ export function DataList({
                     </div>
                 </div>
             )}
+
+            {/* Advanced Search Sheet */}
+            <Sheet modal={false} open={showAdvancedSearch} onOpenChange={setShowAdvancedSearch}>
+                <SheetContent side="right" className="w-[500px] sm:max-w-[800px] flex flex-col">
+                    <SheetHeader>
+                        <SheetTitle>Advanced Search</SheetTitle>
+                        <SheetDescription>
+                            Use advanced filters to narrow down your search results
+                        </SheetDescription>
+                    </SheetHeader>
+                    <ItemsFilter
+                        context={activeFolder}
+                        ctaLabel="Apply Filters"
+                        cancelLabel="Close"
+                        showPreview={false}
+                        initialFilters={savedFilterState.filters}
+                        initialLimit={savedFilterState.limit}
+                        onClear={() => {
+                            setAdvancedFilters([]);
+                            setSavedFilterState({ filters: {}, limit: 10 });
+                            setParams({
+                                page: 1,
+                                search: undefined,
+                            });
+                        }}
+                        onCancel={() => setShowAdvancedSearch(false)}
+                        onConfirm={async (graphqlFilters, rawFilters, limit) => {
+                            console.log("graphqlFilters", graphqlFilters);
+                            console.log("rawFilters", rawFilters);
+                            setAdvancedFilters(graphqlFilters);
+                            setSavedFilterState({
+                                filters: rawFilters,
+                                limit: limit || 10
+                            });
+                            setParams({
+                                page: 1,
+                                search: undefined,
+                            });
+                        }}
+                    />
+                </SheetContent>
+            </Sheet>
         </div>
     );
 }

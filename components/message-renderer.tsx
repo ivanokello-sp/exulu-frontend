@@ -139,286 +139,330 @@ export function MessageRenderer({
         console.log("files", files);
 
         return (
-          <Fragment key={message.id}>
-            <Message
-              className={cn(
-                message.role === 'assistant' && (
-                  config?.customAssistantClassnames ? config?.customAssistantClassnames : ''
-                ),
-                isFirstMessage && (
-                  config?.marginTopFirstMessage ? config?.marginTopFirstMessage : 'mt-12'
-                ), className
-              )}
-              from={message.role}
-              key={message.id}
-            >
-              <MessageContent>
-                {message.parts.map((part, i) => {
-                  if (part.type === 'step-start') {
-                    return null
+          <Message
+            className={cn(
+              message.role === 'assistant' && (
+                config?.customAssistantClassnames ? config?.customAssistantClassnames : ''
+              ),
+              isFirstMessage && (
+                config?.marginTopFirstMessage ? config?.marginTopFirstMessage : 'mt-12'
+              ), className
+            )}
+            from={message.role}
+            key={message.id}
+          >
+            <MessageContent>
+              {message.parts.map((part, i) => {
+                if (part.type === 'step-start') {
+                  return null
+                }
+
+                if (part.type === 'text') {
+                  let text = part.text.replace(/<file name="([^"]+)">([^<]+)<\/file>/g, '');
+
+                  // Check if text contains JSON citations
+                  // Create a more robust regex that matches all field orders
+                  const flexibleCitationRegex = /\{[^}]*?item_name\s*:\s*[^,}]+[^}]*?\}/g;
+                  const hasCitations = flexibleCitationRegex.test(text);
+
+                  if (hasCitations) {
+                    // Transform JSON citations into cite-marker format
+                    text = text.replace(/\{([^}]+)\}/g, (match, content) => {
+                      // Check if this looks like a citation object
+                      if (!content.includes('item_name:')) {
+                        return match; // Not a citation, keep original
+                      }
+
+                      try {
+                        // Parse all fields from the citation object
+                        const fields: Record<string, string> = {};
+                        const fieldPattern = /(\w+)\s*:\s*([^,}]+?)(?:,|$)/g;
+                        let fieldMatch: RegExpExecArray | null;
+
+                        while ((fieldMatch = fieldPattern.exec(content)) !== null) {
+                          fields[fieldMatch[1].trim()] = fieldMatch[2].trim();
+                        }
+
+                        // Extract required fields
+                        const itemName = fields.item_name;
+                        const itemId = fields.item_id;
+                        const context = fields.context;
+                        const chunkId = fields.chunk_id;
+                        const chunkIndex = fields.chunk_index;
+
+                        // Validate that we have all required fields (chunk_index is optional)
+                        if (itemName && itemId && context && chunkId) {
+                          // Create citation string: item_name|item_id|chunk_id|chunk_index|context
+                          const citationData = `${itemName}|${itemId}|${chunkId}|${chunkIndex || ''}|${context}`;
+                          return `<cite-marker data-citation="${encodeURIComponent(citationData)}"></cite-marker>`;
+                        }
+
+                        return match; // Missing required fields, keep original
+                      } catch (error) {
+                        console.error('Error parsing citation:', error);
+                        return match; // Keep original on error
+                      }
+                    });
                   }
 
-                  if (part.type === 'text') {
-                    let text = part.text.replace(/<file name="([^"]+)">([^<]+)<\/file>/g, '');
-                    return <Response className="chat-response-container" key={`${message.id}-${i}` + "_response"}>
-                      {text}
-                    </Response>
-                  }
+                  return <Response className="chat-response-container" key={`${message.id}-${i}` + "_response"}>
+                    {text}
+                  </Response>
+                }
 
-                  if (part.type === 'tool-askForConfirmation' && onAddToolResult) {
-                    const callId = part.toolCallId
+                if (part.type === 'tool-askForConfirmation' && onAddToolResult) {
+                  const callId = part.toolCallId
 
-                    switch (part.state) {
-                      case 'input-streaming':
-                        return (
-                          <div key={callId}>Loading confirmation request...</div>
-                        )
-                      case 'input-available':
-                        return (
-                          <div key={callId}>
-                            {(part.input as { message: string }).message}
-                            <div>
-                              <button
-                                onClick={() =>
-                                  onAddToolResult({
-                                    tool: 'askForConfirmation',
-                                    toolCallId: callId,
-                                    output: 'Yes, confirmed',
-                                  })
-                                }
-                              >
-                                Yes
-                              </button>
-                              <button
-                                onClick={() =>
-                                  onAddToolResult({
-                                    tool: 'askForConfirmation',
-                                    toolCallId: callId,
-                                    output: 'No, denied',
-                                  })
-                                }
-                              >
-                                No
-                              </button>
-                            </div>
+                  switch (part.state) {
+                    case 'input-streaming':
+                      return (
+                        <div key={callId}>Loading confirmation request...</div>
+                      )
+                    case 'input-available':
+                      return (
+                        <div key={callId}>
+                          {(part.input as { message: string }).message}
+                          <div>
+                            <button
+                              onClick={() =>
+                                onAddToolResult({
+                                  tool: 'askForConfirmation',
+                                  toolCallId: callId,
+                                  output: 'Yes, confirmed',
+                                })
+                              }
+                            >
+                              Yes
+                            </button>
+                            <button
+                              onClick={() =>
+                                onAddToolResult({
+                                  tool: 'askForConfirmation',
+                                  toolCallId: callId,
+                                  output: 'No, denied',
+                                })
+                              }
+                            >
+                              No
+                            </button>
                           </div>
-                        )
-                      case 'output-available':
-                        return (
-                          <div key={callId}>
-                            Tool call allowed: {part.output as string}
-                          </div>
-                        )
-                      case 'output-error':
-                        return <div key={callId}>Error: {part.errorText}</div>
-                    }
+                        </div>
+                      )
+                    case 'output-available':
+                      return (
+                        <div key={callId}>
+                          Tool call allowed: {part.output as string}
+                        </div>
+                      )
+                    case 'output-error':
+                      return <div key={callId}>Error: {part.errorText}</div>
                   }
+                }
 
-                  if (part.type?.toLowerCase().includes('preview_pdf') || part.type?.toLowerCase().includes('pdf_file_in_a_web_view')) {
-                    const dynamicToolPart = part as any;
-                    const output = JSON.parse(dynamicToolPart.output?.result ?? '{}') as {
-                      url: string
-                      page: number
-                    };
-                    if (!output?.url) {
-                      return <div>No URL provided for PDF preview {JSON.stringify(output)}</div>;
-                    }
-                    const pdfUrl = `${output.url}#page=${output.page ?? 1}`;
-                    return <iframe src={pdfUrl} style={{ width: '100%', height: '100vh' }} title="PDF viewer" />
+                if (part.type?.toLowerCase().includes('preview_pdf') || part.type?.toLowerCase().includes('pdf_file_in_a_web_view')) {
+                  const dynamicToolPart = part as any;
+                  const output = JSON.parse(dynamicToolPart.output?.result ?? '{}') as {
+                    url: string
+                    page: number
+                  };
+                  if (!output?.url) {
+                    return <div>No URL provided for PDF preview {JSON.stringify(output)}</div>;
                   }
+                  const pdfUrl = `${output.url}#page=${output.page ?? 1}`;
+                  return <iframe src={pdfUrl} style={{ width: '100%', height: '100vh' }} title="PDF viewer" />
+                }
 
-                  if (part.type?.toLowerCase() === 'tool-todo_write') {
-                    const dynamicToolPart = part as any;
-                    const output = dynamicToolPart.output as {
-                      result: {
-                        content: string
-                        status: "pending" | "in_progress" | "completed" | "cancelled"
-                        priority: "high" | "medium" | "low"
-                        id: string
-                      }[]
-                    };
-                    if (!output?.result) {
-                      return null;
-                    }
-                    const state: "input-streaming" | "input-available" | "output-available" | "output-error" = dynamicToolPart.state;
-                    return (
-                      <TodoList todos={output.result} showPriority={true} state={state} />
-                    )
-                  }
-
-                  if (part.type?.toLowerCase() === 'tool-todo_read') {
+                if (part.type?.toLowerCase() === 'tool-todo_write') {
+                  const dynamicToolPart = part as any;
+                  const output = dynamicToolPart.output as {
+                    result: {
+                      content: string
+                      status: "pending" | "in_progress" | "completed" | "cancelled"
+                      priority: "high" | "medium" | "low"
+                      id: string
+                    }[]
+                  };
+                  if (!output?.result) {
                     return null;
                   }
+                  const state: "input-streaming" | "input-available" | "output-available" | "output-error" = dynamicToolPart.state;
+                  return (
+                    <TodoList todos={output.result} showPriority={true} state={state} />
+                  )
+                }
 
-                  if (part.type?.toLowerCase().includes('context_search')) {
-                    const dynamicToolPart = part as any;
-                    let output = dynamicToolPart.output as {
-                      result: KnowledgeSourceSearchResultChunk[]
-                    };
-                    if (typeof output === "string") {
-                      output = JSON.parse(output)
+                if (part.type?.toLowerCase() === 'tool-todo_read') {
+                  return null;
+                }
+
+                if (part.type?.toLowerCase().includes('context_search')) {
+                  const dynamicToolPart = part as any;
+                  let output = dynamicToolPart.output as {
+                    result: KnowledgeSourceSearchResultChunk[]
+                  };
+                  if (typeof output === "string") {
+                    output = JSON.parse(output)
+                  }
+                  if (typeof output?.result === "string") {
+                    output.result = JSON.parse(output?.result)
+                  }
+                  console.log("output", output);
+                  console.log("output.result", output?.result);
+                  if (!output?.result?.length) {
+                    return null;
+                  }
+                  // Map the chunks to items
+                  const itemsMap = new Map<string, ItemWithChunks>();
+                  const context = output.result[0]?.context?.name;
+                  for (const chunk of output.result) {
+                    if (itemsMap.has(chunk.item_id)) {
+                      itemsMap.get(chunk.item_id)?.chunks.push(chunk);
+                    } else {
+                      itemsMap.set(chunk.item_id, {
+                        id: chunk.item_id,
+                        updatedAt: chunk.item_updated_at,
+                        createdAt: chunk.item_created_at,
+                        external_id: chunk.item_external_id,
+                        name: chunk.item_name,
+                        context: {
+                          name: chunk.context?.name,
+                          id: chunk.context?.id
+                        },
+                        chunks: [chunk]
+                      });
                     }
-                    if (typeof output?.result === "string") {
-                      output.result = JSON.parse(output?.result)
-                    }
-                    console.log("output", output);
-                    console.log("output.result", output?.result);
-                    if (!output?.result?.length) {
-                      return null;
-                    }
-                    // Map the chunks to items
-                    const itemsMap = new Map<string, ItemWithChunks>();
-                    const context = output.result[0]?.context?.name;
-                    for (const chunk of output.result) {
-                      if (itemsMap.has(chunk.item_id)) {
-                        itemsMap.get(chunk.item_id)?.chunks.push(chunk);
-                      } else {
-                        itemsMap.set(chunk.item_id, {
-                          id: chunk.item_id,
-                          updatedAt: chunk.item_updated_at,
-                          createdAt: chunk.item_created_at,
-                          external_id: chunk.item_external_id,
-                          name: chunk.item_name,
-                          context: {
-                            name: chunk.context?.name,
-                            id: chunk.context?.id
-                          },
-                          chunks: [chunk]
-                        });
-                      }
-                    }
+                  }
+                  return (
+                    <ContextSearchResults
+                      key={`${message.id}-${i}`}
+                      input={dynamicToolPart.input}
+                      context={context}
+                      items={Array.from(itemsMap.values())}
+                      totalChunks={output.result.length}
+                    />
+                  )
+                }
+
+                if (
+                  (part.type.startsWith('tool-') || part.type === 'dynamic-tool') &&
+                  UntypedToolPartComponent &&
+                  addToContext
+                ) {
+                  const untypedToolPart = part as DynamicToolUIPart
+                  const callId = untypedToolPart.toolCallId
+                  return (
+                    <UntypedToolPartComponent
+                      key={callId}
+                      untypedToolPart={untypedToolPart}
+                      callId={callId}
+                      addToContext={addToContext}
+                    />
+                  )
+                }
+
+                if (part.type === 'file') {
+                  if (part.mediaType?.startsWith('image/')) {
                     return (
-                      <ContextSearchResults
+                      <Image
                         key={`${message.id}-${i}`}
-                        input={dynamicToolPart.input}
-                        context={context}
-                        items={Array.from(itemsMap.values())}
-                        totalChunks={output.result.length}
+                        src={part.url}
+                        width={300}
+                        height={300}
+                        alt={"Generated image"}
                       />
                     )
                   }
+                }
 
-                  if (
-                    (part.type.startsWith('tool-') || part.type === 'dynamic-tool') &&
-                    UntypedToolPartComponent &&
-                    addToContext
-                  ) {
-                    const untypedToolPart = part as DynamicToolUIPart
-                    const callId = untypedToolPart.toolCallId
-                    return (
-                      <UntypedToolPartComponent
-                        key={callId}
-                        untypedToolPart={untypedToolPart}
-                        callId={callId}
-                        addToContext={addToContext}
+                if (part.type === 'source-url') {
+                  return (
+                    <Sources key={`${message.id}-${i}`}>
+                      <SourcesTrigger
+                        count={message.parts.filter(
+                          (part) => part.type === 'source-url'
+                        ).length}
                       />
-                    )
-                  }
+                      <SourcesContent key={`${message.id}`}>
+                        {message.parts.map((part, i) => {
+                          switch (part.type) {
+                            case 'source-url':
+                              return (
+                                <Source
+                                  key={`${message.id}-${i}`}
+                                  href={part.url}
+                                  title={part.title}
+                                />
+                              )
+                          }
+                        })}
+                      </SourcesContent>
+                    </Sources>
+                  )
+                }
 
-                  if (part.type === 'file') {
-                    if (part.mediaType?.startsWith('image/')) {
-                      return (
-                        <Image
-                          key={`${message.id}-${i}`}
-                          src={part.url}
-                          width={300}
-                          height={300}
-                          alt={"Generated image"}
-                        />
-                      )
-                    }
-                  }
+                if (part.type === 'reasoning') {
+                  return (
+                    <Reasoning
+                      key={`${message.id}-${i}`}
+                      className="w-full"
+                      isStreaming={status === 'streaming'}
+                    >
+                      <ReasoningTrigger />
+                      <ReasoningContent>{part.text}</ReasoningContent>
+                    </Reasoning>
+                  )
+                }
 
-                  if (part.type === 'source-url') {
-                    return (
-                      <Sources key={`${message.id}-${i}`}>
-                        <SourcesTrigger
-                          count={message.parts.filter(
-                            (part) => part.type === 'source-url'
-                          ).length}
-                        />
-                        <SourcesContent key={`${message.id}`}>
-                          {message.parts.map((part, i) => {
-                            switch (part.type) {
-                              case 'source-url':
-                                return (
-                                  <Source
-                                    key={`${message.id}-${i}`}
-                                    href={part.url}
-                                    title={part.title}
-                                  />
-                                )
-                            }
-                          })}
-                        </SourcesContent>
-                      </Sources>
-                    )
-                  }
+                return null
+              })}
 
-                  if (part.type === 'reasoning') {
-                    return (
-                      <Reasoning
-                        key={`${message.id}-${i}`}
-                        className="w-full"
-                        isStreaming={status === 'streaming'}
-                      >
-                        <ReasoningTrigger />
-                        <ReasoningContent>{part.text}</ReasoningContent>
-                      </Reasoning>
-                    )
-                  }
+              {files.length > 0 && (
+                <div className="grid grid-cols-6 min-w-[500px] gap-2 mt-3 mb-3">
+                  {files.map((file) => (
+                    <FileItem key={file.s3Key + "_file_item_" + message.id} s3Key={file.s3Key} onRemove={() => { }} active={false} disabled={false} />
+                  ))}
+                </div>
+              )}
 
-                  return null
-                })}
+              {showActions && (
 
-                {files.length > 0 && (
-                  <div className="grid grid-cols-6 min-w-[500px] gap-2 mt-3 mb-3">
-                    {files.map((file) => (
-                      <FileItem key={file.s3Key + "_file_item_" + message.id} s3Key={file.s3Key} onRemove={() => { }} active={false} disabled={false} />
-                    ))}
-                  </div>
-                )}
-
-                {showActions && (
-
-                  message.role === 'assistant' && (
-                    <MessageActions className="mt-2">
-                      {onRegenerate && (
-                        <MessageAction
-                          className="mr-1"
-                          onClick={() => onRegenerate()}
-                          label="Retry"
-                          disabled={!writeAccess}
-                        >
-                          <RefreshCcwIcon className="size-3" />
-                        </MessageAction>
-                      )}
+                message.role === 'assistant' && (
+                  <MessageActions className="mt-2">
+                    {onRegenerate && (
                       <MessageAction
                         className="mr-1"
-                        onClick={() => {
-                          navigator.clipboard.writeText(
-                            message.parts.map((part: any) => part?.text || "").join('\n')
-                          )
-                          toast({
-                            title: "Copied message",
-                            description: "The message was copied to your clipboard.",
-                          })
-                        }}
-                        label="Copy"
+                        onClick={() => onRegenerate()}
+                        label="Retry"
+                        disabled={!writeAccess}
                       >
-                        <CopyIcon className="size-3" />
+                        <RefreshCcwIcon className="size-3" />
                       </MessageAction>
-                      {messageMetadata?.totalTokens && (
-                        <small className="text-muted-foreground">
-                          {Intl.NumberFormat('en-US').format(messageMetadata?.totalTokens)} tokens
-                        </small>
-                      )}
-                    </MessageActions>
-                  )
-                )}
-              </MessageContent>
-            </Message>
-          </Fragment>
+                    )}
+                    <MessageAction
+                      className="mr-1"
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          message.parts.map((part: any) => part?.text || "").join('\n')
+                        )
+                        toast({
+                          title: "Copied message",
+                          description: "The message was copied to your clipboard.",
+                        })
+                      }}
+                      label="Copy"
+                    >
+                      <CopyIcon className="size-3" />
+                    </MessageAction>
+                    {messageMetadata?.totalTokens && (
+                      <small className="text-muted-foreground">
+                        {Intl.NumberFormat('en-US').format(messageMetadata?.totalTokens)} tokens
+                      </small>
+                    )}
+                  </MessageActions>
+                )
+              )}
+            </MessageContent>
+          </Message>
         )
       })}
     </>

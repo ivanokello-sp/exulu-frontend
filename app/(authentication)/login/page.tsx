@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import * as React from "react";
 import Login from "@/app/(authentication)/login/login";
 import { serverSideAuthCheck } from "@/lib/server-side-auth-check";
 

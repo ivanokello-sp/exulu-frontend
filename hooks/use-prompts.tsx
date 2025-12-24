@@ -6,6 +6,7 @@ import {
   DELETE_PROMPT_FAVORITE,
   GET_PROMPT_BY_ID,
   GET_PROMPTS,
+  GET_UNIQUE_PROMPT_TAGS,
   GET_USER_PROMPT_FAVORITES,
   INCREMENT_PROMPT_FAVORITES,
   INCREMENT_PROMPT_USAGE,
@@ -77,7 +78,10 @@ export const useCreatePrompt = () => {
   return useMutation<{ prompt_libraryCreateOne: { item: PromptLibrary } }>(
     CREATE_PROMPT,
     {
-      refetchQueries: [{ query: GET_PROMPTS, variables: { page: 1, limit: 20 } }],
+      refetchQueries: [
+        { query: GET_PROMPTS, variables: { page: 1, limit: 20 } },
+        { query: GET_UNIQUE_PROMPT_TAGS }
+      ],
     }
   );
 };
@@ -177,4 +181,11 @@ export const useTogglePromptFavorite = () => {
   };
 
   return { toggleFavorite };
+};
+
+/**
+ * Hook to fetch all unique tags from accessible prompts
+ */
+export const useUniquePromptTags = () => {
+  return useQuery<{ getUniquePromptTags: string[] }>(GET_UNIQUE_PROMPT_TAGS);
 };

@@ -11,6 +11,7 @@ import { AgentDelete } from "@/app/(application)/agents/components/agent-delete"
 import {
   REMOVE_AGENT_BY_ID, UPDATE_AGENT_BY_ID, GET_AGENT_BY_ID, CREATE_AGENT_SESSION, GET_VARIABLES,
   GET_TOOLS, GET_TOOL_CATEGORIES,
+  COPY_AGENT_BY_ID,
 } from "@/queries/queries";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,7 +56,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Check, ChevronsUpDown, Wrench, Image, FileText, Volume2, Video, Info, AlertCircle, Settings, Text, Search, X, Plus } from "lucide-react";
+import { Check, ChevronsUpDown, Wrench, Image, FileText, Volume2, Video, Info, AlertCircle, Settings, Text, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RBACControl } from "@/components/rbac";
 import {
@@ -82,10 +83,11 @@ import UppyDashboard, { FileDataCard } from "@/components/uppy-dashboard";
 import AgentVisual from "@/components/lottie";
 import { ConfigContext } from "@/components/config-context";
 import { TextPreview } from "@/components/custom/text-preview";
-import { PromptCard } from "@/app/(application)/prompts/components/prompt-card";
 import { PromptEditorModal } from "@/app/(application)/prompts/components/prompt-editor-modal";
+import { PromptBrowserSheet } from "./components/prompt-browser-sheet";
 import { usePrompts } from "@/hooks/use-prompts";
 import { Response } from '@/components/ai-elements/response';
+import { PromptCard } from "@/app/(application)/prompts/components/prompt-card";
 
 const categories = [
   "marketing",
@@ -117,7 +119,9 @@ export const VariableSelectionElement = ({
   return (
     <div className="space-y-2">
       <div className="text-sm">
-        <div className="font-medium capitalize">{configItem.name}</div>
+        <div className="font-medium capitalize">
+          {configItem.name.replace(/_/g, " ")}
+        </div>
         <div className="text-muted-foreground text-xs capitalize">{configItem.description}</div>
       </div>
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen} modal={true}>
@@ -126,8 +130,7 @@ export const VariableSelectionElement = ({
             variant="outline"
             role="combobox"
             aria-expanded={popoverOpen}
-            className="w-full justify-between text-sm"
-          >
+            className="w-full justify-between text-sm">
             {selectedVariable ? selectedVariable.name : "Select variable..."}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -241,7 +244,7 @@ export default function AgentForm({
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
-  const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
+  const [isPromptBrowserOpen, setIsPromptBrowserOpen] = useState(false);
 
   // Debounce search term
   useEffect(() => {
@@ -383,6 +386,24 @@ export default function AgentForm({
     },
   );
 
+  const [copyAgent, copyAgentResult] = useMutation(
+    COPY_AGENT_BY_ID,
+    {
+      refetchQueries: [
+        GET_AGENT_BY_ID,
+        "GetAgentById"
+      ],
+      onCompleted: (data) => {
+        console.log("Agent copied successfully", data)
+        toast({ title: "Agent copied successfully" });
+        router.push(`/agents/edit/${data?.agentsCopyOneById?.item?.id}`, { scroll: false });
+      },
+      onError: (error) => {
+        toast({ title: "Failed to copy agent", variant: "destructive" });
+      },
+    },
+  );
+
   const [updateAgent, updateAgentResult] = useMutation(
     UPDATE_AGENT_BY_ID,
     {
@@ -476,6 +497,15 @@ export default function AgentForm({
             deleteAgent={deleteAgent}
             deleteAgentResult={deleteAgentResult}
           />
+          <Button
+            onClick={() => {
+              copyAgent({ variables: { id: agent.id } });
+            }}
+            disabled={copyAgentResult.loading}
+            variant={"secondary"}
+            type="button">
+            Copy Agent {copyAgentResult.loading && <Loading className="ml-2" />}
+          </Button>
         </div>
       </div>
       <Separator />
@@ -657,6 +687,33 @@ export default function AgentForm({
                                       );
                                     }}
                                   />
+                                  {
+                                    agent.systemInstructions && <FormField
+                                      control={agentForm.control}
+                                      name={`instructions`}
+                                      render={({ field }: any) => {
+                                        return (
+                                          <FormItem>
+                                            <FormLabel>System Instructions</FormLabel>
+                                            <FormDescription>
+                                              These are system instructions set by the developer and 
+                                              cannot be changed via the UI. They are 
+                                              included in every session with this agent.
+                                            </FormDescription>
+                                            <FormControl>
+                                              <Textarea
+                                                disabled
+                                                rows={5}
+                                                className="resize-none"
+                                                value={agent.systemInstructions ?? ""}
+                                              />
+                                            </FormControl>
+                                            <FormMessage />
+                                          </FormItem>
+                                        );
+                                      }}
+                                    />
+                                  }
                                   <FormField
                                     control={agentForm.control}
                                     name={`instructions`}
@@ -666,7 +723,11 @@ export default function AgentForm({
                                       }
                                       return (
                                         <FormItem>
-                                          <FormLabel>Instructions</FormLabel>
+                                          <FormLabel>Custom Instructions</FormLabel>
+                                          <FormDescription>
+                                            These are custom instructions you can set for this agent, they will be included
+                                            in every session with this agent.
+                                          </FormDescription>
                                           <FormControl>
                                             <Textarea
                                               rows={5}
@@ -712,7 +773,6 @@ export default function AgentForm({
                                               {variables.map((variable: any) => (
                                                 <CommandItem
                                                   key={variable.id}
-                                                  disabled={false}
                                                   onSelect={() => {
                                                     setProviderapikey(variable.name);
                                                   }}
@@ -773,6 +833,7 @@ export default function AgentForm({
                                                 <FileDataCard s3key={animation_idle}>
                                                   <UppyDashboard
                                                     id="agent-idle-animation"
+                                                    global={true}
                                                     allowedFileTypes={['.json']}
                                                     selectionLimit={1}
                                                     buttonText=""
@@ -807,6 +868,7 @@ export default function AgentForm({
                                                 <FileDataCard s3key={animation_responding}>
                                                   <UppyDashboard
                                                     id="agent-responding-animation"
+                                                    global={true}
                                                     allowedFileTypes={['.json']}
                                                     selectionLimit={1}
                                                     buttonText=""
@@ -953,10 +1015,10 @@ export default function AgentForm({
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => setIsPromptModalOpen(true)}
+                                        onClick={() => setIsPromptBrowserOpen(true)}
                                       >
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        New Prompt
+                                        <Settings className="h-4 w-4 mr-2" />
+                                        Manage
                                       </Button>
                                       <CollapsibleTrigger asChild>
                                         <Button variant="ghost" size="icon" className="size-8">
@@ -977,23 +1039,15 @@ export default function AgentForm({
                                     ) : agentPrompts.length === 0 ? (
                                       <div className="text-center py-6 border-2 border-dashed rounded-lg">
                                         <p className="text-sm text-muted-foreground mb-2">
-                                          No prompts assigned to this agent yet
+                                          No prompts assigned to this agent yet, click the "Manage" button to add some.
                                         </p>
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => setIsPromptModalOpen(true)}
-                                        >
-                                          <Plus className="h-4 w-4 mr-2" />
-                                          Create First Prompt
-                                        </Button>
                                       </div>
                                     ) : (
                                       <div className="grid gap-4">
                                         {agentPrompts.map((prompt: any) => (
                                           <PromptCard
                                             key={prompt.id}
+                                            minimal={true}
                                             prompt={prompt}
                                             user={user}
                                             onUpdate={refetchPrompts}
@@ -1004,6 +1058,8 @@ export default function AgentForm({
                                   </CardContent>
                                 </CollapsibleContent>
                               </Collapsible>
+
+
                             </Card>
 
                             {/* <FormField
@@ -1586,13 +1642,14 @@ export default function AgentForm({
         </div>
       </Tabs>
 
-      {/* Prompt Editor Modal */}
-      <PromptEditorModal
-        open={isPromptModalOpen}
-        onOpenChange={setIsPromptModalOpen}
-        onSuccess={refetchPrompts}
+      {/* Prompt Browser Sheet */}
+      <PromptBrowserSheet
+        open={isPromptBrowserOpen}
+        onOpenChange={setIsPromptBrowserOpen}
+        agentId={agent.id}
+        agentName={agent.name}
         user={user}
-        defaultAssignedAgents={[agent.id]}
+        onUpdate={refetchPrompts}
       />
     </div>
   );

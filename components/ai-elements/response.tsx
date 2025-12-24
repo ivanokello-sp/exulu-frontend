@@ -2,15 +2,23 @@
 
 import { cn } from '@/lib/utils';
 import type { ComponentProps, HTMLAttributes } from 'react';
-import { isValidElement, memo } from 'react';
+import { isValidElement, memo, useState, useEffect } from 'react';
 import ReactMarkdown, { type Options } from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import { CodeBlock, CodeBlockCopyButton } from './code-block';
 import 'katex/dist/katex.min.css';
 import hardenReactMarkdown from 'harden-react-markdown';
 import { BundledLanguage } from 'shiki';
+import { Badge } from '@/components/ui/badge';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { DocumentNode, useQuery } from '@apollo/client';
+import { GET_CHUNK_BY_ID } from '@/queries/queries';
+import { getPresignedUrl } from '../uppy-dashboard';
+import Link from 'next/link';
+import { LinkIcon } from 'lucide-react';
 
 /**
  * Parses markdown text and removes incomplete tokens to prevent partial rendering
@@ -174,7 +182,228 @@ export type ResponseProps = HTMLAttributes<HTMLDivElement> & {
   parseIncompleteMarkdown?: boolean;
 };
 
-const components: Options['components'] = {
+// Custom component to render citations as badges with hover dialog
+const CitationBadge = ({ itemName, chunkId, chunkIndex, context, itemId }: {
+  itemName: string;
+  itemId: string;
+  chunkId: string;
+  chunkIndex: string;
+  context: string;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!context || !chunkId) {
+    return null;
+  }
+
+  let query: DocumentNode | undefined = undefined;
+  try {
+    query = GET_CHUNK_BY_ID(context);
+  } catch (error) {
+    console.error('Error parsing citation:', error);
+    return null;
+  }
+
+  // Only fetch chunk data when hover card is opened
+  const { data, loading } = useQuery(query, {
+    variables: { id: chunkId },
+    skip: !isOpen || !context, // Skip query if not open or no context provided
+    onError: (error) => {
+      console.error('Error fetching chunk:', error);
+    }
+  });
+
+  const chunk: {
+    item_name: string;
+    chunk_index: number;
+    chunk_content: string;
+    chunk_id: string;
+    chunk_source: string;
+    chunk_metadata: Record<string, string>;
+    chunk_created_at: string;
+    chunk_updated_at: string;
+    item_id: string;
+    item_external_id: string;
+  } | undefined = data?.[`${context}_itemsChunkById`];
+
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [loadingPdf, setLoadingPdf] = useState(false);
+
+  useEffect(() => {
+    async function loadPdfUrl() {
+      if (chunk?.chunk_metadata?.pdf) {
+        setLoadingPdf(true);
+        try {
+          const url = await getPresignedUrl(chunk.chunk_metadata.pdf);
+          setPdfUrl(url);
+        } catch (error) {
+          console.error('Error loading PDF URL:', error);
+          setPdfUrl(null);
+        } finally {
+          setLoadingPdf(false);
+        }
+      } else {
+        setPdfUrl(null);
+        setLoadingPdf(false);
+      }
+    }
+    loadPdfUrl();
+  }, [chunk?.chunk_metadata?.pdf]);
+
+  const page = chunk?.chunk_metadata?.page ? parseInt(chunk.chunk_metadata.page) : 1;
+
+  let preview: React.ReactNode | undefined = undefined;
+  if (chunk?.chunk_metadata?.pdf) {
+    if (loadingPdf) {
+      preview = <div className="text-sm text-muted-foreground">Loading PDF preview...</div>;
+    } else if (pdfUrl) {
+      preview = (
+        <div className="space-y-2">
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary underline hover:text-primary/80"
+          >
+            Open the PDF here
+          </a>
+          <iframe src={`${pdfUrl}#page=${page}`} style={{ width: '100%', height: '100vh' }} title="PDF viewer" />
+        </div>
+      );
+    }
+  }
+
+  return (
+    <HoverCard openDelay={200} closeDelay={100} open={isOpen} onOpenChange={setIsOpen}>
+      <HoverCardTrigger asChild>
+        <Badge
+          variant="secondary"
+          className="mx-1 inline-flex cursor-pointer items-center gap-1 text-xs font-normal hover:bg-secondary/80"
+          title={`Source: ${itemName} (Chunk ${parseInt(chunkIndex) + 1})`}
+        >
+          <span className="max-w-[200px] truncate">{itemName}</span>
+          {chunkIndex && <span className="text-muted-foreground">#{parseInt(chunkIndex) + 1}</span>}
+        </Badge>
+      </HoverCardTrigger>
+      <HoverCardContent className="w-[900px] max-h-[800px] overflow-y-auto" side="top">
+        {loading && <div className="text-sm text-muted-foreground">Loading...</div>}
+        {chunk && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold">
+                {
+                  (itemId && context) ? <Link className="flex items-center gap-1" href={`/data/${context}/${itemId}`} target="_blank"><span className="max-w-[200px] truncate hover:underline cursor-pointer">{itemName}</span><LinkIcon className="size-4" /></Link> : <span className="max-w-[200px] truncate">{itemName}</span>
+                }
+              </h4>
+              <span className="text-xs text-muted-foreground">Chunk #{chunk.chunk_index + 1}</span>
+            </div>
+            <div className="text-sm">
+              {
+                preview ? preview : (
+                  <Response parseIncompleteMarkdown={false}>
+                    {chunk.chunk_content}
+                  </Response>
+                )
+              }
+            </div>
+            <div className="text-xs text-muted-foreground flex flex-col gap-1">
+              <span className="text-muted-foreground">Source: {chunk.item_name}</span>
+              <span className="text-muted-foreground">Chunk #{chunk.chunk_index + 1}</span>
+              <span className="text-muted-foreground">Item ID: {chunk.item_id}</span>
+              <span className="text-muted-foreground">Item External ID: {chunk.item_external_id}</span>
+              <span className="text-muted-foreground">Created at: {chunk.chunk_created_at ? new Date(chunk.chunk_created_at).toLocaleString() : 'N/A'}</span>
+              <span className="text-muted-foreground">Updated at: {chunk.chunk_updated_at ? new Date(chunk.chunk_updated_at).toLocaleString() : 'N/A'}</span>
+            </div>
+            {/* Metadata */}
+            <div className="text-xs text-muted-foreground">
+              {chunk.chunk_metadata && Object.entries(chunk.chunk_metadata).map(([key, value]) => (
+                <div key={key}>
+                  <span className="text-muted-foreground">{key}: {value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {!loading && !chunk && context && (
+          <div className="text-md text-muted-foreground">
+            <div className="font-semibold mb-2">Chunk {chunkId} not found in context {context}.</div>
+            {/* Show the data as a table */}
+            <table className="w-full border-collapse border border-border">
+              <thead>
+                <tr>
+                  <th className="px-4 py-2 text-left font-semibold text-sm">Key</th>
+                  <th className="px-4 py-2 text-left font-semibold text-sm">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="px-4 py-2 text-sm">Item name</td>
+                  <td className="px-4 py-2 text-sm">{itemName}</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2 text-sm">Chunk ID</td>
+                  <td className="px-4 py-2 text-sm">{chunkId}</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2 text-sm">Chunk index</td>
+                  <td className="px-4 py-2 text-sm">{chunkIndex}</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2 text-sm">Context</td>
+                  <td className="px-4 py-2 text-sm">{context}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+        {!context && (
+          <div className="text-sm text-muted-foreground">Context {context} not available.</div>
+        )}
+      </HoverCardContent>
+    </HoverCard>
+  );
+};
+
+const components = {
+  // Custom component to render citation markers as badges
+  'cite-marker': ({ node }: { node?: any }) => {
+    const dataCitation = node?.properties?.['dataCitation'] as string | undefined;
+
+    if (!dataCitation) {
+      return null;
+    }
+
+    try {
+      const citationContent = decodeURIComponent(dataCitation);
+      // Each cite-marker contains a single citation in format:
+      // item_name|item_id|chunk_id|chunk_index|context.
+      const citeParts = citationContent.split('|');
+
+      if (citeParts.length >= 5) {
+        // Extract just the filename from the path if it includes slashes
+        const itemName = citeParts[0].split('/').pop() || citeParts[0];
+        const itemId = citeParts[1];
+        const chunkId = citeParts[2];
+        const chunkIndex = citeParts[3];
+        const context = citeParts[4];
+
+        return (
+          <CitationBadge
+            context={context?.trim()}
+            itemName={itemName?.trim()}
+            itemId={itemId?.trim()}
+            chunkId={chunkId?.trim()}
+            chunkIndex={chunkIndex?.trim()}
+          />
+        );
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error parsing citation:', error);
+      return null;
+    }
+  },
   ol: ({ node, children, className, ...props }) => (
     <ol className={cn('ml-4 list-outside list-decimal', className)} {...props}>
       {children}
@@ -375,9 +604,9 @@ export const Response = memo(
         <HardenedMarkdown
           allowedImagePrefixes={allowedImagePrefixes ?? ['*']}
           allowedLinkPrefixes={allowedLinkPrefixes ?? ['*']}
-          components={components}
+          components={components as any}
           defaultOrigin={defaultOrigin}
-          rehypePlugins={[rehypeKatex]}
+          rehypePlugins={[rehypeRaw as any, rehypeKatex]}
           remarkPlugins={[remarkGfm, remarkMath]}
           {...options}
         >

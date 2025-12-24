@@ -15,7 +15,7 @@ export default function EvalsPage() {
   const config = useContext(ConfigContext);
   const columns = createColumns(user);
   const hasEvalsAccess = user.super_admin || user.role?.evals === "read" || user.role?.evals === "write";
-  
+
   if (!hasEvalsAccess) {
     return (
       <div className="flex h-full flex-1 flex-col space-y-8 p-8">

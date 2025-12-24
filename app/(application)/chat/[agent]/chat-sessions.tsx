@@ -3,10 +3,9 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { DotsHorizontalIcon } from "@radix-ui/react-icons";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
-import { MessageSquarePlus, Search } from "lucide-react";
+import { ArrowLeft, CirclePlus, SearchAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
-import * as React from "react";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useState } from "react";
 import { UserContext } from "@/app/(application)/authenticated";
 import { Agent } from "@EXULU_SHARED/models/agent";
 import { AgentSession } from "@EXULU_SHARED/models/agent-session";
@@ -35,23 +34,22 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
-import { useIsMobile } from "@/hooks/use-mobile";
 import Link from "next/link";
 import { checkChatSessionWriteAccess } from "@/lib/check-chat-session-write-access";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function ChatSessionsComponent({ agent, type }: { agent: string, type: string }) {
+export function ChatSessionsComponent({ agent, type }: { agent: Agent, type: string }) {
 
   const pathname = usePathname();
   const { toast } = useToast();
   const { user } = useContext(UserContext);
-  const isMobile = useIsMobile();
   const router = useRouter();
-  let [search, setSearch]: any = useState({ searchString: null });
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
   const [sessionDialogMode, setSessionDialogMode] = useState<"create" | "rename">("create");
   const [renameSessionId, setRenameSessionId] = useState<string | null>(null);
   const [sessionDialogName, setSessionDialogName] = useState("");
+  const [limit] = useState(20);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const sessionsQuery = useQuery(GET_AGENT_SESSIONS, {
     returnPartialData: true,
@@ -59,12 +57,15 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
     nextFetchPolicy: "network-only",
     variables: {
       page: 1,
-      limit: 40,
+      limit: limit,
       filters: {
         agent: {
-          eq: agent
+          eq: agent.id
         }
       }
+    },
+    onCompleted: () => {
+      setIsInitialLoad(false);
     },
   });
 
@@ -80,6 +81,12 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
 
   const [createAgentSession, createAgentSessionResult] = useMutation(
     CREATE_AGENT_SESSION,
+    {
+      refetchQueries: [
+        GET_AGENT_SESSIONS,
+        "GetAgentSessions",
+      ],
+    }
   );
 
   const [updateSessionTitle, updateSessionTitleResult] = useMutation(
@@ -92,26 +99,13 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
     },
   );
 
-  useEffect(() => {
-    let variables: any = {
-      page: 1,
-      limit: 40,
-    };
-    if (search && search?.length > 2) {
-      variables.filters = { agent: { eq: agent }, title: { contains: search } };
-    } else {
-      variables.filters = { agent: { eq: agent } };
-    }
-    sessionsQuery.refetch(variables);
-  }, [search]);
-
   const handleCreateSession = async () => {
     if (!sessionDialogName.trim()) return;
 
     const newSession = await createAgentSession({
       variables: {
         user: user.id,
-        agent: agent,
+        agent: agent.id,
         type: "FLOW",
         title: sessionDialogName.trim(),
         createdAt: new Date().toISOString(),
@@ -148,7 +142,7 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
     setSessionDialogName("");
     sessionsQuery.refetch();
     router.push(
-      `/chat/${agent}/${newSession.data?.agent_sessionsCreateOne?.item?.id}`,
+      `/chat/${agent.id}/${newSession.data?.agent_sessionsCreateOne?.item?.id}`,
     );
   }
 
@@ -190,30 +184,43 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
     }
   }
 
+  const items = sessionsQuery?.data?.agent_sessionsPagination?.items || sessionsQuery?.previousData?.agent_sessionsPagination?.items || [];
+  const pageInfo = sessionsQuery?.data?.agent_sessionsPagination?.pageInfo || {}
   return (
     <div
-      key={agent + type}
-      className="relative hidden flex-col items-start md:flex border-r"
+      key={agent.id + type}
+      className="relative hidden flex-col items-start md:flex border-r h-full overflow-y-auto w-[250px] flex-shrink-0"
       x-chunk="dashboard-03-chunk-0">
-      <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">Sessions</h2>
+
+      <div className="flex items-center gap-2 px-2 pt-2 w-full">
+        <Button variant="link" size="sm" asChild>
+          <Link href="/chat">
+            <ArrowLeft className="size-4" />
+            <span className="ml-2">Back to agent selection</span>
+          </Link>
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-2 pl-4 pr-2 py-2">
+        <h2 className="text-lg font-light tracking-tight">{agent.name}:</h2>
+      </div>
 
       <div className={`w-full px-2 flex flex-col items-start gap-0 rounded-none border-none text-left text-sm mb-2`}>
         <div
           key="new-session"
           onClick={() => {
-            setSessionDialogMode("create");
-            setSessionDialogName("");
-            setSessionDialogOpen(true);
+            router.push(`/chat/${agent.id}/new`);
+            router.refresh();
           }}
           className={cn(
-            `bg-muted cursor-pointer group p-2 w-full flex flex-col items-start gap-2 rounded-md py-2 pl-0 pr-2 text-left text-sm transition-all hover:bg-accent`
+            `cursor-pointer group p-2 w-full flex flex-col items-start gap-2 rounded-md py-2 pl-0 pr-2 text-left text-sm transition-all hover:bg-accent`
           )}
         >
           <div className="flex w-full flex-col px-2">
             <div className="flex items-center justify-between w-full gap-2">
               <div className="flex flex-col min-w-0 flex-1">
                 <div className="text-md font-medium truncate flex items-center gap-2">
-                  <MessageSquarePlus className="size-4" />
+                  <CirclePlus className="size-4 text-primary transition-transform group-hover:scale-110 group-hover:text-primary-foreground" />
                   <p className="text-sm font-medium">New session</p>
                 </div>
               </div>
@@ -222,48 +229,60 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
         </div>
       </div>
 
-
-      <div className="bg-background/95 w-full px-2 backdrop-blur supports-[backdrop-filter]:bg-background/60 mb-2">
-        <form>
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
-            <Input
-              onKeyUp={(e) => {
-                const searchString = e.currentTarget.value;
-                setSearch(searchString);
-              }}
-              placeholder="Search sessions"
-              className="pl-8 border-0"
-            />
+      <div className={`w-full px-2 flex flex-col items-start gap-0 rounded-none border-none text-left text-sm mb-2`}>
+        <div
+          key="new-session"
+          onClick={() => {
+            router.push(`/chat/${agent.id}/search`);
+          }}
+          className={cn(
+            `cursor-pointer group p-2 w-full flex flex-col items-start gap-2 rounded-md py-2 pl-0 pr-2 text-left text-sm transition-all hover:bg-accent`
+          )}
+        >
+          <div className="flex w-full flex-col px-2">
+            <div className="flex items-center justify-between w-full gap-2">
+              <div className="flex flex-col min-w-0 flex-1">
+                <div className="text-md font-medium truncate flex items-center gap-2">
+                  <SearchAlert className="size-4 transition-transform group-hover:scale-110 group-hover:text-primary-foreground" />
+                  <p className="text-sm font-medium">Search chats</p>
+                </div>
+              </div>
+            </div>
           </div>
-        </form>
+        </div>
       </div>
 
-      {sessionsQuery.loading && (
+      <div className="w-full px-4 mb-2 mt-5">
+        <small className="text-muted-foreground text-sm font-light">Recents</small>
+      </div>
+
+      {isInitialLoad && sessionsQuery.loading && (
         <div className="w-full flex flex-col p-2 pt-0 pb-2">
-          <Skeleton className="w-full rounded h-[30px] rounded-md" />
-          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
-          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
-          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
-          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
-          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
-          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
-          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
-          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
-          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
-          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
-          <Skeleton className="w-full rounded h-[30px] rounded-md mt-3" />
+          <Skeleton className="w-full rounded h-[40px] rounded-md" />
+          <Skeleton className="w-full rounded h-[40px] rounded-md mt-4" />
+          <Skeleton className="w-full rounded h-[40px] rounded-md mt-4" />
+          <Skeleton className="w-full rounded h-[40px] rounded-md mt-4" />
+          <Skeleton className="w-full rounded h-[40px] rounded-md mt-4" />
+          <Skeleton className="w-full rounded h-[40px] rounded-md mt-4" />
+          <Skeleton className="w-full rounded h-[40px] rounded-md mt-4" />
+          <Skeleton className="w-full rounded h-[40px] rounded-md mt-4" />
+          <Skeleton className="w-full rounded h-[40px] rounded-md mt-4" />
+          <Skeleton className="w-full rounded h-[40px] rounded-md mt-4" />
+          <Skeleton className="w-full rounded h-[40px] rounded-md mt-4" />
+          <Skeleton className="w-full rounded h-[40px] rounded-md mt-4" />
         </div>
       )}
 
-      {!sessionsQuery.loading && !sessionsQuery?.data?.agent_sessionsPagination?.items?.length && (
+      {!isInitialLoad && !items?.length && (
         <div className="w-full flex">
-          <p className="mx-auto mt-5">No sessions found.</p>
+          <small className="mx-auto mt-5 text-muted-foreground">No sessions found.</small>
         </div>
       )}
 
-      {!sessionsQuery.loading
-        ? sessionsQuery?.data?.agent_sessionsPagination?.items?.map(
+
+
+      {!isInitialLoad
+        ? items?.map(
           (
             item: Omit<AgentSession, "agent"> & {
               agent: Agent;
@@ -276,10 +295,10 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
             }, user);
 
             return (
-              <div key={item.id} className={`w-full px-2 flex flex-col items-start gap-0 rounded-none border-none text-left text-sm mb-2`}>
+              <div key={item.id} className={`w-full px-2 flex flex-col items-start gap-0 rounded-none border-none text-left text-sm`}>
                 <Link
                   key={item.id}
-                  href={`/chat/${agent}/${item.id}`}
+                  href={`/chat/${agent.id}/${item.id}`}
                   className={cn(
                     `group p-2 w-full flex flex-col items-start gap-2 rounded-md py-2 pl-0 pr-2 text-left text-sm transition-all hover:bg-accent`,
                     pathname.includes(item.id) && "bg-muted",
@@ -365,6 +384,22 @@ export function ChatSessionsComponent({ agent, type }: { agent: string, type: st
           },
         )
         : null}
+
+      {!isInitialLoad &&
+        items?.length > 0 &&
+        items?.length < pageInfo?.itemCount && (
+          <div className="w-fullmb-2">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-muted-foreground"
+              onClick={() => {
+                router.push(`/chat/${agent.id}/search`);
+              }}
+            >
+              Show all chats
+            </Button>
+          </div>
+        )}
 
       <Dialog open={sessionDialogOpen} onOpenChange={setSessionDialogOpen}>
         <DialogContent>
