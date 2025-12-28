@@ -198,7 +198,7 @@ export default function EvalSetEditorPage() {
   const testCasesList = testCasesData?.test_casesPagination?.items || [];
 
   return (
-    <div className="flex h-full flex-1 flex-col space-y-8 p-8">
+    <div className="space-y-8 p-8 w-full">
       {/* Header with gradient accent */}
       <div className="relative">
         <div className="absolute inset-0 bg-primary/5 rounded-lg blur-xl" />
@@ -236,14 +236,14 @@ export default function EvalSetEditorPage() {
       {/* Basic Info */}
       <Card className="shadow-lg">
         <Collapsible>
-          <CardHeader className="border-b bg-accent/50">
+          <CardHeader className="border-b">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10">
                   <FileText className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <CardTitle>Basic Information</CardTitle>
+                  <CardTitle>Basic information</CardTitle>
                   <CardDescription>
                     Edit the name and description of this eval set.
                   </CardDescription>
@@ -285,17 +285,17 @@ export default function EvalSetEditorPage() {
         </Collapsible>
       </Card>
 
-      {/* Test Cases */}
+      {/* Test sases */}
       <Card className="shadow-lg">
         <Collapsible>
-          <CardHeader className="border-b bg-accent/50">
+          <CardHeader className="border-b">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10">
                   <ListBulletIcon className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <CardTitle>Test Cases</CardTitle>
+                  <CardTitle>Test cases</CardTitle>
                   <CardDescription>
                     Add up to 500 test cases to this eval set.{" "}
                     <Badge variant="secondary" className="ml-1">

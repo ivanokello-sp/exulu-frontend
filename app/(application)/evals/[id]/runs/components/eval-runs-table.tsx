@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, ChevronLeft, Clock, Zap, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { EvalRun } from "@/types/models/eval-run";
-import { GET_TEST_CASES, RUN_EVAL, GET_AGENTS_BY_IDS } from "@/queries/queries";
+import { GET_TEST_CASES, RUN_EVAL, GET_AGENTS_BY_IDS, DELETE_EVAL_RUN_BY_ID } from "@/queries/queries";
 import { JobResult } from "@/types/models/job-result";
 import { EvalSet } from "@/types/models/eval-set";
 import { useQuery, useMutation } from "@apollo/client";
@@ -33,6 +33,9 @@ import { formatDuration } from "@/lib/utils";
 import { Conversation, ConversationContent } from "@/components/ai-elements/conversation";
 import { MessageRenderer } from "@/components/message-renderer";
 import { type Agent } from "@/types/models/agent";
+import { TestCaseModal } from "../../../cases/components/test-case-modal";
+import { TestCase } from "@/types/models/test-case";
+import { Alert } from "@/components/ui/alert";
 
 interface EvalRunsTableProps {
   evalRuns: EvalRun[];
@@ -43,13 +46,16 @@ interface EvalRunsTableProps {
 
 export function EvalRunsTable({ evalRuns, evalSet, onRefetch }: EvalRunsTableProps) {
   const { toast } = useToast();
-  const [visibleRuns, setVisibleRuns] = useState(5);
+  const [visibleRuns, setVisibleRuns] = useState(3);
   const [selectedResult, setSelectedResult] = useState<JobResult | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalRun, setModalRun] = useState<EvalRun | null>(null);
   const [startConfirmOpen, setStartConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [runToDelete, setRunToDelete] = useState<EvalRun | null>(null);
   const [runToStart, setRunToStart] = useState<EvalRun | null>(null);
+  const [viewingTestCase, setViewingTestCase] = useState<TestCase | null>(null);
 
   console.log("[EXULU] Eval set", evalSet);
   const { data: testCasesData, loading: loadingTestCases } = useQuery(GET_TEST_CASES, {
@@ -90,6 +96,23 @@ export function EvalRunsTable({ evalRuns, evalSet, onRefetch }: EvalRunsTablePro
     },
   });
 
+  const [deleteEvalRun, { loading: deletingRun }] = useMutation(DELETE_EVAL_RUN_BY_ID, {
+    onCompleted: () => {
+      toast({
+        title: "Eval run deleted",
+        description: "The eval run has been successfully deleted.",
+      });
+      onRefetch();
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to delete eval run",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const sortedEvalRuns = [...evalRuns].sort((a, b) =>
     new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
@@ -123,6 +146,23 @@ export function EvalRunsTable({ evalRuns, evalSet, onRefetch }: EvalRunsTablePro
     setStartConfirmOpen(true);
   };
 
+  const handleDeleteRun = (run: EvalRun) => {
+    setRunToDelete(run);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteRun = () => {
+    if (runToDelete) {
+      deleteEvalRun({
+        variables: {
+          id: runToDelete.id,
+        },
+      });
+    }
+    setDeleteConfirmOpen(false);
+    setRunToDelete(null);
+  };
+
   const confirmStartRun = () => {
     if (runToStart) {
       runEval({
@@ -133,13 +173,6 @@ export function EvalRunsTable({ evalRuns, evalSet, onRefetch }: EvalRunsTablePro
     }
     setStartConfirmOpen(false);
     setRunToStart(null);
-  };
-
-  const handleStopRun = (run: EvalRun) => {
-    // TODO: Implement stop functionality
-    //   - Add a Graphql mutation "stopEval"
-    //   - The mutation finds all jobs with the eval_run_id and status delayed | waiting |  paused | stuck and deletes them
-    console.log("Stop run:", run);
   };
 
   if (loadingTestCases) {
@@ -161,82 +194,89 @@ export function EvalRunsTable({ evalRuns, evalSet, onRefetch }: EvalRunsTablePro
   }
 
   return (
-    <div className="w-full">
-      <ScrollArea className="w-full">
-        <div className="flex">
-          {/* Test Cases Column (Sticky) */}
-          <div className="sticky left-0 z-10 bg-background flex-shrink-0 min-w-[200px]">
-            {/* Header */}
-            <div className="p-3 border-r border-b text-left font-medium text-sm h-[120px] flex">
-              <span className="text-xs text-muted-foreground m-auto">Test Case \ Eval Run</span>
+    <div className="w-full overflow-hidden">
+      <div className={`flex grid-cols-${3 + (hasMoreRuns ? 1 : 0) + 1} overflow-x-auto`}>
+        {/* Test Cases Column (Sticky) */}
+        <div className="sticky left-0 z-10 bg-background flex-shrink-0 min-w-[200px] col-span-1">
+          {/* Header */}
+          <div className="p-3 border-r border-b text-left font-medium text-sm h-[120px] flex">
+            <span className="text-xs text-muted-foreground m-auto">Test Case \ Eval Run</span>
+          </div>
+          {/* Rows */}
+          <div key={"average_result"} className="p-3 border-b border-b-[5px] border-r h-[60px] flex items-center bg-muted">
+            <div>
+              <div className="font-bold text-sm max-w-[500px] truncate ml-3">Average Result</div>
             </div>
-
-            {/* Rows */}
-            {testCasesList.map((testCase: any) => (
-              <div key={testCase.id} className="p-3 border-b border-r h-[60px] flex items-center">
-                <div>
-                  <div className="font-medium text-sm">{testCase.name}</div>
-                  <div className="text-xs text-muted-foreground mt-1 line-clamp-1 truncate max-w-[100px]">
-                    {testCase.id}
-                  </div>
+          </div>
+          {testCasesList.map((testCase: any) => (
+            <div key={testCase.id} className="p-3 border-b border-r h-[60px] flex items-center">
+              <div className="cursor-pointer hover:underline" onClick={() => setViewingTestCase(testCase)}>
+                <div className="font-medium text-sm max-w-[500px] truncate">{testCase.name}</div>
+                <div className="text-xs text-muted-foreground mt-1 line-clamp-1 truncate max-w-[100px]">
+                  {testCase.id}
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
+        </div>
 
-          {/* Load More Button Column */}
-          {hasMoreRuns && (
-            <div className="flex-shrink-0 min-w-[60px]">
-              <div className="text-center border-b border-r p-2 min-h-[48px] flex items-center justify-center">
+        {/* Load More Button Column */}
+        {hasMoreRuns && (
+          <div className="flex-shrink-0 min-w-[60px] col-span-1">
+            <div className="px-2 py-1.5 text-center font-medium text-sm border-r border-b bg-muted/30 h-[120px]">
+              <div className="space-y-0.5 h-full flex my-auto mx-auto">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleLoadMore}
-                  className="h-8 w-8 p-0"
+                  className="h-8 w-8 p-0 my-auto mx-auto"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
               </div>
-              {testCasesList.map((testCase: any) => (
-                <div key={testCase.id} className="p-3 border-b border-r bg-muted/20 min-h-[72px]" />
-              ))}
             </div>
-          )}
 
-          {/* Eval Run Columns */}
-          {displayedRuns.map((run) => (
-            <div key={run.id} className="flex-1 min-w-[100px]">
-              {/* Column Header */}
-              <div className="px-2 py-1.5 text-center font-medium text-sm border-r bg-muted/30 h-[60px]">
-                <div className="space-y-0.5 mt-2">
-                  <div className="flex items-center justify-between gap-1">
-                    <div className="flex-1 text-xs font-semibold text-foreground truncate">
-                      {run.name}
-                    </div>
-                  </div>
-                  <div className="text-[10px] text-muted-foreground font-normal leading-tight">
-                    {format(new Date(run.createdAt), "MMM d, yyyy · HH:mm")}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground font-normal leading-tight truncate max-w-[100px] text-center m-auto">
-                    {agentsMap.get(run.agent_id)?.name || run.agent_id}
+            {/* Average Result Column */}
+            <div key={"average_result_has_more_placeholder"} className="p-3 border-r bg-muted/20 min-h-[60px] striped-background" />
+
+            {testCasesList.map((testCase: any) => (
+              <div key={testCase.id} className="p-3 border-r bg-muted/20 min-h-[60px] striped-background" />
+            ))}
+          </div>
+        )}
+
+        {/* Eval Run Columns */}
+        {displayedRuns.map((run) => (
+          <div key={run.id} className="flex-1 grow col-span-1">
+            {/* Column Header */}
+            <div className="px-2 py-1.5 text-center font-medium text-sm border-r bg-muted/30 h-[60px]">
+              <div className="space-y-0.5 mt-2">
+                <div className="flex items-center justify-between gap-1">
+                  <div className="flex-1 text-xs font-semibold text-foreground truncate">
+                    {run.name}
                   </div>
                 </div>
+                <div className="text-[10px] text-muted-foreground font-normal leading-tight">
+                  {format(new Date(run.createdAt), "MMM d, yyyy · HH:mm")}
+                </div>
+                <div className="text-[10px] text-muted-foreground font-normal leading-tight truncate max-w-[100px] text-center m-auto">
+                  {agentsMap.get(run.agent_id)?.name || run.agent_id}
+                </div>
               </div>
-              {/* Column Data */}
-              <EvalRunColumn
-                evalRun={run}
-                testCases={testCasesList}
-                onCellClick={handleCellClick}
-                handleEditRun={handleEditRun}
-                handleCopyRun={handleCopyRun}
-                handleStartRun={handleStartRun}
-                handleStopRun={handleStopRun}
-              />
             </div>
-          ))}
-        </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+            {/* Column Data */}
+            <EvalRunColumn
+              evalRun={run}
+              testCases={testCasesList}
+              onCellClick={handleCellClick}
+              handleEditRun={handleEditRun}
+              handleCopyRun={handleCopyRun}
+              handleStartRun={handleStartRun}
+              handleDeleteRun={handleDeleteRun}
+            />
+          </div>
+        ))}
+      </div>
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <SheetContent className="sm:max-w-2xl overflow-y-auto">
@@ -463,6 +503,42 @@ export function EvalRunsTable({ evalRuns, evalSet, onRefetch }: EvalRunsTablePro
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Eval Run?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the eval run "{runToDelete?.name}"
+              and all associated results.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {/* Highlight that this will not remove or pause any already scheduled jobs */}
+          <Alert className="mt-4">
+             This will not remove or pause any already scheduled jobs. If you have job queues
+             enabled check the queue below.
+          </Alert>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRunToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteRun} disabled={deletingRun}>
+              {deletingRun && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete Run
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <TestCaseModal
+        open={!!viewingTestCase}
+        onClose={() => setViewingTestCase(null)}
+        evalSetId={evalSet.id}
+        onSuccess={() => {
+          setViewingTestCase(null);
+          // Refetch to get the new test case in the list
+        }}
+        testCase={viewingTestCase}
+      />
     </div>
   );
 }

@@ -90,7 +90,7 @@ export default function EvalRuns({ id }: { id: string }) {
   const evalRuns: EvalRun[] = runsData?.eval_runsPagination?.items || [];
 
   return (
-    <div className="flex h-full flex-1 flex-col pb-8">
+    <div className="flex h-full flex-1 flex-col pb-8 w-full">
 
       {/* Workers Warning */}
       {(!config?.workers?.enabled || !config?.workers?.redisHost) && (
@@ -104,10 +104,10 @@ export default function EvalRuns({ id }: { id: string }) {
       )}
 
       {/* Main Content */}
-      <div className="space-y-6">
+      <div className="space-y-6 w-full">
         {/* Eval Runs Matrix */}
-        <Card>
-          <CardHeader className="border-b bg-accent/50">
+        <Card className="w-full">
+          <CardHeader className="border-b">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10">
@@ -130,7 +130,7 @@ export default function EvalRuns({ id }: { id: string }) {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 w-full">
             {loadingRuns ? (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -142,12 +142,14 @@ export default function EvalRuns({ id }: { id: string }) {
                 No eval runs yet. {canWrite && config?.workers?.enabled && config?.workers?.redisHost && "Click 'New Eval Run' to create one."}
               </div>
             ) : (
-              <EvalRunsTable
-                evalRuns={evalRuns}
-                evalSet={evalSet}
-                canWrite={canWrite}
-                onRefetch={refetchRuns}
-              />
+              <div className="h-full w-full">
+                <EvalRunsTable
+                  evalRuns={evalRuns}
+                  evalSet={evalSet}
+                  canWrite={canWrite}
+                  onRefetch={refetchRuns}
+                />
+              </div>
             )}
           </CardContent>
         </Card>
@@ -156,7 +158,7 @@ export default function EvalRuns({ id }: { id: string }) {
         {config?.workers?.enabled && config?.workers?.redisHost && evalRuns.length > 0 && (
           <Card className="shadow-lg">
             <Collapsible>
-              <CardHeader className="border-b bg-accent/50">
+              <CardHeader className="border-b">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-primary/10">
@@ -187,6 +189,11 @@ export default function EvalRuns({ id }: { id: string }) {
                   }}
                   retryJob={(job: QueueJob) => {
                     if (!job.data?.test_case_id || !job.data?.eval_run_id) {
+                      toast({
+                        title: "Error retrying job",
+                        description: "Job data is missing.",
+                        variant: "destructive",
+                      });
                       return;
                     }
                     runEval({

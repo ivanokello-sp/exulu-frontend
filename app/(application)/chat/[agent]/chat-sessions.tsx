@@ -5,7 +5,7 @@ import { DotsHorizontalIcon } from "@radix-ui/react-icons";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { ArrowLeft, CirclePlus, SearchAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { UserContext } from "@/app/(application)/authenticated";
 import { Agent } from "@EXULU_SHARED/models/agent";
 import { AgentSession } from "@EXULU_SHARED/models/agent-session";
@@ -37,6 +37,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { checkChatSessionWriteAccess } from "@/lib/check-chat-session-write-access";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Loading } from "@/components/ui/loading";
 
 export function ChatSessionsComponent({ agent, type }: { agent: Agent, type: string }) {
 
@@ -50,6 +51,12 @@ export function ChatSessionsComponent({ agent, type }: { agent: Agent, type: str
   const [sessionDialogName, setSessionDialogName] = useState("");
   const [limit] = useState(20);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isNavigatingToNew, setIsNavigatingToNew] = useState(false);
+
+  // Reset loading state when pathname changes
+  useEffect(() => {
+    setIsNavigatingToNew(false);
+  }, [pathname]);
 
   const sessionsQuery = useQuery(GET_AGENT_SESSIONS, {
     returnPartialData: true,
@@ -206,27 +213,38 @@ export function ChatSessionsComponent({ agent, type }: { agent: Agent, type: str
       </div>
 
       <div className={`w-full px-2 flex flex-col items-start gap-0 rounded-none border-none text-left text-sm mb-2`}>
-        <div
+        <Link
           key="new-session"
+          href={`/chat/${agent.id}/new`}
           onClick={() => {
-            router.push(`/chat/${agent.id}/new`);
-            router.refresh();
+            // Only set loading state if we're navigating away from current page
+            if (!pathname.includes('/new')) {
+              setIsNavigatingToNew(true);
+            }
           }}
           className={cn(
-            `cursor-pointer group p-2 w-full flex flex-col items-start gap-2 rounded-md py-2 pl-0 pr-2 text-left text-sm transition-all hover:bg-accent`
+            `group p-2 w-full flex flex-col items-start gap-2 rounded-md py-2 pl-0 pr-2 text-left text-sm transition-all hover:bg-accent`,
+            pathname.includes('/new') && "bg-muted",
+            isNavigatingToNew && "opacity-50 pointer-events-none"
           )}
         >
           <div className="flex w-full flex-col px-2">
             <div className="flex items-center justify-between w-full gap-2">
               <div className="flex flex-col min-w-0 flex-1">
                 <div className="text-md font-medium truncate flex items-center gap-2">
-                  <CirclePlus className="size-4 text-primary transition-transform group-hover:scale-110 group-hover:text-primary-foreground" />
-                  <p className="text-sm font-medium">New session</p>
+                  {isNavigatingToNew ? (
+                    <Loading className="size-4" />
+                  ) : (
+                    <CirclePlus className="size-4 text-primary transition-transform group-hover:scale-110 group-hover:text-primary-foreground" />
+                  )}
+                  <p className="text-sm font-medium">
+                    {isNavigatingToNew ? "Loading..." : "New session"}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </Link>
       </div>
 
       <div className={`w-full px-2 flex flex-col items-start gap-0 rounded-none border-none text-left text-sm mb-2`}>

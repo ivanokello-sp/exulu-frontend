@@ -262,7 +262,7 @@ export function DataList({
                 <div className="relative flex gap-2 flex-1">
                     <Button
                         variant={"outline"}
-                        size="icon"
+                        size="default"
                         onClick={() => setShowAdvancedSearch(true)}
                         className="whitespace-nowrap w-full"
                     >
@@ -286,7 +286,7 @@ export function DataList({
                     className="lg:flex"
                     size="default"
                 >
-                    {createItemMutationResult.loading ? <Loading /> : "Add new item"}
+                    {createItemMutationResult.loading ? <Loading /> : "Add new"}
                 </Button>
             </div>
             {table.getIsSomeRowsSelected() || table.getIsAllRowsSelected() ? (

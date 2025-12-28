@@ -907,17 +907,8 @@ export default function AgentForm({
                                       className="mt-0"
                                       onClick={async () => {
                                         console.log("agent", agent)
-                                        const result = await createAgentSession({
-                                          variables: {
-                                            title: "New session",
-                                            user: user.id,
-                                            agent: agent.id,
-                                          }
-                                        })
-                                        console.log("result", result)
-                                        const sessionId = result?.data?.agent_sessionsCreateOne?.item?.id
                                         router.push(
-                                          `/chat/${agent.id}/${sessionId}`,
+                                          `/chat/${agent.id}/new`,
                                         );
                                       }}
                                       type={"button"}

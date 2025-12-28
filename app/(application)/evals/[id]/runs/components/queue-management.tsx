@@ -406,6 +406,7 @@ export function QueueManagement({ queueName, nameGenerator, retryJob }: QueueMan
                       </TabsTrigger>
                     </TabsList>
                   </Tabs>
+                  <span className="text-xs text-muted-foreground">* Only last 5.000 succesfull and failed jobs are kept.</span>
                 </div>
               </div>
             </div>

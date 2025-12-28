@@ -13,7 +13,7 @@ import 'katex/dist/katex.min.css';
 import hardenReactMarkdown from 'harden-react-markdown';
 import { BundledLanguage } from 'shiki';
 import { Badge } from '@/components/ui/badge';
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DocumentNode, useQuery } from '@apollo/client';
 import { GET_CHUNK_BY_ID } from '@/queries/queries';
 import { getPresignedUrl } from '../uppy-dashboard';
@@ -251,21 +251,21 @@ const CitationBadge = ({ itemName, chunkId, chunkIndex, context, itemId }: {
   }, [chunk?.chunk_metadata?.pdf]);
 
   const page = chunk?.chunk_metadata?.page ? parseInt(chunk.chunk_metadata.page) : 1;
-
+  const contextLabel = context.replaceAll('_', ' ');
   let preview: React.ReactNode | undefined = undefined;
   if (chunk?.chunk_metadata?.pdf) {
     if (loadingPdf) {
       preview = <div className="text-sm text-muted-foreground">Loading PDF preview...</div>;
     } else if (pdfUrl) {
       preview = (
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-[500px] overflow-y-auto">
           <a
             href={pdfUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-primary underline hover:text-primary/80"
           >
-            Open the PDF here
+            Open the original PDF here.
           </a>
           <iframe src={`${pdfUrl}#page=${page}`} style={{ width: '100%', height: '100vh' }} title="PDF viewer" />
         </div>
@@ -274,56 +274,82 @@ const CitationBadge = ({ itemName, chunkId, chunkIndex, context, itemId }: {
   }
 
   return (
-    <HoverCard openDelay={200} closeDelay={100} open={isOpen} onOpenChange={setIsOpen}>
-      <HoverCardTrigger asChild>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
         <Badge
           variant="secondary"
-          className="mx-1 inline-flex cursor-pointer items-center gap-1 text-xs font-normal hover:bg-secondary/80"
+          className="mx-1 inline-flex cursor-pointer items-center gap-1 text-xs font-normal hover:bg-secondary/80 m-1"
           title={`Source: ${itemName} (Chunk ${parseInt(chunkIndex) + 1})`}
         >
-          <span className="max-w-[200px] truncate">{itemName}</span>
+          <span className="max-w-[200px] truncate capitalize">{contextLabel} - {itemName}</span>
           {chunkIndex && <span className="text-muted-foreground">#{parseInt(chunkIndex) + 1}</span>}
         </Badge>
-      </HoverCardTrigger>
-      <HoverCardContent className="w-[900px] max-h-[800px] overflow-y-auto" side="top">
+      </DialogTrigger>
+      <DialogContent className="max-w-[900px] max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {(itemId && context) ? (
+                <Link className="flex items-center gap-1" href={`/data/${context}/${itemId}`} target="_blank">
+                  <span className="max-w-[400px] truncate hover:underline cursor-pointer">{itemName}</span>
+                  <LinkIcon className="size-4" />
+                </Link>
+              ) : (
+                <span className="max-w-[400px] truncate">{itemName}</span>
+              )}
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+
         {loading && <div className="text-sm text-muted-foreground">Loading...</div>}
+
         {chunk && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold">
-                {
-                  (itemId && context) ? <Link className="flex items-center gap-1" href={`/data/${context}/${itemId}`} target="_blank"><span className="max-w-[200px] truncate hover:underline cursor-pointer">{itemName}</span><LinkIcon className="size-4" /></Link> : <span className="max-w-[200px] truncate">{itemName}</span>
-                }
-              </h4>
-              <span className="text-xs text-muted-foreground">Chunk #{chunk.chunk_index + 1}</span>
-            </div>
+          <div className="space-y-4">
             <div className="text-sm">
-              {
-                preview ? preview : (
-                  <Response parseIncompleteMarkdown={false}>
-                    {chunk.chunk_content}
-                  </Response>
-                )
-              }
+              {preview ? preview : (
+                <Response parseIncompleteMarkdown={false}>
+                  {chunk.chunk_content}
+                </Response>
+              )}
             </div>
-            <div className="text-xs text-muted-foreground flex flex-col gap-1">
-              <span className="text-muted-foreground">Source: {chunk.item_name}</span>
-              <span className="text-muted-foreground">Chunk #{chunk.chunk_index + 1}</span>
-              <span className="text-muted-foreground">Item ID: {chunk.item_id}</span>
-              <span className="text-muted-foreground">Item External ID: {chunk.item_external_id}</span>
-              <span className="text-muted-foreground">Created at: {chunk.chunk_created_at ? new Date(chunk.chunk_created_at).toLocaleString() : 'N/A'}</span>
-              <span className="text-muted-foreground">Updated at: {chunk.chunk_updated_at ? new Date(chunk.chunk_updated_at).toLocaleString() : 'N/A'}</span>
-            </div>
-            {/* Metadata */}
-            <div className="text-xs text-muted-foreground">
-              {chunk.chunk_metadata && Object.entries(chunk.chunk_metadata).map(([key, value]) => (
-                <div key={key}>
-                  <span className="text-muted-foreground">{key}: {value}</span>
-                </div>
-              ))}
-            </div>
+
+            <table className="w-full border-collapse border border-border text-xs text-muted-foreground mt-4">
+              <thead>
+                <tr>
+                  <th className="px-4 py-2 text-left font-semibold border-b border-border bg-muted/50">Field</th>
+                  <th className="px-4 py-2 text-left font-semibold border-b border-border bg-muted/50">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border">
+                  <td className="px-4 py-2">Source</td>
+                  <td className="px-4 py-2">{chunk.item_name}</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="px-4 py-2">Chunk #</td>
+                  <td className="px-4 py-2">{chunk.chunk_index + 1}</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="px-4 py-2">Item ID</td>
+                  <td className="px-4 py-2">{chunk.item_id}</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="px-4 py-2">Item External ID</td>
+                  <td className="px-4 py-2">{chunk.item_external_id}</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="px-4 py-2">Created at</td>
+                  <td className="px-4 py-2">{chunk.chunk_created_at ? new Date(chunk.chunk_created_at).toLocaleString() : 'N/A'}</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="px-4 py-2">Updated at</td>
+                  <td className="px-4 py-2">{chunk.chunk_updated_at ? new Date(chunk.chunk_updated_at).toLocaleString() : 'N/A'}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         )}
+
         {!loading && !chunk && context && (
           <div className="text-md text-muted-foreground">
             <div className="font-semibold mb-2">Chunk {chunkId} not found in context {context}.</div>
@@ -356,11 +382,12 @@ const CitationBadge = ({ itemName, chunkId, chunkIndex, context, itemId }: {
             </table>
           </div>
         )}
+
         {!context && (
           <div className="text-sm text-muted-foreground">Context {context} not available.</div>
         )}
-      </HoverCardContent>
-    </HoverCard>
+      </DialogContent>
+    </Dialog>
   );
 };
 

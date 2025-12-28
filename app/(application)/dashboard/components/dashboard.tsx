@@ -60,6 +60,9 @@ export default function DashboardComponent() {
 
             {/* Summary Cards - Enhanced with better spacing */}
             <div className="mb-8">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-2xl font-bold">Summary</h3>
+                </div>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                     <SummaryCard query={GET_AGENT_SESSIONS_STATISTICS} entity="agent_sessions" title="Agent Sessions" />
                     <SummaryCard query={GET_AGENT_RUN_STATISTICS} entity="tracking" title="Agent Calls" />
@@ -69,70 +72,26 @@ export default function DashboardComponent() {
                 </div>
             </div>
 
-            {/* Charts Grid - Improved layout and spacing */}
-            <div className="flex-1 grid gap-6 md:grid-cols-3">
-                <div className="rounded-lg border md:col-span-2 p-6 flex flex-col">
-                    <TimeSeriesChart
-                        dateRange={dateRange}
-                        selectedType={selectedType}
-                        onTypeChange={setSelectedType}
-                        onUnitChange={setUnit}
-                        unit={unit}
-                        unitOptions={[
-                            { value: 'tokens', label: 'Tokens' },
-                            { value: 'count', label: 'Count' }
-                        ]}
-                        dataTypes={[
-                            STATISTICS_TYPE_ENUM.CONTEXT_RETRIEVE,
-                            STATISTICS_TYPE_ENUM.SOURCE_UPDATE,
-                            STATISTICS_TYPE_ENUM.EMBEDDER_UPSERT,
-                            STATISTICS_TYPE_ENUM.EMBEDDER_GENERATE,
-                            STATISTICS_TYPE_ENUM.EMBEDDER_DELETE,
-                            STATISTICS_TYPE_ENUM.WORKFLOW_RUN,
-                            STATISTICS_TYPE_ENUM.CONTEXT_UPSERT,
-                            STATISTICS_TYPE_ENUM.TOOL_CALL,
-                            STATISTICS_TYPE_ENUM.AGENT_RUN
-                        ]}
-                    />
-                </div>
-                <div className="rounded-lg border p-6 flex flex-col">
-                    <DonutChart
-                        groupByOptions={[
-                            { value: 'label', label: 'Label' },
-                            { value: 'user', label: 'User' },
-                            { value: 'role', label: 'Role' }
-                        ]}
-                        dateRange={dateRange}
-                        selectedType={selectedType}
-                        groupBy={groupBy}
-                        unit={leaderboardView === "count" ? "count" : "tokens"}
-                        onGroupByChange={setGroupBy}
-                    />
-                </div>
-            </div>
-
             {/* Leaderboards Section */}
-            <div className="mt-8 mb-5">
+            <div className="mb-5">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-2xl font-bold">Leaderboards</h3>
                     <div className="flex items-center gap-2 bg-secondary-foreground/10 dark:bg-secondary-foreground/20 p-1 rounded-lg">
                         <button
                             onClick={() => setLeaderboardView("count")}
-                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                                leaderboardView === "count"
-                                    ? "bg-white dark:bg-primary shadow-sm text-secondary"
-                                    : "hover:text-primary dark:hover:text-primary"
-                            }`}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${leaderboardView === "count"
+                                ? "bg-white dark:bg-primary shadow-sm text-secondary"
+                                : "hover:text-primary dark:hover:text-primary"
+                                }`}
                         >
                             Count
                         </button>
                         <button
                             onClick={() => setLeaderboardView("tokens")}
-                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                                leaderboardView === "tokens"
-                                    ? "bg-white dark:bg-primary shadow-sm text-secondary"
-                                    : "hover:text-primary dark:hover:text-primary"
-                            }`}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${leaderboardView === "tokens"
+                                ? "bg-white dark:bg-primary shadow-sm text-secondary"
+                                : "hover:text-primary dark:hover:text-primary"
+                                }`}
                         >
                             Tokens
                         </button>
@@ -147,7 +106,7 @@ export default function DashboardComponent() {
                             from: dateRange?.from || subDays(new Date(), 14),
                             to: dateRange?.to || new Date()
                         }}
-                        icon={<Users className="h-5 w-5 text-blue-500" />}
+                        icon={<Users className="h-5 w-5" />}
                         valueLabel={leaderboardView === "count" ? "calls" : "tokens"}
                         maxEntries={10}
                         nameFilter={leaderboardView === "count" ? ["count"] : ["inputTokens", "outputTokens"]}
@@ -162,7 +121,7 @@ export default function DashboardComponent() {
                             from: dateRange?.from || subDays(new Date(), 14),
                             to: dateRange?.to || new Date()
                         }}
-                        icon={<Layers className="h-5 w-5 text-purple-500" />}
+                        icon={<Layers className="h-5 w-5" />}
                         valueLabel={leaderboardView === "count" ? "calls" : "tokens"}
                         maxEntries={10}
                         nameFilter={leaderboardView === "count" ? ["count"] : ["inputTokens", "outputTokens"]}
@@ -177,11 +136,59 @@ export default function DashboardComponent() {
                             from: dateRange?.from || subDays(new Date(), 14),
                             to: dateRange?.to || new Date()
                         }}
-                        icon={<Bot className="h-5 w-5 text-green-500" />}
+                        icon={<Bot className="h-5 w-5" />}
                         valueLabel={leaderboardView === "count" ? "calls" : "tokens"}
                         maxEntries={10}
                         nameFilter={leaderboardView === "count" ? ["count"] : ["inputTokens", "outputTokens"]}
                     />
+                </div>
+            </div>
+
+            {/* Charts Grid - Improved layout and spacing */}
+
+            <div className="mb-5">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-2xl font-bold">Time Series Analytics</h3>
+                </div>
+                <div className="flex-1 grid gap-6 md:grid-cols-3">
+                    <div className="rounded-lg border md:col-span-2 p-6 flex flex-col">
+                        <TimeSeriesChart
+                            dateRange={dateRange}
+                            selectedType={selectedType}
+                            onTypeChange={setSelectedType}
+                            onUnitChange={setUnit}
+                            unit={unit}
+                            unitOptions={[
+                                { value: 'tokens', label: 'Tokens' },
+                                { value: 'count', label: 'Count' }
+                            ]}
+                            dataTypes={[
+                                STATISTICS_TYPE_ENUM.CONTEXT_RETRIEVE,
+                                STATISTICS_TYPE_ENUM.SOURCE_UPDATE,
+                                STATISTICS_TYPE_ENUM.EMBEDDER_UPSERT,
+                                STATISTICS_TYPE_ENUM.EMBEDDER_GENERATE,
+                                STATISTICS_TYPE_ENUM.EMBEDDER_DELETE,
+                                STATISTICS_TYPE_ENUM.WORKFLOW_RUN,
+                                STATISTICS_TYPE_ENUM.CONTEXT_UPSERT,
+                                STATISTICS_TYPE_ENUM.TOOL_CALL,
+                                STATISTICS_TYPE_ENUM.AGENT_RUN
+                            ]}
+                        />
+                    </div>
+                    <div className="rounded-lg border p-6 flex flex-col">
+                        <DonutChart
+                            groupByOptions={[
+                                { value: 'label', label: 'Label' },
+                                { value: 'user', label: 'User' },
+                                { value: 'role', label: 'Role' }
+                            ]}
+                            dateRange={dateRange}
+                            selectedType={selectedType}
+                            groupBy={groupBy}
+                            unit={leaderboardView === "count" ? "count" : "tokens"}
+                            onGroupByChange={setGroupBy}
+                        />
+                    </div>
                 </div>
             </div>
         </div>

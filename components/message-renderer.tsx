@@ -6,7 +6,7 @@ import { Actions, Action } from '@/components/ai-elements/actions'
 import { Response } from '@/components/ai-elements/response'
 import { Reasoning, ReasoningTrigger, ReasoningContent } from "@/components/ai-elements/reasoning"
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai-elements/source"
-import { RefreshCcwIcon, CopyIcon, ChevronDown, ChevronRight, Search, FileText, Database } from "lucide-react"
+import { RefreshCcwIcon, CopyIcon, ChevronDown, ChevronRight, Search, FileText, Database, ListChecks, LayoutList } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
@@ -17,9 +17,12 @@ import { useRouter } from "next/navigation"
 import { KnowledgeSourceSearchResultChunk } from "@/types/models/knowledge-source-search-results"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Fragment } from 'react';
 import { MessageActions, MessageAction } from '@/components/ai-elements/message'
+import { Skeleton } from "./ui/skeleton"
+import { ShimmeringText } from "./ui/shadcn-io/shimmering-text"
+import { GradientText } from "./ui/shadcn-io/gradient-text"
 interface ItemWithChunks {
   id: string,
   external_id: string,
@@ -110,6 +113,28 @@ export function MessageRenderer({
 
   // Use filteredMessages in the rendering logic
   const messagesToRender = filteredMessages;
+
+  const streamingTexts = [
+    "Generating...",
+    "Thinking...",
+    "Researching...",
+    "Planning...",
+    "Writing...",
+    "Responding...",
+    "Finishing up...",
+    "Almost there...",
+    "Just a moment...",
+  ]
+
+  const [currentTextIndex, setCurrentTextIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTextIndex((prevIndex) => (prevIndex + 1) % streamingTexts.length);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [streamingTexts.length]);
 
 
   return (
@@ -313,7 +338,8 @@ export function MessageRenderer({
                   }
                   // Map the chunks to items
                   const itemsMap = new Map<string, ItemWithChunks>();
-                  const context = output.result[0]?.context?.name;
+                  const uniqueContexts = new Set(output.result.map(chunk => chunk.context?.name.replaceAll('_', ' ')));
+                  const contextNames = Array.from(uniqueContexts).join(', ');
                   for (const chunk of output.result) {
                     if (itemsMap.has(chunk.item_id)) {
                       itemsMap.get(chunk.item_id)?.chunks.push(chunk);
@@ -336,7 +362,7 @@ export function MessageRenderer({
                     <ContextSearchResults
                       key={`${message.id}-${i}`}
                       input={dynamicToolPart.input}
-                      context={context}
+                      contextNames={contextNames}
                       items={Array.from(itemsMap.values())}
                       totalChunks={output.result.length}
                     />
@@ -424,6 +450,18 @@ export function MessageRenderer({
                 </div>
               )}
 
+              {status !== "ready" && status !== "error" && isLastMessage && message.role === 'assistant' && (
+                <div className="pointer-events-none">
+                  <Skeleton className="w-[500px] rounded h-[35px] rounded-lg">
+                    <GradientText
+                      text={streamingTexts[currentTextIndex]}
+                      gradient="linear-gradient(90deg, #404040 0%, #a3a3a3 50%, #d4d4d4 100%)"
+                      className="my-auto w-full h-full flex"
+                    />
+                  </Skeleton>
+                </div>
+              )}
+
               {showActions && (
 
                 message.role === 'assistant' && (
@@ -470,12 +508,12 @@ export function MessageRenderer({
 }
 
 const ContextSearchResults = ({
-  context,
+  contextNames,
   input,
   items,
   totalChunks
 }: {
-  context: string;
+  contextNames: string;
   input: Record<string, any>;
   items: ItemWithChunks[];
   totalChunks: number;
@@ -497,22 +535,23 @@ const ContextSearchResults = ({
               </div>
               <div className="text-left">
                 <div className="font-medium text-sm flex items-center gap-2">
-                  Context Search Results for {context}
-                  <Badge variant="secondary" className="text-xs">
-                    {items.length} {items.length === 1 ? 'item' : 'items'}
-                  </Badge>
+                  Context search results for {contextNames}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
-                  <span className="flex items-center gap-1">
-                    <FileText className="h-3 w-3" />
-                    {totalChunks} chunks
-                  </span>
                   {uniqueContexts.size > 0 && (
                     <span className="flex items-center gap-1">
                       <Database className="h-3 w-3" />
                       {uniqueContexts.size} {uniqueContexts.size === 1 ? 'context' : 'contexts'}
                     </span>
                   )}
+                  <span className="flex items-center gap-1">
+                    <FileText className="h-3 w-3" />
+                    {items.length} {items.length === 1 ? 'item' : 'items'}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <LayoutList className="h-3 w-3" />
+                    {totalChunks} chunks
+                  </span>
                 </div>
               </div>
             </div>

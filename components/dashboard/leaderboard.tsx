@@ -36,7 +36,7 @@ export function Leaderboard({
   icon,
   subtitle,
   valueLabel = "calls",
-  emptyMessage = "No data available",
+  emptyMessage = "No data available.",
   maxEntries = 10,
   nameFilter,
   hydrationQuery,
@@ -114,10 +114,10 @@ export function Leaderboard({
           );
           if (hydratedItem) {
             // Use name, or fallback to firstname + lastname, or email
-            displayName = hydratedItem.name ||
+            displayName = hydratedItem.email ||
               (hydratedItem.firstname && hydratedItem.lastname
                 ? `${hydratedItem.firstname} ${hydratedItem.lastname}`
-                : hydratedItem.email) ||
+                : hydratedItem.name) ||
               item.group;
           }
         }
@@ -136,32 +136,6 @@ export function Leaderboard({
 
     return entries;
   }, [data, hydrationData, hydrationField, maxEntries]);
-
-  const getRankIcon = (rank: number) => {
-    switch (rank) {
-      case 1:
-        return <Trophy className="h-5 w-5 text-yellow-500" />;
-      case 2:
-        return <Medal className="h-5 w-5 text-gray-400" />;
-      case 3:
-        return <Award className="h-5 w-5 text-amber-700" />;
-      default:
-        return <span className="text-sm font-semibold text-muted-foreground">#{rank}</span>;
-    }
-  };
-
-  const getRankColor = (rank: number) => {
-    switch (rank) {
-      case 1:
-        return "bg-gradient-to-r from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border-yellow-200 dark:border-yellow-800";
-      case 2:
-        return "bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/20 dark:to-gray-700/20 border-gray-200 dark:border-gray-700";
-      case 3:
-        return "bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 border-amber-200 dark:border-amber-800";
-      default:
-        return "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700";
-    }
-  };
 
   if (loading || (hydrationQuery && hydrationLoading)) {
     return (
@@ -223,7 +197,7 @@ export function Leaderboard({
           return (
             <div
               key={entry.name}
-              className={`relative overflow-hidden rounded-lg border-2 p-3 transition-all duration-300 hover:shadow-md hover:scale-105 ${getRankColor(entry.rank)}`}
+              className={`relative overflow-hidden rounded-lg border p-3 transition-all duration-300 hover:shadow-lg`}
             >
               {/* Progress bar background */}
               <div
@@ -234,9 +208,6 @@ export function Leaderboard({
               {/* Content */}
               <div className="relative flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="flex-shrink-0">
-                    {getRankIcon(entry.rank)}
-                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm truncate" title={entry.name}>
                       {entry.name}

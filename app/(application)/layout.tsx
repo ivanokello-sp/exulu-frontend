@@ -78,8 +78,8 @@ export default async function RootLayout({
                         defaultTheme="system"
                         enableSystem
                         disableTransitionOnChange>
-                        <main className="grow flex">
-                            <div className="grow flex flex-col">
+                        <main className="grow flex min-w-0 w-full">
+                            <div className="grow flex flex-col min-w-0 w-full">
                                 <TanstackQueryClientProvider>
                                     <Authenticated sidebarDefaultOpen={defaultOpen} user={user}>
                                         {children}

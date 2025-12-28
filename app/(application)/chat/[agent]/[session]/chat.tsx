@@ -115,6 +115,19 @@ export function ChatLayout({
     currentSessionRef.current = currentSession;
   }, [currentSession]);
 
+  // Reset current session when the session prop changes (e.g., navigating to /new)
+  React.useEffect(() => {
+    setCurrentSession(session);
+    setWriteAccess(session ? checkChatSessionWriteAccess(session, user) : true);
+    if (session) {
+      setRbac({
+        rights_mode: session.rights_mode || 'private',
+        users: session.RBAC?.users || [],
+        roles: session.RBAC?.roles || [],
+      });
+    }
+  }, [session, user]);
+
   const searchParams = useSearchParams();
   const initialPromptId = searchParams.get("promptId");
 
@@ -449,9 +462,9 @@ export function ChatLayout({
   }, [fileItems])
 
   return (
-    <div className="flex h-full w-full">
+    <div className="grid h-full w-full grid-cols-[1fr_auto]">
       {/* Main conversation area */}
-      <div className="flex flex-col flex-1 relative h-[100vh] overflow-hidden">
+      <div className="col-span-1 grow flex flex-col flex-1 relative h-[100vh] overflow-hidden">
         {/* Animated gradient at top - moved outside Conversation to prevent scroll interference */}
         <div className={`absolute w-full top-0 z-10 pointer-events-none`}>
           {agent.maxContextLength && (
@@ -575,11 +588,6 @@ export function ChatLayout({
               />
             )}
           </ConversationContent>
-          {status === "streaming" && (
-            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 pointer-events-none">
-              <Loader />
-            </div>
-          )}
           <ConversationScrollButton />
         </Conversation>
         {
@@ -603,7 +611,7 @@ export function ChatLayout({
         {writeAccess && (
           <form
             onSubmit={onSubmit}
-            className="px-6 border-input border rounded flex mx-5 p-5 flex-col gap-2">
+            className="px-6 border-input border rounded flex mx-5 p-5 flex-col gap-2 mb-5">
             <div className="items-center flex relative gap-2 w-full">
               {
                 configContext?.fileUploads?.s3endpoint && (<UppyDashboard
@@ -886,7 +894,7 @@ const UntypedToolPart = ({ untypedToolPart, callId, addToContext }: { untypedToo
   styleToolName = styleToolName?.charAt(0).toUpperCase() + styleToolName?.slice(1)
 
   return <Tool key={callId} className="mt-3" defaultOpen={false}>
-    <ToolHeader className="capitalize" type={styleToolName as `tool-${string}`} state={untypedToolPart.state} />
+    <ToolHeader title={styleToolName} className="capitalize" type={styleToolName as `tool-${string}`} state={untypedToolPart.state} />
     <ToolContent>
       <ToolInput input={untypedToolPart.input} />
       <ToolOutput

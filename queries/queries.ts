@@ -934,6 +934,14 @@ export const GET_PROVIDERS = gql`
   }
 `;
 
+export const DELETE_EVAL_RUN_BY_ID = gql`
+  mutation DeleteEvalRunById($id: ID!) {
+    eval_runsRemoveOneById(id: $id) {
+      id
+    }
+  }
+`;
+
 export const REMOVE_USER_BY_ID = gql`
   mutation RemoveUserById($id: ID!) {
     usersRemoveOneById(id: $id) {
@@ -941,6 +949,7 @@ export const REMOVE_USER_BY_ID = gql`
     }
   }
 `;
+
 export const REMOVE_JOB_RESULT_BY_ID = gql`
   mutation RemoveJobResultById($id: ID!) {
     job_resultsRemoveOneById(id: $id) {
@@ -1935,8 +1944,8 @@ export const DRAIN_QUEUE = gql`
 `;
 
 export const RUN_EVAL = gql`
-  mutation RunEval($id: ID!) {
-    runEval(id: $id) {
+  mutation RunEval($id: ID!, $test_case_ids: [ID!]) {
+    runEval(id: $id, test_case_ids: $test_case_ids) {
       jobs
       count
     }

@@ -115,7 +115,7 @@ export function CodePreview({
                     </div>
                 </DialogHeader>
                 <div className="flex-1 overflow-hidden mt-4">
-                    <div className="h-full overflow-y-auto rounded-lg border border-border">
+                    <div className="h-full overflow-y-auto rounded-lg border border-border max-h-[500px]">
                         <SyntaxHighlighter
                             className={cn("!m-0 !bg-[#282a36]", className)}
                             showLineNumbers={true}

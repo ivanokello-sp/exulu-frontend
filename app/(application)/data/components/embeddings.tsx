@@ -6,7 +6,6 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RecentEmbeddings } from "@/components/custom/recent-embeddings";
 import { CREATE_EMBEDDER_CONFIG, DELETE_CHUNKS, GENERATE_CHUNKS, GET_CONTEXT_BY_ID, GET_EMBEDDER_CONFIGS, GET_VARIABLES, UPDATE_EMBEDDER_CONFIG } from "@/queries/queries";
@@ -25,7 +24,6 @@ import {
     Dialog,
     DialogContent,
     DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
@@ -45,17 +43,12 @@ import {
 import { Variable } from "@/types/models/variable";
 import { VariableSelectionElement } from "../../agents/edit/[id]/form";
 import {
-    ArrowLeft,
     ChevronDown,
-    Play,
 } from "lucide-react";
 import { QueueManagement } from "../../evals/[id]/runs/components/queue-management";
 import { QueueJob } from "@/types/models/job";
 import {
-    Tooltip,
-    TooltipContent,
     TooltipProvider,
-    TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ItemsFilter } from "./items-filter";
 
@@ -79,7 +72,6 @@ export function ContextEmbeddings(props: DataDisplayProps) {
         });
 
     const context = data?.contextById;
-    const router = useRouter();
 
     const [updateEmbedderConfigs, updateEmbedderConfigsResult] = useMutation<{
         embedder_settingsUpdateOneById: {
@@ -386,9 +378,24 @@ export function ContextEmbeddings(props: DataDisplayProps) {
                                                             return `Source update`;
                                                         }}
                                                         retryJob={(job: QueueJob) => {
-                                                            if (!job.data?.source || !job.data?.context) {
+                                                            if (!job.data?.item || !job.data?.context) {
+                                                                toast({
+                                                                    title: "Error retrying job",
+                                                                    description: "Job data is missing.",
+                                                                })
                                                                 return;
                                                             }
+
+                                                            generateChunksMutation({
+                                                                variables: {
+                                                                    where: [{
+                                                                        id: {
+                                                                            eq: job.data?.item,
+                                                                        }
+                                                                    }]
+                                                                }
+                                                            });
+
                                                             // todo trigger job
                                                         }}
                                                     />

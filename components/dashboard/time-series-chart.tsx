@@ -80,8 +80,7 @@ export function TimeSeriesChart({ dataTypes, dateRange, selectedType, onTypeChan
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-semibold">Time Series Analytics</h3>
+      <div className="flex items-center justify-end mb-4">
         <div className="flex items-center gap-2">
           <div className="w-[150px]">
             <Select value={selectedType} onValueChange={(value) => onTypeChange(value as STATISTICS_TYPE)}>

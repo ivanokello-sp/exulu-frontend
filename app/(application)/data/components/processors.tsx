@@ -340,6 +340,9 @@ export function ContextProcessors(props: DataDisplayProps) {
                                                             }}
                                                             retryJob={(job: QueueJob) => {
                                                                 if (!job.data?.item) {
+                                                                    toast.error("Error retrying job", {
+                                                                        description: "Job data is missing.",
+                                                                    })
                                                                     return;
                                                                 }
                                                                 processItemMutation({

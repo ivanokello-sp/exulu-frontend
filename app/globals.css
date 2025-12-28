@@ -6,6 +6,18 @@
   overflow: visible !important;
 }
 
+.striped-background {
+  background-image: repeating-linear-gradient(
+      45deg,
+      #626262 0,
+      #626262 1px,
+      transparent 0,
+      transparent 50%
+  );
+  background-size: 10px 10px;
+  background-attachment: fixed;
+}
+
 @layer base {
   :root {
     --background: 0 0% 99.2157%;
