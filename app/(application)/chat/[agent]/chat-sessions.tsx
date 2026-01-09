@@ -406,7 +406,7 @@ export function ChatSessionsComponent({ agent, type }: { agent: Agent, type: str
       {!isInitialLoad &&
         items?.length > 0 &&
         items?.length < pageInfo?.itemCount && (
-          <div className="w-fullmb-2">
+          <div className="w-full mb-2">
             <Button
               variant="ghost"
               className="w-full justify-start text-muted-foreground"

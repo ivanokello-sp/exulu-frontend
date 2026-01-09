@@ -28,11 +28,11 @@ import {
 import { getToken } from "@/util/api"
 import { Agent } from "@EXULU_SHARED/models/agent";
 import { ConfigContext } from "@/components/config-context";
-import { ArrowUp, ChevronsUpDown, FileText } from "lucide-react";
+import { ArrowUp, ChevronsUpDown, FileText, Plus, Workflow } from "lucide-react";
 import { SaveWorkflowModal } from "@/components/save-workflow-modal";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardDescription, CardTitle, CardContent, CardHeader } from "@/components/ui/card";
 import { Conversation, ConversationContent, ConversationScrollButton } from "@/components/ai-elements/conversation";
 import { RBACControl } from "@/components/rbac";
 import {
@@ -475,7 +475,7 @@ export function ChatLayout({
             <div
               className="absolute inset-0 animate-expand-from-center"
               style={{
-                background: 'radial-gradient(ellipse at center, hsl(var(--primary) / 1) 0%, hsl(var(--primary) / 0.5) 70%, transparent 90%)',
+                background: 'radial-gradient(ellipse at center, hsl(var(--primary) / 1) 100%, hsl(var(--primary) / 0.5) 100%, transparent 100%)',
                 filter: 'blur(10px)',
               }}
             />
@@ -483,13 +483,29 @@ export function ChatLayout({
             <div
               className="absolute inset-0 animate-expand-from-center"
               style={{
-                background: 'radial-gradient(ellipse at center, transparent 30%, hsl(var(--primary) / 0.4) 70%, hsl(var(--primary) / 0.2) 100%)',
+                background: 'radial-gradient(ellipse at center, transparent 100%, hsl(var(--primary) / 0.4) 100%, hsl(var(--primary) / 0.2) 100%)',
                 filter: 'blur(10px) hue-rotate(180deg)',
               }}
             />
           </div>
         </div>
         {/* Context/token counter - moved outside Conversation to prevent scroll interference */}
+        <div className="flex justify-between absolute top-0 left-0 right-0 items-center px-4 py-2 border-b z-10 dark:bg-black bg-white top-6">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Workflow className="w-4 h-4" />
+            Turn this conversation into a reusable workflow
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!canCreateWorkflow}
+            onClick={() => setShowSaveWorkflowModal(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Save as Workflow
+          </Button>
+        </div>
+
         {agent.maxContextLength ? (
           <TooltipProvider>
             <Tooltip>
@@ -542,31 +558,6 @@ export function ChatLayout({
                 </p>
 
                 <AgentVisual agent={agent} status={status} className="w-80" />
-
-                {/* Workflow Banner for new users */}
-                {/* <Card className="w-full mb-6">
-                      <CardHeader className="text-center">
-                        <CardTitle className="flex items-center justify-center gap-2">
-                          <Workflow className="w-5 h-5" />
-                          Create Reusable Workflows
-                        </CardTitle>
-                        <CardDescription>
-                          Turn your conversations into templates that can be reused with different inputs. Perfect for recurring tasks and processes.
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="text-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled
-                          className="text-muted-foreground"
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Save as Workflow
-                          <span className="ml-2 text-xs">(Available after chatting)</span>
-                        </Button>
-                      </CardContent>
-                    </Card> */}
               </div>
             </div> : null}
           {/* @ts-ignore */}
@@ -574,8 +565,9 @@ export function ChatLayout({
             {messages?.length > 0 && (
               <MessageRenderer
                 messages={messages}
+                showTokens={true}
                 config={{
-                  marginTopFirstMessage: 'mt-12'
+                  marginTopFirstMessage: 'mt-20'
                 }}
                 status={status}
                 onRegenerate={regenerate}
@@ -694,6 +686,7 @@ export function ChatLayout({
           isOpen={showSaveWorkflowModal}
           onClose={() => setShowSaveWorkflowModal(false)}
           messages={messages || []}
+          agentId={agent.id}
           sessionTitle={currentSession?.title || 'New Chat'}
         />
 

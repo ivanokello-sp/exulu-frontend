@@ -84,13 +84,13 @@ const buildNavigation = (user: User, role: UserRole) => {
     });
   }
 
-  /* if (user.super_admin || role.workflows === "write") {
+  if (user.super_admin || role.workflows === "write") {
     navigationItems.push({
       label: "Workflows",
       path: "workflows",
       icon: <Route />,
     });
-  } */
+  }
 
   if (user.super_admin || role.users === "write") {
     navigationItems.push({

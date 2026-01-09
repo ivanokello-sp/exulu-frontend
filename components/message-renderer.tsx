@@ -6,7 +6,7 @@ import { Actions, Action } from '@/components/ai-elements/actions'
 import { Response } from '@/components/ai-elements/response'
 import { Reasoning, ReasoningTrigger, ReasoningContent } from "@/components/ai-elements/reasoning"
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai-elements/source"
-import { RefreshCcwIcon, CopyIcon, ChevronDown, ChevronRight, Search, FileText, Database, ListChecks, LayoutList } from "lucide-react"
+import { RefreshCcwIcon, CopyIcon, ChevronDown, ChevronRight, Search, FileText, Database, ListChecks, LayoutList, EditIcon, Trash2Icon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
@@ -23,6 +23,9 @@ import { MessageActions, MessageAction } from '@/components/ai-elements/message'
 import { Skeleton } from "./ui/skeleton"
 import { ShimmeringText } from "./ui/shadcn-io/shimmering-text"
 import { GradientText } from "./ui/shadcn-io/gradient-text"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea";
+import { CheckIcon, XIcon } from "lucide-react"
 interface ItemWithChunks {
   id: string,
   external_id: string,
@@ -58,7 +61,11 @@ interface MessageRendererProps {
   status?: "streaming" | "idle" | "error" | "submitted" | "ready"
   className?: string
   showActions?: boolean
+  showEdit?: boolean
+  showRemove?: boolean
+  showTokens?: boolean
   onRegenerate?: () => void
+  onUpdate?: (messages: UIMessage[]) => void
   onAddToolResult?: (args: { tool: string; toolCallId: string; output: string }) => void
   UntypedToolPartComponent?: React.ComponentType<{
     untypedToolPart: DynamicToolUIPart
@@ -78,7 +85,11 @@ export function MessageRenderer({
   status = "idle",
   className,
   showActions = true,
+  showTokens = true,
+  showEdit = false,
+  showRemove = false,
   onRegenerate,
+  onUpdate,
   onAddToolResult,
   UntypedToolPartComponent,
   addToContext,
@@ -86,6 +97,52 @@ export function MessageRenderer({
   config
 }: MessageRendererProps) {
   const { toast } = useToast()
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [editedText, setEditedText] = useState<string>("")
+
+  const handleStartEdit = (messageId: string, currentText: string) => {
+    setEditingMessageId(messageId)
+    setEditedText(currentText)
+  }
+
+  const handleRemove = (messageId: string) => {
+    if (!onUpdate) return
+    const index = messages.findIndex(msg => msg.id === messageId)
+    const nextMessage = messages[index + 1]
+    let updatedMessages = messages.filter(msg => msg.id !== messageId)
+
+    // If the next message is a placeholder message, remove it
+    if ((nextMessage?.metadata as any)?.type === 'placeholder') {
+      updatedMessages = updatedMessages.filter(msg => msg.id !== nextMessage.id)
+    }
+    onUpdate(updatedMessages)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null)
+    setEditedText("")
+  }
+
+  const handleConfirmEdit = (messageId: string) => {
+    if (!onUpdate) return
+    const updatedMessages = messages.map(msg => {
+      if (msg.id === messageId) {
+        return {
+          ...msg,
+          parts: msg.parts?.map(part =>
+            part.type === 'text'
+              ? { ...part, text: editedText }
+              : part
+          )
+        }
+      }
+      return msg
+    })
+
+    onUpdate(updatedMessages)
+    setEditingMessageId(null)
+    setEditedText("")
+  }
 
   const todoToolType = 'tool-todo_write';
 
@@ -93,7 +150,7 @@ export function MessageRenderer({
   const todoMessageIndices = messages
     ?.map((message, index) => ({
       index,
-      hasTodoPart: message.parts.some(part => part.type.toLowerCase() === todoToolType)
+      hasTodoPart: message.parts?.some(part => part.type.toLowerCase() === todoToolType)
     }))
     .filter(item => item.hasTodoPart)
     .map(item => item.index) ?? [];
@@ -148,7 +205,7 @@ export function MessageRenderer({
         // iterate through all parts and find the ones that have a type of 'text' and contain '<file name="', if so
         // extract the filename and content, and return an array of objects with the filename and content
         // Remove the <file name="...">...</file> from the text and return the text without the file parts
-        const files: { s3Key: string, content: string }[] = message.parts.filter(
+        const files: { s3Key: string, content: string }[] = message.parts?.filter(
           (part) => part.type === 'text' &&
             part.text?.includes('<file name="')
         )?.flatMap((part) => {
@@ -177,12 +234,13 @@ export function MessageRenderer({
             key={message.id}
           >
             <MessageContent>
-              {message.parts.map((part, i) => {
+              {message.parts?.map((part, i) => {
                 if (part.type === 'step-start') {
                   return null
                 }
 
                 if (part.type === 'text') {
+
                   let text = part.text.replace(/<file name="([^"]+)">([^<]+)<\/file>/g, '');
 
                   // Check if text contains JSON citations
@@ -230,9 +288,47 @@ export function MessageRenderer({
                     });
                   }
 
-                  return <Response className="chat-response-container" key={`${message.id}-${i}` + "_response"}>
-                    {text}
-                  </Response>
+                  const isEditing = editingMessageId === message.id
+
+                  return <>
+                    {isEditing ? (
+                      <div className="items-center gap-2" key={`${message.id}-${i}` + "_edit"}>
+                        <div>
+                          <Textarea
+                            value={editedText}
+                            rows={3}
+                            onChange={(e) => setEditedText(e.target.value)}
+                            className="flex-1 w-full min-w-[500px] resize-none"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 justify-end mt-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-destructive"
+                            onClick={handleCancelEdit}>
+                            <span className="text-destructive">Cancel</span>
+                            <XIcon className="size-4 ml-2 text-destructive" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-green-500"
+                            onClick={() => handleConfirmEdit(message.id)}>
+                            <span className="text-green-500">Confirm</span>
+                            <CheckIcon className="size-4 ml-2 text-green-500" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="relative" key={`${message.id}-${i}` + "_response_wrapper"}>
+                        <Response className="chat-response-container">
+                          {text}
+                        </Response>
+                      </div>
+                    )}
+                  </>
                 }
 
                 if (part.type === 'tool-askForConfirmation' && onAddToolResult) {
@@ -404,12 +500,12 @@ export function MessageRenderer({
                   return (
                     <Sources key={`${message.id}-${i}`}>
                       <SourcesTrigger
-                        count={message.parts.filter(
+                        count={message.parts?.filter(
                           (part) => part.type === 'source-url'
                         ).length}
                       />
                       <SourcesContent key={`${message.id}`}>
-                        {message.parts.map((part, i) => {
+                        {message.parts?.map((part, i) => {
                           switch (part.type) {
                             case 'source-url':
                               return (
@@ -462,11 +558,13 @@ export function MessageRenderer({
                 </div>
               )}
 
-              {showActions && (
-
-                message.role === 'assistant' && (
+              {(
+                ((showActions && message.role === 'assistant') || showEdit || showRemove) &&
+                !editingMessageId &&
+                (message.metadata as any)?.type !== 'placeholder'
+              ) && (
                   <MessageActions className="mt-2">
-                    {onRegenerate && (
+                    {(showActions && message.role === 'assistant' && onRegenerate) && (
                       <MessageAction
                         className="mr-1"
                         onClick={() => onRegenerate()}
@@ -476,29 +574,52 @@ export function MessageRenderer({
                         <RefreshCcwIcon className="size-3" />
                       </MessageAction>
                     )}
-                    <MessageAction
-                      className="mr-1"
-                      onClick={() => {
-                        navigator.clipboard.writeText(
-                          message.parts.map((part: any) => part?.text || "").join('\n')
-                        )
-                        toast({
-                          title: "Copied message",
-                          description: "The message was copied to your clipboard.",
-                        })
-                      }}
-                      label="Copy"
-                    >
-                      <CopyIcon className="size-3" />
-                    </MessageAction>
-                    {messageMetadata?.totalTokens && (
+                    {showActions && message.role === 'assistant' && (
+                      <MessageAction
+                        className="mr-1"
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            message.parts?.map((part: any) => part?.text || "").join('\n')
+                          )
+                          toast({
+                            title: "Copied message",
+                            description: "The message was copied to your clipboard.",
+                          })
+                        }}
+                        label="Copy"
+                      >
+                        <CopyIcon className="size-3" />
+                      </MessageAction>
+                    )}
+                    {(showTokens && message.role === 'assistant' && messageMetadata?.totalTokens) && (
                       <small className="text-muted-foreground">
                         {Intl.NumberFormat('en-US').format(messageMetadata?.totalTokens)} tokens
                       </small>
                     )}
+                    {showEdit && message.role === 'user' && (
+                      <MessageAction
+                        className="mr-1"
+                        label="Edit"
+                        onClick={() => handleStartEdit(
+                          message.id,
+                          message.parts?.map((part: any) => part?.text || "").join('\n')
+                        )}
+                      >
+                        <EditIcon className="size-3" />
+                      </MessageAction>
+                    )}
+                    {showRemove && (
+                      <MessageAction
+                        className="mr-1"
+                        label="Remove"
+                        onClick={() => handleRemove(message.id)}
+                      >
+                        <Trash2Icon className="size-3" />
+                      </MessageAction>
+                    )}
                   </MessageActions>
-                )
-              )}
+
+                )}
             </MessageContent>
           </Message>
         )

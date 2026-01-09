@@ -117,6 +117,12 @@ authenticationInformation
 systemInstructions
 slug
 category
+workflows {
+  enabled
+  queue {
+    name
+  }
+}
 rateLimit {
   name
   rate_limit {
@@ -462,6 +468,33 @@ export const GET_AGENT_MESSAGES = gql`
   }
 `;
 
+export const GET_WORKFLOW_SCHEDULE = gql`
+  query GetWorkflowSchedule($workflow: ID!) {
+    workflowSchedule(workflow: $workflow) {
+      id
+      schedule
+      next
+      iteration
+    }
+  }
+`;
+
+export const UPSERT_WORKFLOW_SCHEDULE = gql`
+  mutation UpsertWorkflowSchedule($workflow: ID!, $schedule: String!) {
+    upsertWorkflowSchedule(workflow: $workflow, schedule: $schedule) {
+      status
+    }
+  }
+`;
+
+export const DELETE_WORKFLOW_SCHEDULE = gql`
+  mutation DeleteWorkflowSchedule($workflow: ID!) {
+    deleteWorkflowSchedule(workflow: $workflow) {
+      status
+    }
+  }
+`;
+
 export const GET_JOB_RESULTS = gql`
   query GetJobResults(
     $page: Int!
@@ -488,6 +521,39 @@ export const GET_JOB_RESULTS = gql`
         createdAt
         updatedAt
         id
+      }
+      pageInfo {
+        pageCount
+        itemCount
+        currentPage
+        hasPreviousPage
+        hasNextPage
+      }
+    }
+  }
+`;
+
+export const GET_JOB_RESULTS_LIGHT = gql`
+  query GetJobResultsLight(
+    $page: Int!
+    $limit: Int!
+    $filters: [FilterJob_result]
+    $sort: SortBy = {
+      field: "createdAt",
+      direction: DESC
+    }
+  ) {
+    job_resultsPagination(
+      page: $page
+      limit: $limit
+      sort: $sort
+      filters: $filters
+    ) {
+      items {
+        id
+        state
+        label
+        createdAt
       }
       pageInfo {
         pageCount
@@ -1185,13 +1251,13 @@ export const GET_WORKFLOW_TEMPLATES = gql`
       }
       items {
         id
+        agent
         name
         description
-        owner
         rights_mode
-        variables
+        created_by
         steps_json
-        example_metadata_json
+        variables
         createdAt
         updatedAt
         RBAC {
@@ -1215,12 +1281,11 @@ export const GET_WORKFLOW_TEMPLATE_BY_ID = gql`
     workflow_templateById(id: $id) {
       id
       name
+      agent
       description
-      owner
       rights_mode
-      variables
       steps_json
-      example_metadata_json
+      variables
       createdAt
       updatedAt
     }
@@ -1231,51 +1296,44 @@ export const CREATE_WORKFLOW_TEMPLATE = gql`
   mutation CreateWorkflowTemplate(
     $name: String!
     $description: String
-    $owner: Float!
     $rights_mode: String!
     $RBAC: RBACInput
-    $variables: JSON
+    $agent: String!
     $steps_json: JSON!
-    $example_metadata_json: JSON
   ) {
     workflow_templatesCreateOne(
       input: {
         name: $name
         description: $description
-        owner: $owner
         rights_mode: $rights_mode
+        agent: $agent
         RBAC: $RBAC
-        variables: $variables
         steps_json: $steps_json
-        example_metadata_json: $example_metadata_json
       }
     ) {
-      id
-      name
-      description
-      owner
-      rights_mode
-      rights_mode
-      RBAC {
-        type
-        users {
-          id
-          rights
+      item {
+        id
+        name
+        description
+        rights_mode
+        created_by
+        variables
+        RBAC {
+          type
+          users {
+            id
+            rights
+          }
+          roles {
+            id
+            rights
+          }
         }
-        roles {
-          id
-          rights
-        }
-        projects {
-          id
-          rights
-        }
+        steps_json
+        createdAt
+        agent
+        updatedAt
       }
-      variables
-      steps_json
-      example_metadata_json
-      createdAt
-      updatedAt
     }
   }
 `;
@@ -1287,9 +1345,8 @@ export const UPDATE_WORKFLOW_TEMPLATE = gql`
     $description: String
     $rights_mode: String
     $RBAC: RBACInput
-    $variables: JSON
     $steps_json: JSON
-    $example_metadata_json: JSON
+    $agent: String
   ) {
     workflow_templatesUpdateOneById(
       id: $id
@@ -1298,32 +1355,33 @@ export const UPDATE_WORKFLOW_TEMPLATE = gql`
         description: $description
         rights_mode: $rights_mode
         RBAC: $RBAC
-        variables: $variables
         steps_json: $steps_json
-        example_metadata_json: $example_metadata_json
+        agent: $agent
       }
     ) {
-      id
-      name
-      description
-      owner
-      rights_mode
-      RBAC {
-        type
-        users {
-          id
-          rights
+      item {
+        id
+        name
+        description
+        created_by
+        rights_mode
+        agent
+        variables
+        RBAC {
+          type
+          users {
+            id
+            rights
+          }
+          roles {
+            id
+            rights
+          }
         }
-        roles {
-          id
-          rights
-        }
+        steps_json
+        createdAt
+        updatedAt
       }
-      variables
-      steps_json
-      example_metadata_json
-      createdAt
-      updatedAt
     }
   }
 `;
@@ -1948,6 +2006,16 @@ export const RUN_EVAL = gql`
     runEval(id: $id, test_case_ids: $test_case_ids) {
       jobs
       count
+    }
+  }
+`;
+
+export const RUN_WORKFLOW = gql`
+  mutation RunWorkflow($id: ID!, $variables: JSON!) {
+    runWorkflow(id: $id, variables: $variables) {
+      result
+      job
+      metadata
     }
   }
 `;

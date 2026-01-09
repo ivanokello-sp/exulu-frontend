@@ -405,6 +405,7 @@ export function EvalRunsTable({ evalRuns, evalSet, onRefetch }: EvalRunsTablePro
                           }}
                           status={"ready"}
                           showActions={false}
+                          showTokens={false}
                           writeAccess={false}
                         />
                       </ConversationContent>

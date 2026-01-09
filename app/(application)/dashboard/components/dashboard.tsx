@@ -146,7 +146,7 @@ export default function DashboardComponent() {
 
             {/* Charts Grid - Improved layout and spacing */}
 
-            <div className="mb-5">
+            <div className="mb-5 pb-5">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-2xl font-bold">Time Series Analytics</h3>
                 </div>

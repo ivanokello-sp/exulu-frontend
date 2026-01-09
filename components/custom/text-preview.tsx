@@ -6,15 +6,9 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { Response } from '@/components/ai-elements/response';
+import { CopyIcon, DownloadIcon, InfoIcon } from "lucide-react";
 
-import {
-    Artifact,
-    ArtifactAction,
-    ArtifactActions,
-    ArtifactContent,
-    ArtifactHeader,
-} from '@/components/ai-elements/artifact';
-import { CopyIcon, InfoIcon } from "lucide-react";
+const LARGE_TEXT_THRESHOLD = 50000; // Characters threshold for automatic download
 
 export function TextPreview({
     text,
@@ -29,6 +23,38 @@ export function TextPreview({
         text = ""
     }
     const isTruncated = text.length > displayLength;
+    const isVeryLarge = text.length > LARGE_TEXT_THRESHOLD;
+
+    const downloadAsFile = () => {
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `text-content-${Date.now()}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast({ title: "Downloaded as .txt file" });
+    };
+
+    if (isVeryLarge) {
+        return (
+            <button
+                onClick={downloadAsFile}
+                className="cursor-pointer text-sm text-left w-full hover:bg-accent/70 active:bg-accent transition-all rounded-lg p-3 group border border-transparent hover:border-border hover:shadow-sm"
+            >
+                <span className="block leading-relaxed text-foreground/90 group-hover:text-foreground transition-colors">
+                    {text?.slice(0, displayLength)}
+                    <span className="text-muted-foreground">...</span>
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground mt-2 group-hover:text-foreground/70 transition-colors font-medium">
+                    <DownloadIcon className="w-3.5 h-3.5" />
+                    Click to download as .txt file ({text.length.toLocaleString()} characters)
+                </span>
+            </button>
+        );
+    }
 
     return (
         <Dialog>
