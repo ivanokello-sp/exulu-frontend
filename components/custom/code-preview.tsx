@@ -1,13 +1,8 @@
-import babel from "prettier/plugins/babel";
-import estree from "prettier/plugins/estree";
-import prettier from "prettier/standalone";
-import * as React from "react";
 import { useEffect, useState } from "react";
 import { Light as SyntaxHighlighter } from "react-syntax-highlighter";
 import javascript from "react-syntax-highlighter/dist/esm/languages/hljs/javascript";
 import json from "react-syntax-highlighter/dist/esm/languages/hljs/json";
 import {
-    a11yDark,
     dracula,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import {
@@ -40,22 +35,18 @@ export function CodePreview({
     const { toast } = useToast();
     const [code, setCode] = useState<string | null>(null);
 
-    const format = async (code: any, language: string) => {
+    const format = (code: any) => {
         if (typeof code !== "string") {
             code = JSON.stringify(code, null, 2);
         }
-        const formattedCode = await prettier.format(code, {
-            parser: language,
-            plugins: [babel, estree],
-        });
-        setCode(formattedCode);
+        setCode(code);
     };
 
     useEffect(() => {
         if (language === "json") {
-            format(inputCode, "json");
+            format(inputCode);
         } else if (language === "javascript" || language === "js") {
-            format(inputCode, "babel");
+            format(inputCode);
         } else {
             setCode(inputCode);
         }
