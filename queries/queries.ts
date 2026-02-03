@@ -211,6 +211,7 @@ export const GET_AGENT_SESSIONS = gql`
           agent
           project
           rights_mode
+          session_items
           RBAC {
             type
             users {
@@ -302,12 +303,15 @@ export const GET_ITEM_BY_ID = (context: string, fields: string[], chunks: boolea
   `;
 };
 
-export const CREATE_ITEM = (context: string) => {
+export const CREATE_ITEM = (context: string, fields?: string[]) => {
   return gql`
     mutation CreateOne${context}($input: ${context}_itemsInput!) {
       ${context}_itemsCreateOne(input: $input) {
         item {
           id
+          name
+          description
+          ${fields?.length ? fields?.join("\n") : ""}
         }
         job
       }
@@ -433,6 +437,20 @@ export const UPDATE_AGENT_SESSION_TITLE = gql`
       item {
         id
         title
+      }
+    }
+  }
+`;
+
+export const UPDATE_AGENT_SESSION_ITEMS = gql`
+  mutation UpdateAgentSessionTitle(
+    $id: ID!
+    $session_items: JSON!
+  ) {
+    agent_sessionsUpdateOneById(id: $id, input: {session_items: $session_items}) {
+      item {
+        id
+        session_items
       }
     }
   }
@@ -676,6 +694,7 @@ export const GET_AGENT_SESSION_BY_ID = gql`
         agent
         created_by
         rights_mode
+        session_items
         project
         RBAC {
           type

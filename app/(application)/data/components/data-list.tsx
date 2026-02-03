@@ -202,7 +202,7 @@ export function DataList({
             }
             job: string;
         }
-    }>(CREATE_ITEM(activeFolder), {
+    }>(CREATE_ITEM(activeFolder, []), {
         onCompleted: (data) => {
             console.log("data", data);
             const id = data ? data[activeFolder + CREATE_ONE_POSTFIX]?.item?.id : undefined;
@@ -323,7 +323,7 @@ export function DataList({
                                 ) : (
                                     <PackageOpen className="size-4" />
                                 )}
-                                <span className="ml-2">Unarchive selected</span>
+                                <span className="ml-2">Unarchive</span>
                             </Button>
                             <Button
                                 className="ml-2"
@@ -354,7 +354,7 @@ export function DataList({
                                 ) : (
                                     <Trash2 className="size-4" />
                                 )}
-                                <span className="ml-2">Delete selected</span>
+                                <span className="ml-2">Delete</span>
                             </Button>
                         </>
                     ) : (
@@ -388,7 +388,7 @@ export function DataList({
                             ) : (
                                 <Archive className="size-4" />
                             )}
-                            <span className="ml-2">Archive selected</span>
+                            <span className="ml-2">Archive</span>
                         </Button>
                     )}
                 </div>

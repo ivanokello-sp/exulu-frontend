@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Plus, MessageSquare, Settings2, Files, AlertTriangle, Shield, Pencil, PackageMinus } from "lucide-react";
+import { Trash2, Plus, MessageSquare, Settings2, Files, AlertTriangle, Shield, Pencil, PackageMinus, X } from "lucide-react";
 import { RBACControl } from "@/components/rbac";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/use-toast";
@@ -360,7 +360,11 @@ export function ProjectDetails({ project }: ProjectDetailsProps) {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <ItemsSelectionModal onConfirm={(data) => {
+                      <ItemsSelectionModal
+                        buttonText="Select items from knowledge sources to add to the chat."
+                        tooltipText="Select or create items from/for knowledge sources to add to the project context."
+                        className="w-full"
+                        onConfirm={(data) => {
                         const update = [...projectItems, ...data.map((x) => `${x.context.id}/${x.item.id}`)];
                         console.log("update", update);
                         setProjectItems(update);
@@ -689,7 +693,7 @@ export function ProjectDetails({ project }: ProjectDetailsProps) {
   );
 }
 
-function ProjectItem({ gid, onRemove }: { gid: string, onRemove: (gid: string) => void }) {
+export function ProjectItem({ gid, onRemove }: { gid: string, onRemove: (gid: string) => void }) {
 
   const context = gid.split("/")[0];
   const id = gid.split("/")[1];
@@ -731,23 +735,21 @@ function ProjectItem({ gid, onRemove }: { gid: string, onRemove: (gid: string) =
   return (
     <Card className="group relative overflow-hidden hover:shadow-md transition-all duration-200 hover:border-primary/50">
       <CardContent className="p-4">
-        {/* Icon and Remove Button */}
-        <div className="flex items-start justify-between mb-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove(gid);
-            }}
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
-        </div>
+        {/* Remove Button - Positioned absolutely in top-right corner */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute top-2 right-2 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-muted"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(gid);
+          }}
+        >
+          <X className="h-4 w-4 text-muted-foreground" />
+        </Button>
 
         {/* Item Name */}
-        <div className="mb-2">
+        <div className="mb-2 pr-8">
           <h4 className="font-medium text-sm line-clamp-2 min-h-[2.5rem]">
             {item.name || "Untitled"}
           </h4>
@@ -764,7 +766,7 @@ function ProjectItem({ gid, onRemove }: { gid: string, onRemove: (gid: string) =
         <div className="space-y-2 pt-2 border-t">
           {/* Context Type */}
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span className="truncate">{context.replace(/_/g, ' ')}</span>
+            <span className="truncate capitalize">{context.replace(/_/g, ' ')}</span>
             {item.updatedAt && (
               <span className="text-xs text-muted-foreground whitespace-nowrap">
                 {formatDate(item.updatedAt)}
@@ -786,3 +788,5 @@ function ProjectItem({ gid, onRemove }: { gid: string, onRemove: (gid: string) =
     </Card>
   );
 }
+
+export const SessionItem = ProjectItem;

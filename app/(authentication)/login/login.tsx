@@ -193,6 +193,32 @@ export default function Login() {
                 )}
               </Button>
 
+              <Button
+                variant="outline"
+                disabled={submitting}
+                type="button"
+                className="w-full"
+                onClick={() => {}}
+              >
+                {submitting ? (
+                  <div className="flex items-center space-x-2">
+                    <span className="size-2 animate-pulse rounded-full bg-primary-foreground" />
+                    <span className="size-2 animate-pulse rounded-full bg-primary-foreground" />
+                    <span className="size-2 animate-pulse rounded-full bg-primary-foreground" />
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <svg className="size-4 mr-3" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="0.5" y="0.5" width="10" height="10" fill="#7FBA00"/>
+                      <rect x="12.5" y="0.5" width="10" height="10" fill="#00A4EF"/>
+                      <rect x="0.5" y="12.5" width="10" height="10" fill="#FFB900"/>
+                      <rect x="12.5" y="12.5" width="10" height="10" fill="#F25022"/>
+                    </svg>
+                    Sign in with Microsoft Teams
+                  </div>
+                )}
+              </Button>
+
               {
                 configContext?.google_client_id && (<Button
                   variant="outline"

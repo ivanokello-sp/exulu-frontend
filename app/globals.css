@@ -145,6 +145,10 @@
   cursor: pointer;
 }
 
+.bg-sidebar {
+  background-color: hsl(var(--sidebar));
+}
+
 .text-wrap {
   text-wrap: balance;
 }

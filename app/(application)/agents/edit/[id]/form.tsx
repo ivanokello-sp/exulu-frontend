@@ -1334,7 +1334,7 @@ export default function AgentForm({
                                                         <div className="flex items-center flex-1">
                                                           <div className="flex-1">
                                                             <div className="flex items-center gap-2">
-                                                              <div className="font-medium">{tool?.name}</div>
+                                                              <div className="font-medium capitalize">{tool?.name?.replace(/_/g, " ")}</div>
                                                               <div className="flex items-center gap-1">
                                                                 {
                                                                   requiredConfigCount > 0 && isEnabled && <>

@@ -50,6 +50,7 @@ export interface Context {
   }[]
   fields: {
     name: string
+    editable?: boolean
     calculated?: boolean
     type: ExuluFieldTypes
     label: string

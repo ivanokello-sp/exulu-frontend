@@ -21,7 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { UserRole } from "@/types/models/user-role";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
-import { ChevronUp, Moon, Sun, Code, MessageCircle, Users, Key, LayoutDashboard, Database, ListTodo, Bot, Route, Variable, FileCheck, Sparkles, Settings, LogOut, FileText, FolderOpen, Brain, Album, BookCheck, TextSelect, ClipboardType, BarChart2, BarChart, BarChart4 } from "lucide-react";
+import { ChevronUp, Moon, Sun, Code, MessageCircle, Users, Key, LayoutDashboard, Database, ListTodo, Bot, Route, Variable, FileCheck, Sparkles, Settings, LogOut, FileText, FolderOpen, Brain, Album, BookCheck, TextSelect, ClipboardType, BarChart2, BarChart, BarChart4, Workflow, Form, FileAudio } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Avatar, AvatarFallback } from "../ui/avatar";
@@ -33,7 +33,14 @@ interface User {
   role: UserRole;
 }
 
-const buildNavigation = (user: User, role: UserRole) => {
+interface Config {
+  n8n?: {
+    enabled: boolean;
+    url: string;
+  };
+}
+
+const buildNavigation = (user: User, role: UserRole, config: Config) => {
   const navigationItems: { label: string; path: string; icon: React.ReactNode }[] = [];
 
   if (user.super_admin) {
@@ -59,6 +66,12 @@ const buildNavigation = (user: User, role: UserRole) => {
   }
 
   navigationItems.push({
+    label: "Prompts",
+    path: "prompts",
+    icon: <ClipboardType />,
+  });
+
+  navigationItems.push({
     label: "Projects",
     path: "projects",
     icon: <FolderOpen />,
@@ -71,10 +84,18 @@ const buildNavigation = (user: User, role: UserRole) => {
   });
 
   navigationItems.push({
-    label: "Prompts",
-    path: "prompts",
-    icon: <ClipboardType />,
+    label: "Transcriptions",
+    path: "transcriptions",
+    icon: <FileAudio />,
   });
+
+  if (user.super_admin || role.workflows === "write") {
+    navigationItems.push({
+      label: "Templates",
+      path: "workflows",
+      icon: <Form />,
+    });
+  }
 
   if (user.super_admin || role.evals === "read" || role.evals === "write") {
     navigationItems.push({
@@ -84,11 +105,14 @@ const buildNavigation = (user: User, role: UserRole) => {
     });
   }
 
-  if (user.super_admin || role.workflows === "write") {
+  if (
+    (user.super_admin || role.workflows === "write")
+    && config.n8n?.enabled
+  ) {
     navigationItems.push({
-      label: "Workflows",
-      path: "workflows",
-      icon: <Route />,
+      label: "Automation",
+      path: "n8n",
+      icon: <Workflow />,
     });
   }
 
@@ -172,10 +196,10 @@ function NavigationItems({ items }: { items: { label: string; path: string; icon
   );
 }
 
-export function MainNavSidebar({ sidebarDefaultOpen }: { sidebarDefaultOpen: boolean }) {
+export function MainNavSidebar({ sidebarDefaultOpen, config }: { sidebarDefaultOpen: boolean, config: Config }) {
 
   const { user } = useContext(UserContext);
-  const navigationItems = buildNavigation(user, user.role);
+  const navigationItems = buildNavigation(user, user.role, config);
   const router = useRouter();
   const { setTheme, theme } = useTheme();
   const params = useParams()
@@ -189,7 +213,7 @@ export function MainNavSidebar({ sidebarDefaultOpen }: { sidebarDefaultOpen: boo
 
   return (
     <Sidebar collapsible="icon" className="border-r">
-      <div className="flex items-center gap-3 border-b bg-background/80 backdrop-blur-sm p-[12px] sticky top-0 z-10">
+      <div className="flex items-center gap-3 border-b backdrop-blur-sm p-[12px] sticky top-0 z-10">
         <SidebarTrigger />
         <div className="flex items-center gap-2">
           <Logo alt="Logo" width={100} height={40} />
@@ -202,7 +226,7 @@ export function MainNavSidebar({ sidebarDefaultOpen }: { sidebarDefaultOpen: boo
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t bg-muted/20 p-[5px]">
+      <SidebarFooter className="border-t p-[5px]">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu modal={false}>
@@ -216,7 +240,7 @@ export function MainNavSidebar({ sidebarDefaultOpen }: { sidebarDefaultOpen: boo
                   <div className="flex flex-col items-start group-data-[collapsible=icon]:hidden">
                     <span className="text-sm font-medium capitalize">{user.email.split('@')[0]}</span>
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground">{user.email.split('@')[1]}</span>
+                      <span className="text-xs">{user.email.split('@')[1]}</span>
                     </div>
                   </div>
                   <ChevronUp className="ml-auto h-4 w-4 group-data-[collapsible=icon]:hidden" />
@@ -254,12 +278,12 @@ export function MainNavSidebar({ sidebarDefaultOpen }: { sidebarDefaultOpen: boo
   );
 }
 
-export function MainNavProvider({ children, sidebarDefaultOpen }: { children: React.ReactNode, sidebarDefaultOpen: boolean }) {
+export function MainNavProvider({ children, sidebarDefaultOpen, config }: { children: React.ReactNode, sidebarDefaultOpen: boolean, config: Config }) {
   console.log("sidebarDefaultOpen", sidebarDefaultOpen)
   return (
     <SidebarProvider defaultOpen={sidebarDefaultOpen}>
       <div className="flex w-full bg-background overflow-hidden">
-        <MainNavSidebar sidebarDefaultOpen={sidebarDefaultOpen} />
+        <MainNavSidebar sidebarDefaultOpen={sidebarDefaultOpen} config={config} />
         <main className="flex-1 overflow-auto">
           {children}
         </main>

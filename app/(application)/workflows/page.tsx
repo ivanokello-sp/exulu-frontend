@@ -53,14 +53,14 @@ export default function WorkflowsPage() {
 
   const [runWorkflow, { loading }] = useMutation(RUN_WORKFLOW, {
     onCompleted: (data) => {
-      console.log("Workflow run completed:", data);
-      toast("Workflow run completed", {
-        description: "The workflow has been run successfully.",
+      console.log("Template run completed:", data);
+      toast("Template run completed", {
+        description: "The template has been run successfully.",
       });
     },
     onError: (error) => {
-      console.error("Failed to run workflow:", error);
-      toast("Failed to run workflow", {
+      console.error("Failed to run template:", error);
+      toast("Failed to run template", {
         description: error.message,
       });
     },
@@ -90,9 +90,9 @@ export default function WorkflowsPage() {
       <div className="hidden h-full flex-1 flex-col space-y-8 p-8 md:flex">
         <div className="flex items-center justify-between space-y-2">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">Workflows</h2>
+            <h2 className="text-2xl font-bold tracking-tight">Templates</h2>
             <p className="text-muted-foreground">
-              Manage your workflow templates and monitor running jobs.
+              Manage your templates and monitor running jobs.
             </p>
           </div>
         </div>
@@ -100,15 +100,15 @@ export default function WorkflowsPage() {
         {/* Info Alert */}
         <Alert className="border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/20">
           <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          <AlertTitle className="text-blue-900 dark:text-blue-100">How to create a new workflow</AlertTitle>
+          <AlertTitle className="text-blue-900 dark:text-blue-100">How to create a new conversation template</AlertTitle>
           <AlertDescription className="text-blue-800 dark:text-blue-200">
-            Start a new chat with an agent, then save your conversation as a workflow.
-            You can run saved workflows on-demand or schedule them to run automatically using CRON expressions
-            if a queue is configured for the agent running the workflow and you have setup workers to process the queue.
+            Start a new chat with an agent, then save your conversation as a template.
+            You can run saved templates on-demand or schedule them to run automatically using CRON expressions
+            if a queue is configured for the agent running the template and you have setup workers to process the queue.
           </AlertDescription>
         </Alert>
 
-        {/* Workflows Table */}
+        {/* Templates Table */}
         <DataTable columns={columns} />
       </div>
 
@@ -120,9 +120,9 @@ export default function WorkflowsPage() {
       }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-xl">Start Workflow Run</DialogTitle>
+            <DialogTitle className="text-xl">Start Template Run</DialogTitle>
             <DialogDescription>
-              Configure and start your workflow execution
+              Configure and start your template execution
             </DialogDescription>
           </DialogHeader>
 
@@ -142,14 +142,14 @@ export default function WorkflowsPage() {
                   <AlertDescription className="text-sm">
                     {dialogOpen?.queue ? (
                       <>
-                        This workflow will be queued for execution in the{" "}
+                        This template will be queued for execution in the{" "}
                         <span className="font-semibold text-blue-700 dark:text-blue-300">{dialogOpen.queue}</span> queue.
                         Jobs are processed asynchronously based on queue priority and availability.
                       </>
                     ) : (
                       <>
-                        This workflow will execute immediately without queuing.
-                        No queue is configured for the agent running this workflow.
+                        This template will execute immediately without queuing.
+                        No queue is configured for the agent running this template.
                       </>
                     )}
                   </AlertDescription>
@@ -195,7 +195,7 @@ export default function WorkflowsPage() {
             {/* No Variables Message */}
             {(!dialogOpen?.variables || dialogOpen.variables.length === 0) && (
               <div className="text-center py-6 text-sm text-muted-foreground border rounded-lg bg-muted/30">
-                No input variables required for this workflow
+                No input variables required for this template
               </div>
             )}
           </div>
@@ -250,12 +250,12 @@ export default function WorkflowsPage() {
                   {dialogOpen?.queue ? (
                     <>
                       <Clock className="mr-2 h-4 w-4" />
-                      Schedule Workflow
+                      Schedule Template
                     </>
                   ) : (
                     <>
                       <Zap className="mr-2 h-4 w-4" />
-                      Run Workflow
+                      Run Template
                     </>
                   )}
                 </>
@@ -275,7 +275,7 @@ export default function WorkflowsPage() {
                 <DialogTitle>Queue Management</DialogTitle>
               </DialogHeader>
               <QueueManagement queueName={queueManagementModalOpen} nameGenerator={(job: QueueJob) => {
-                return `Workflow Run: ${job.data?.workflow}`;
+                return `Template Run: ${job.data?.workflow}`;
               }} retryJob={(job: QueueJob) => {
                 setDialogOpen({
                   id: job.data?.workflow || "",

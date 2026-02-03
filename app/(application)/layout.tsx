@@ -36,6 +36,10 @@ export default async function RootLayout({
         backend: process.env.BACKEND || "",
         google_client_id: process.env.GOOGLE_CLIENT_ID || "",
         auth_mode: process.env.AUTH_MODE || "",
+        n8n: {
+            enabled: typeof process.env.N8N_URL === "string" && process.env.N8N_URL !== "",
+            url: typeof process.env.N8N_URL === "string" ? process.env.N8N_URL : undefined,
+        },
         ...json
     }
 
@@ -81,7 +85,7 @@ export default async function RootLayout({
                         <main className="grow flex min-w-0 w-full">
                             <div className="grow flex flex-col min-w-0 w-full">
                                 <TanstackQueryClientProvider>
-                                    <Authenticated sidebarDefaultOpen={defaultOpen} user={user}>
+                                    <Authenticated sidebarDefaultOpen={defaultOpen} user={user} config={config}>
                                         {children}
                                     </Authenticated>
                                 </TanstackQueryClientProvider>

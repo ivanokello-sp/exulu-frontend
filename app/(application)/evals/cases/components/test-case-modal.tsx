@@ -430,15 +430,20 @@ export function TestCaseModal({
                         <ConversationContent className="px-6 py-4">
                           <div className="animate-in fade-in duration-500 space-y-4">
                             <MessageRenderer
-                              messages={inputs}
+                              messages={inputs || []}
                               config={{
                                 marginTopFirstMessage: 'mt-0',
                                 customAssistantClassnames: 'bg-secondary/50 rounded-lg px-4 py-4 border-l-2 border-primary/30'
                               }}
+                              onUpdate={(messages) => {
+                                setInputs(messages);
+                              }}
                               status={"ready"}
-                              showActions={false}
+                              showActions={true}
+                              showEdit={true}
+                              showRemove={true}
                               showTokens={false}
-                              writeAccess={false}
+                              writeAccess={true}
                             />
                           </div>
                         </ConversationContent>

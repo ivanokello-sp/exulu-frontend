@@ -61,7 +61,7 @@ export function SaveWorkflowModal({ isOpen, onClose, messages, sessionTitle, exi
       },
       parts: [{
         type: "text",
-        text: "💬 Placeholder, generated agent response will be added here when the workflow is run...",
+        text: "💬 Placeholder, generated agent response will be added here when the template is run...",
       }],
     };
   }
@@ -203,15 +203,15 @@ export function SaveWorkflowModal({ isOpen, onClose, messages, sessionTitle, exi
       <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col">
         <DialogHeader className="pb-2">
           <DialogTitle className="text-lg">
-            {isEditing ? (isReadOnly ? 'View Workflow' : 'Edit Workflow') : 'Save as Workflow'}
+            {isEditing ? (isReadOnly ? 'View Template' : 'Edit Template') : 'Save as Template'}
           </DialogTitle>
           <DialogDescription className="text-sm">
             {isEditing
               ? (isReadOnly
-                ? 'View workflow details and configuration.'
-                : 'Modify this workflow template. Edit your messages and use {variable_name} syntax to create variables.'
+                ? 'View template details and configuration.'
+                : 'Modify this template. Edit your messages and use {variable_name} syntax to create variables.'
               )
-              : 'Convert this conversation into a reusable workflow template. Edit your messages and use {variable_name} syntax to create variables.'
+              : 'Convert this conversation into a reusable template. Edit your messages and use {variable_name} syntax to create variables.'
             }
           </DialogDescription>
         </DialogHeader>
@@ -223,7 +223,7 @@ export function SaveWorkflowModal({ isOpen, onClose, messages, sessionTitle, exi
                 Setup & Permissions
               </TabsTrigger>
               <TabsTrigger value="workflow" className="data-[state=active]:bg-background">
-                Workflow Steps & Variables
+                Template Steps & Variables
               </TabsTrigger>
             </TabsList>
 
@@ -232,7 +232,7 @@ export function SaveWorkflowModal({ isOpen, onClose, messages, sessionTitle, exi
                 <div className="space-y-6">
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="workflow-name" className="text-base font-semibold">Workflow Name *</Label>
+                      <Label htmlFor="workflow-name" className="text-base font-semibold">Template Name *</Label>
                       <Input
                         id="workflow-name"
                         value={workflowName}
@@ -244,7 +244,7 @@ export function SaveWorkflowModal({ isOpen, onClose, messages, sessionTitle, exi
                       {!workflowName.trim() && (
                         <p className="text-sm text-destructive mt-1 flex items-center">
                           <span className="mr-1">⚠️</span>
-                          Workflow name is required
+                          Template name is required
                         </p>
                       )}
                     </div>
@@ -255,7 +255,7 @@ export function SaveWorkflowModal({ isOpen, onClose, messages, sessionTitle, exi
                         id="workflow-description"
                         value={workflowDescription}
                         onChange={(e) => setWorkflowDescription(e.target.value)}
-                        placeholder="Describe what this workflow does and when to use it..."
+                        placeholder="Describe what this template does and when to use it..."
                         rows={3}
                         className="mt-2 resize-none"
                         readOnly={isReadOnly}
@@ -267,7 +267,7 @@ export function SaveWorkflowModal({ isOpen, onClose, messages, sessionTitle, exi
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <h3 className="text-base font-semibold mb-1">Sharing & Permissions</h3>
-                        <p className="text-sm text-muted-foreground">Control who can view and edit this workflow</p>
+                        <p className="text-sm text-muted-foreground">Control who can view and edit this template</p>
                       </div>
                       <Button
                         type="button"
@@ -326,7 +326,7 @@ export function SaveWorkflowModal({ isOpen, onClose, messages, sessionTitle, exi
                           <Sparkles className="h-12 w-12 text-muted-foreground/50 mb-4" />
                           <h3 className="font-semibold text-lg mb-2">No messages yet</h3>
                           <p className="text-sm text-muted-foreground max-w-sm">
-                            Start building your workflow conversation by adding user messages below.
+                            Start building your template conversation by adding user messages below.
                           </p>
                         </div>
                       ) : (
@@ -459,7 +459,7 @@ export function SaveWorkflowModal({ isOpen, onClose, messages, sessionTitle, exi
                       {isEditing ? 'Updating...' : 'Saving...'}
                     </>
                   ) : (
-                    isEditing ? 'Update Workflow' : 'Save Workflow'
+                    isEditing ? 'Update Template' : 'Save Template'
                   )}
                 </Button>
 

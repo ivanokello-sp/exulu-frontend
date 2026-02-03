@@ -134,8 +134,8 @@ export const AgentSelectionModalContent = ({
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="font-medium truncate">{agent.name}</p>
-                                        <p className="text-sm text-muted-foreground truncate">
-                                            {agent.description || `${agent.type} agent`}
+                                        <p className="text-sm text-muted-foreground">
+                                            {(agent.description || agent.type || "")} {agent.modelName && `(${agent.modelName})`}
                                         </p>
                                     </div>
                                 </div>

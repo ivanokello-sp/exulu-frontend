@@ -232,7 +232,7 @@ function LastRunCell({ workflowId }: { workflowId: string }) {
       <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="max-w-[90vw] h-[85vh] flex flex-col p-0">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
-            <DialogTitle>Workflow Run History</DialogTitle>
+            <DialogTitle>Template Run History</DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-1 overflow-hidden min-h-0">

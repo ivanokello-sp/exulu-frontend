@@ -9,7 +9,7 @@ import { useContext, useEffect, useState, useMemo } from "react";
 import { UserContext } from "@/app/(application)/authenticated";
 import { StopIcon } from "@radix-ui/react-icons";
 import { AgentSession } from "@EXULU_SHARED/models/agent-session";
-import { Loader } from '@/components/ai-elements/loader';
+import { ChatAddToolApproveResponseFunction } from 'ai';
 import TextareaAutosize from "react-textarea-autosize";
 import {
   Tooltip,
@@ -24,17 +24,19 @@ import {
   GET_PROJECT_BY_ID,
   CREATE_AGENT_SESSION,
   GET_AGENT_SESSIONS,
+  UPDATE_AGENT_SESSION_ITEMS,
 } from "@/queries/queries";
 import { getToken } from "@/util/api"
 import { Agent } from "@EXULU_SHARED/models/agent";
 import { ConfigContext } from "@/components/config-context";
-import { ArrowUp, ChevronsUpDown, FileText, Plus, Workflow } from "lucide-react";
+import { ArrowUp, ChevronsUpDown, FileText, Form, Plus } from "lucide-react";
 import { SaveWorkflowModal } from "@/components/save-workflow-modal";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardDescription, CardTitle, CardContent, CardHeader } from "@/components/ui/card";
+import { CardContent, CardHeader } from "@/components/ui/card";
 import { Conversation, ConversationContent, ConversationScrollButton } from "@/components/ai-elements/conversation";
 import { RBACControl } from "@/components/rbac";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Collapsible,
   CollapsibleContent,
@@ -78,6 +80,9 @@ import { useIncrementPromptUsage } from "@/hooks/use-prompts";
 import { Project } from "@/types/models/project";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { ToolCallApproval } from "@/components/tool-call-approval";
+import { ItemsSelectionModal } from "@/components/items-selection-modal";
+import { SessionItem } from "@/components/project-details";
 
 export function ChatLayout({
   session,
@@ -93,12 +98,13 @@ export function ChatLayout({
   const configContext = React.useContext(ConfigContext);
   const [files, setFiles] = useState<FileUIPart[] | null>(null);
   const [fileItems, setFileItems] = useState<string[] | null>(null);
+  const { toast } = useToast();
+  const [sessionItems, setSessionItems] = useState<string[] | null>(session?.session_items || null);
   const { user } = useContext(UserContext);
   const [showSaveWorkflowModal, setShowSaveWorkflowModal] = useState(false);
   const [input, setInput] = useState('');
   const [disabledTools, setDisabledTools] = useState<string[]>([]);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
-  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const [currentSession, setCurrentSession] = useState<AgentSession | null>(session);
   const [createAgentSession] = useMutation(CREATE_AGENT_SESSION, {
     refetchQueries: [
@@ -170,6 +176,8 @@ export function ChatLayout({
   const [initialPromptProcessed, setInitialPromptProcessed] = useState(false);
 
   const [updateAgentSessionRbac, updateAgentSessionRbacResult] = useMutation(UPDATE_AGENT_SESSION_RBAC);
+  const [updateAgentSessionItems, updateAgentSessionItemsResult] = useMutation(UPDATE_AGENT_SESSION_ITEMS);
+
   const [tokenCounts, setTokenCounts] = useState<MessageMetadata>({
     totalTokens: 0,
     reasoningTokens: 0,
@@ -177,7 +185,6 @@ export function ChatLayout({
     outputTokens: 0,
     cachedInputTokens: 0
   });
-
   const {
     messages,
     sendMessage,
@@ -185,27 +192,27 @@ export function ChatLayout({
     stop,
     regenerate,
     setMessages,
-    addToolResult
+    addToolApprovalResponse
   } = useChat({
     messages: initialMessages,
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    sendAutomaticallyWhen: ({ messages: currentMessages }) => {
+      const lastMessage = currentMessages.at(-1);
+      const shouldContinue =
+        lastMessage?.parts?.some(
+          (part) =>
+            "state" in part &&
+            part.state === "approval-responded" &&
+            "approval" in part &&
+            (part.approval as { approved?: boolean })?.approved === true
+        ) ?? false;
+      return shouldContinue;
+    },
     // Throttle the messages and data updates to 50ms:
     experimental_throttle: 50,
     async onToolCall({ toolCall }) {
       // Check if it's a dynamic tool first for proper type narrowing
       if (toolCall.dynamic) {
         return;
-      }
-
-      if (toolCall.toolName === 'getLocation') {
-        const cities = ['New York', 'Los Angeles', 'Chicago', 'San Francisco'];
-
-        // No await - avoids potential deadlocks
-        addToolResult({
-          tool: 'confirm-tool-call',
-          toolCallId: toolCall.toolCallId,
-          output: cities[Math.floor(Math.random() * cities.length)],
-        });
       }
     },
     onError: (error) => {
@@ -314,6 +321,42 @@ export function ChatLayout({
     }
   };
 
+  const createSession = async () => {
+    try {
+      const result = await createAgentSession({
+        variables: {
+          agent: agent.id,
+          user: user.id,
+          title: input.substring(0, 50), // Use first 50 chars of message as title
+          rights_mode: 'private',
+          RBAC: {
+            users: [],
+            roles: [],
+          }
+        }
+      });
+
+      if (result.data?.agent_sessionsCreateOne?.item) {
+        const newSession = result.data.agent_sessionsCreateOne.item as AgentSession;
+        newSession.created_by = user.id;
+        setCurrentSession(newSession);
+        setWriteAccess(true);
+
+        // Update URL quietly without triggering Next.js routing
+        window.history.replaceState(null, '', `/chat/${agent.id}/${newSession.id}`);
+
+        return newSession;
+      } else {
+        setError("Failed to create session. Please try again.");
+        return;
+      }
+    } catch (error) {
+      console.error("Failed to create session:", error);
+      setError("Failed to create session. Please try again.");
+      return;
+    }
+  }
+
   const handleSubmitVariables = (values: Record<string, string>) => {
     if (!selectedPrompt) return;
 
@@ -359,39 +402,22 @@ export function ChatLayout({
 
     // If there's no session, create one first
     if (!sessionToUse) {
-      try {
-        const result = await createAgentSession({
-          variables: {
-            agent: agent.id,
-            user: user.id,
-            title: input.substring(0, 50), // Use first 50 chars of message as title
-            rights_mode: 'private',
-            RBAC: {
-              users: [],
-              roles: [],
-            }
-          }
+      const createdSession = await createSession();
+      if (!createdSession) {
+        toast({
+          title: "Error",
+          description: "Failed to create session. Please try again.",
+          variant: "destructive",
         });
-
-        if (result.data?.agent_sessionsCreateOne?.item) {
-          const newSession = result.data.agent_sessionsCreateOne.item as AgentSession;
-          newSession.created_by = user.id;
-          sessionToUse = newSession;
-          setCurrentSession(newSession);
-          setWriteAccess(true);
-
-          // Update URL quietly without triggering Next.js routing
-          window.history.replaceState(null, '', `/chat/${agent.id}/${newSession.id}`);
-        } else {
-          setError("Failed to create session. Please try again.");
-          return;
-        }
-      } catch (error) {
-        console.error("Failed to create session:", error);
-        setError("Failed to create session. Please try again.");
         return;
       }
+      sessionToUse = createdSession;
     }
+
+    console.log("[EXULU] Current session", currentSession);
+    const approvedTools = localStorage.getItem(`pre-approved-tool-calls-${currentSession?.id}`) || [];
+
+    console.log("[EXULU] Approved tools", approvedTools);
 
     sendMessage({
       text: input,
@@ -399,6 +425,7 @@ export function ChatLayout({
     }, {
       body: {
         disabledTools: disabledTools,
+        approvedTools: approvedTools
       },
     });
     setInput('');
@@ -470,39 +497,25 @@ export function ChatLayout({
           {agent.maxContextLength && (
             <Progress className="w-full rounded-none pointer-events-auto" value={tokenCounts.totalTokens / agent.maxContextLength * 100} />
           )}
-          <div className="relative w-full h-[10px] overflow-hidden">
-            {/* Primary color gradient in center */}
-            <div
-              className="absolute inset-0 animate-expand-from-center"
-              style={{
-                background: 'radial-gradient(ellipse at center, hsl(var(--primary) / 1) 100%, hsl(var(--primary) / 0.5) 100%, transparent 100%)',
-                filter: 'blur(10px)',
-              }}
-            />
-            {/* Inverted color gradient on edges */}
-            <div
-              className="absolute inset-0 animate-expand-from-center"
-              style={{
-                background: 'radial-gradient(ellipse at center, transparent 100%, hsl(var(--primary) / 0.4) 100%, hsl(var(--primary) / 0.2) 100%)',
-                filter: 'blur(10px) hue-rotate(180deg)',
-              }}
-            />
-          </div>
         </div>
         {/* Context/token counter - moved outside Conversation to prevent scroll interference */}
         <div className="flex justify-between absolute top-0 left-0 right-0 items-center px-4 py-2 border-b z-10 dark:bg-black bg-white top-6">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Workflow className="w-4 h-4" />
-            Turn this conversation into a reusable workflow
+          <div className="flex items-center gap-4">
+            <Badge variant="secondary" className="text-xs">
+              {agent.modelName}
+            </Badge>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Form className="w-4 h-4" />
+              Turn this conversation into a reusable template
+            </div>
           </div>
           <Button
             variant="outline"
             size="sm"
             disabled={!canCreateWorkflow}
-            onClick={() => setShowSaveWorkflowModal(true)}
-          >
+            onClick={() => setShowSaveWorkflowModal(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Save as Workflow
+            Save as Template
           </Button>
         </div>
 
@@ -564,6 +577,7 @@ export function ChatLayout({
           <ConversationContent className="px-6">
             {messages?.length > 0 && (
               <MessageRenderer
+                addToolApprovalResponse={addToolApprovalResponse}
                 messages={messages}
                 showTokens={true}
                 config={{
@@ -571,8 +585,8 @@ export function ChatLayout({
                 }}
                 status={status}
                 onRegenerate={regenerate}
-                onAddToolResult={addToolResult}
                 UntypedToolPartComponent={UntypedToolPart}
+                agent={agent}
                 addToContext={(item) => {
                   setFileItems([...(fileItems || []), item])
                 }}
@@ -621,6 +635,35 @@ export function ChatLayout({
                   }}
                 />)
               }
+
+              {/* Select or add items to knowledge bases */}
+              <ItemsSelectionModal onConfirm={async (data) => {
+                console.log("data", data)
+                let sessionToUse = currentSession;
+                // Call update session mutation to add the item to the session
+                if (currentSession?.id === "new" || !currentSession) {
+                  // Create the session first
+                  const createdSession = await createSession();
+                  if (!createdSession) {
+                    toast({
+                      title: "Error",
+                      description: "Failed to create session. Please try again.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  sessionToUse = createdSession;
+                }
+                const update = [...(sessionItems || []), ...data.map((x) => `${x.context.id}/${x.item.id}`)];
+                updateAgentSessionItems({
+                  variables: {
+                    id: sessionToUse?.id,
+                    session_items: update
+                  }
+                })
+                setSessionItems(update);
+              }} buttonText="" tooltipText="Select or create items from/for knowledge sources to add to the chat." />
+
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -631,7 +674,7 @@ export function ChatLayout({
                       className="shrink-0"
                       onClick={() => setPromptSelectorOpen(true)}
                     >
-                      <FileText className="h-5 w-5 text-muted-foreground" />
+                      <FileText className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -676,6 +719,33 @@ export function ChatLayout({
               {fileItems?.map((item) => (
                 <FileItem s3Key={item} disabled={true} active={false} onRemove={() => {
                   setFileItems(fileItems?.filter((i) => i !== item))
+                }} />
+              ))}
+              {sessionItems?.map((item) => (
+                <SessionItem gid={item} onRemove={async () => {
+                  const update = sessionItems?.filter((i) => i !== item);
+
+                  let sessionToUse = currentSession;
+                  if (currentSession?.id === "new" || !currentSession) {
+                    const createdSession = await createSession();
+                    if (!createdSession) {
+                      toast({
+                        title: "Error",
+                        description: "Failed to create session. Please try again.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    sessionToUse = createdSession;
+                  }
+
+                  updateAgentSessionItems({
+                    variables: {
+                      id: sessionToUse?.id,
+                      session_items: update
+                    }
+                  })
+                  setSessionItems(update)
                 }} />
               ))}
             </div>
@@ -876,7 +946,19 @@ export function ChatLayout({
 }
 
 
-const UntypedToolPart = ({ untypedToolPart, callId, addToContext }: { untypedToolPart: DynamicToolUIPart, callId: string, addToContext: (item: string) => void }) => {
+const UntypedToolPart = ({
+  agent,
+  untypedToolPart,
+  callId,
+  addToContext,
+  addToolApprovalResponse
+}: {
+  agent: Agent,
+  untypedToolPart: DynamicToolUIPart,
+  callId: string,
+  addToContext: (item: string) => void,
+  addToolApprovalResponse: ChatAddToolApproveResponseFunction
+}) => {
 
   const output = untypedToolPart.output as any;
   console.log("output", output)
@@ -885,6 +967,12 @@ const UntypedToolPart = ({ untypedToolPart, callId, addToContext }: { untypedToo
   styleToolName = styleToolName?.replace(/tool-/g, "")
   styleToolName = styleToolName?.replace(/_/g, " ")
   styleToolName = styleToolName?.charAt(0).toUpperCase() + styleToolName?.slice(1)
+
+  if (untypedToolPart?.state === 'approval-requested' || untypedToolPart?.state === 'approval-responded') {
+    return (
+      <ToolCallApproval agent={agent} part={untypedToolPart} addToolApprovalResponse={addToolApprovalResponse} />
+    );
+  }
 
   return <Tool key={callId} className="mt-3" defaultOpen={false}>
     <ToolHeader title={styleToolName} className="capitalize" type={styleToolName as `tool-${string}`} state={untypedToolPart.state} />

@@ -844,7 +844,7 @@ export function DataDisplay(props: DataDisplayProps) {
                           </TableRow>
 
                           {
-                            context.processor && (
+                            context.processor ? (
                               <TableRow key={"processor"}>
                                 <TableCell className="font-medium capitalize">
                                   Last processed at
@@ -853,12 +853,12 @@ export function DataDisplay(props: DataDisplayProps) {
                                   {data.last_processed_at}
                                 </TableCell>
                               </TableRow>
-                            )
+                            ) : null
                           }
 
                           {/* todo: add fixed  fields for "file" which can be a pdf, image, word doc etc...*/}
 
-                          {context?.fields?.length &&
+                          {context?.fields?.length ?
                             context.fields.map(
                               (
                                 contextField,
@@ -1117,7 +1117,7 @@ export function DataDisplay(props: DataDisplayProps) {
                                   </TableRow>
                                 );
                               },
-                            )}
+                            ) : null}
                         </TableBody>
                       </Table>
 

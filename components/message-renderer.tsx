@@ -2,7 +2,6 @@
 
 import { DynamicToolUIPart, UIMessage } from "ai"
 import { Message, MessageContent } from '@/components/ai-elements/message'
-import { Actions, Action } from '@/components/ai-elements/actions'
 import { Response } from '@/components/ai-elements/response'
 import { Reasoning, ReasoningTrigger, ReasoningContent } from "@/components/ai-elements/reasoning"
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai-elements/source"
@@ -18,14 +17,15 @@ import { KnowledgeSourceSearchResultChunk } from "@/types/models/knowledge-sourc
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { useState, useEffect } from "react"
-import { Fragment } from 'react';
 import { MessageActions, MessageAction } from '@/components/ai-elements/message'
 import { Skeleton } from "./ui/skeleton"
-import { ShimmeringText } from "./ui/shadcn-io/shimmering-text"
+import { ChatAddToolApproveResponseFunction } from "ai"
 import { GradientText } from "./ui/shadcn-io/gradient-text"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea";
 import { CheckIcon, XIcon } from "lucide-react"
+import { ToolCallApproval } from "./tool-call-approval"
+import { Agent } from "@/types/models/agent"
 interface ItemWithChunks {
   id: string,
   external_id: string,
@@ -62,15 +62,18 @@ interface MessageRendererProps {
   className?: string
   showActions?: boolean
   showEdit?: boolean
+  agent: Agent
   showRemove?: boolean
   showTokens?: boolean
+  addToolApprovalResponse: ChatAddToolApproveResponseFunction
   onRegenerate?: () => void
   onUpdate?: (messages: UIMessage[]) => void
-  onAddToolResult?: (args: { tool: string; toolCallId: string; output: string }) => void
   UntypedToolPartComponent?: React.ComponentType<{
+    agent: Agent
     untypedToolPart: DynamicToolUIPart
     callId: string
     addToContext: (item: any) => void
+    addToolApprovalResponse: ChatAddToolApproveResponseFunction
   }>
   addToContext?: (item: any) => void
   writeAccess?: boolean
@@ -83,6 +86,7 @@ interface MessageRendererProps {
 export function MessageRenderer({
   messages,
   status = "idle",
+  agent,
   className,
   showActions = true,
   showTokens = true,
@@ -90,11 +94,11 @@ export function MessageRenderer({
   showRemove = false,
   onRegenerate,
   onUpdate,
-  onAddToolResult,
   UntypedToolPartComponent,
   addToContext,
   writeAccess = true,
-  config
+  config,
+  addToolApprovalResponse
 }: MessageRendererProps) {
   const { toast } = useToast()
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
@@ -246,9 +250,11 @@ export function MessageRenderer({
                   // Check if text contains JSON citations
                   // Create a more robust regex that matches all field orders
                   const flexibleCitationRegex = /\{[^}]*?item_name\s*:\s*[^,}]+[^}]*?\}/g;
-                  const hasCitations = flexibleCitationRegex.test(text);
+                  const webSearchCitationRegex = /\{[^}]*?url\s*:\s*[^,}]+[^}]*?\}/g;
+                  const hasKnowledgeSourceCitations = flexibleCitationRegex.test(text);
+                  const hasWebSearchCitations = webSearchCitationRegex.test(text);
 
-                  if (hasCitations) {
+                  if (hasKnowledgeSourceCitations) {
                     // Transform JSON citations into cite-marker format
                     text = text.replace(/\{([^}]+)\}/g, (match, content) => {
                       // Check if this looks like a citation object
@@ -274,10 +280,51 @@ export function MessageRenderer({
                         const chunkIndex = fields.chunk_index;
 
                         // Validate that we have all required fields (chunk_index is optional)
-                        if (itemName && itemId && context && chunkId) {
+                        if (itemName && itemId && context) {
                           // Create citation string: item_name|item_id|chunk_id|chunk_index|context
-                          const citationData = `${itemName}|${itemId}|${chunkId}|${chunkIndex || ''}|${context}`;
-                          return `<cite-marker data-citation="${encodeURIComponent(citationData)}"></cite-marker>`;
+                          const knowledgeSourceCitationData = `${itemName}|${itemId}|${chunkId}|${chunkIndex || ''}|${context}`;
+                          return `<cite-marker-knowledge-source data-citation="${encodeURIComponent(knowledgeSourceCitationData)}"></cite-marker-knowledge-source>`;
+                        }
+
+                        return match; // Missing required fields, keep original
+                      } catch (error) {
+                        console.error('Error parsing citation:', error);
+                        return match; // Keep original on error
+                      }
+                    });
+                  }
+
+                  if (hasWebSearchCitations) {
+                    text = text.replace(/\{([^}]+)\}/g, (match, content) => {
+                      // Check if this looks like a citation object
+                      if (!content.includes('url:')) {
+                        return match; // Not a citation, keep original
+                      }
+
+                      try {
+                        // Parse fields more carefully to handle commas in values
+                        // Match pattern: field_name: value (where value continues until we hit ", next_field:" or "}")
+                        const fields: Record<string, string> = {};
+                        const fieldPattern = /(\w+)\s*:\s*(.*?)(?=,\s*\w+\s*:|$)/g;
+                        let fieldMatch: RegExpExecArray | null;
+
+                        while ((fieldMatch = fieldPattern.exec(content)) !== null) {
+                          const key = fieldMatch[1].trim();
+                          const value = fieldMatch[2].trim().replace(/,$/, ''); // Remove trailing comma if present
+                          fields[key] = value;
+                        }
+
+                        // Extract required fields
+                        const url = fields.url;
+                        const title = fields.title;
+                        const snippet = fields.snippet;
+
+                        // Validate that we have all required fields
+                        if (url && title && snippet) {
+                          // Create citation string using a delimiter that's unlikely to appear in the content
+                          // Using ⟪⟫ as delimiter since it's rare in text
+                          const webSearchCitationData = `${url}⟪⟫${title}⟪⟫${snippet}`;
+                          return `<cite-marker-web-search data-citation="${encodeURIComponent(webSearchCitationData)}"></cite-marker-web-search>`;
                         }
 
                         return match; // Missing required fields, keep original
@@ -331,55 +378,6 @@ export function MessageRenderer({
                   </>
                 }
 
-                if (part.type === 'tool-askForConfirmation' && onAddToolResult) {
-                  const callId = part.toolCallId
-
-                  switch (part.state) {
-                    case 'input-streaming':
-                      return (
-                        <div key={callId}>Loading confirmation request...</div>
-                      )
-                    case 'input-available':
-                      return (
-                        <div key={callId}>
-                          {(part.input as { message: string }).message}
-                          <div>
-                            <button
-                              onClick={() =>
-                                onAddToolResult({
-                                  tool: 'askForConfirmation',
-                                  toolCallId: callId,
-                                  output: 'Yes, confirmed',
-                                })
-                              }
-                            >
-                              Yes
-                            </button>
-                            <button
-                              onClick={() =>
-                                onAddToolResult({
-                                  tool: 'askForConfirmation',
-                                  toolCallId: callId,
-                                  output: 'No, denied',
-                                })
-                              }
-                            >
-                              No
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    case 'output-available':
-                      return (
-                        <div key={callId}>
-                          Tool call allowed: {part.output as string}
-                        </div>
-                      )
-                    case 'output-error':
-                      return <div key={callId}>Error: {part.errorText}</div>
-                  }
-                }
-
                 if (part.type?.toLowerCase().includes('preview_pdf') || part.type?.toLowerCase().includes('pdf_file_in_a_web_view')) {
                   const dynamicToolPart = part as any;
                   const output = JSON.parse(dynamicToolPart.output?.result ?? '{}') as {
@@ -417,6 +415,13 @@ export function MessageRenderer({
                 }
 
                 if (part.type?.toLowerCase().includes('context_search')) {
+
+                  if ((part as any)?.state === 'approval-requested' || (part as any)?.state === 'approval-responded') {
+                    return (
+                      <ToolCallApproval agent={agent} part={part as any} addToolApprovalResponse={addToolApprovalResponse} />
+                    )
+                  }
+
                   const dynamicToolPart = part as any;
                   let output = dynamicToolPart.output as {
                     result: KnowledgeSourceSearchResultChunk[]
@@ -429,38 +434,41 @@ export function MessageRenderer({
                   }
                   console.log("output", output);
                   console.log("output.result", output?.result);
-                  if (!output?.result?.length) {
-                    return null;
-                  }
+
                   // Map the chunks to items
                   const itemsMap = new Map<string, ItemWithChunks>();
-                  const uniqueContexts = new Set(output.result.map(chunk => chunk.context?.name.replaceAll('_', ' ')));
+                  const uniqueContexts = new Set(output?.result?.map(chunk => chunk.context?.name.replaceAll('_', ' ')));
                   const contextNames = Array.from(uniqueContexts).join(', ');
-                  for (const chunk of output.result) {
-                    if (itemsMap.has(chunk.item_id)) {
-                      itemsMap.get(chunk.item_id)?.chunks.push(chunk);
-                    } else {
-                      itemsMap.set(chunk.item_id, {
-                        id: chunk.item_id,
-                        updatedAt: chunk.item_updated_at,
-                        createdAt: chunk.item_created_at,
-                        external_id: chunk.item_external_id,
-                        name: chunk.item_name,
-                        context: {
-                          name: chunk.context?.name,
-                          id: chunk.context?.id
-                        },
-                        chunks: [chunk]
-                      });
+                  if (output?.result) {
+                    for (const chunk of output?.result) {
+
+                      if (itemsMap.has(chunk.item_id)) {
+                        itemsMap.get(chunk.item_id)?.chunks.push(chunk);
+                      } else {
+                        itemsMap.set(chunk.item_id, {
+                          id: chunk.item_id,
+                          updatedAt: chunk.item_updated_at,
+                          createdAt: chunk.item_created_at,
+                          external_id: chunk.item_external_id,
+                          name: chunk.item_name,
+                          context: {
+                            name: chunk.context?.name,
+                            id: chunk.context?.id
+                          },
+                          chunks: [chunk]
+                        });
+                      }
                     }
                   }
                   return (
                     <ContextSearchResults
                       key={`${message.id}-${i}`}
+                      part={dynamicToolPart}
                       input={dynamicToolPart.input}
+                      state={dynamicToolPart.state}
                       contextNames={contextNames}
                       items={Array.from(itemsMap.values())}
-                      totalChunks={output.result.length}
+                      totalChunks={output?.result?.length ?? 0}
                     />
                   )
                 }
@@ -475,6 +483,8 @@ export function MessageRenderer({
                   return (
                     <UntypedToolPartComponent
                       key={callId}
+                      agent={agent}
+                      addToolApprovalResponse={addToolApprovalResponse}
                       untypedToolPart={untypedToolPart}
                       callId={callId}
                       addToContext={addToContext}
@@ -632,19 +642,22 @@ const ContextSearchResults = ({
   contextNames,
   input,
   items,
-  totalChunks
+  state,
+  totalChunks,
+  part,
 }: {
   contextNames: string;
   input: Record<string, any>;
   items: ItemWithChunks[];
   totalChunks: number;
+  part: DynamicToolUIPart
+  state: "input-streaming" | "input-available" | "output-available" | "output-error" | "approval-requested" | "approval-responded"
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showAllItems, setShowAllItems] = useState(false);
 
   const uniqueContexts = new Set(items.map(item => item.context.name));
   const displayItems = showAllItems ? items : items.slice(0, 3);
-
   return (
     <div className="my-3 border rounded-lg overflow-hidden bg-card">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -656,7 +669,7 @@ const ContextSearchResults = ({
               </div>
               <div className="text-left">
                 <div className="font-medium text-sm flex items-center gap-2">
-                  Context search results for {contextNames}
+                  Context search results {contextNames}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
                   {uniqueContexts.size > 0 && (
@@ -687,7 +700,7 @@ const ContextSearchResults = ({
         <CollapsibleContent>
           <div className="border-t">
             {/* Search Parameters */}
-            {Object.keys(input).length > 0 && (
+            {(input && Object.keys(input).length > 0) && (
               <div className="p-4 bg-muted/30 border-b">
                 <div className="text-xs font-medium text-muted-foreground mb-2">Search Parameters</div>
                 <div className="flex flex-wrap gap-2">

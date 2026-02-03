@@ -18,7 +18,8 @@ import { DocumentNode, useQuery } from '@apollo/client';
 import { GET_CHUNK_BY_ID } from '@/queries/queries';
 import { getPresignedUrl } from '../uppy-dashboard';
 import Link from 'next/link';
-import { LinkIcon } from 'lucide-react';
+import { LinkIcon, CopyIcon } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 /**
  * Parses markdown text and removes incomplete tokens to prevent partial rendering
@@ -182,8 +183,146 @@ export type ResponseProps = HTMLAttributes<HTMLDivElement> & {
   parseIncompleteMarkdown?: boolean;
 };
 
+
 // Custom component to render citations as badges with hover dialog
-const CitationBadge = ({ itemName, chunkId, chunkIndex, context, itemId }: {
+const WebSearchCitationBadge = ({ url, title, snippet }: {
+  url: string;
+  title: string;
+  snippet: string;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const { toast } = useToast();
+
+  if (!url) {
+    return null;
+  }
+
+  // Extract the favicon URL and hostname from the domain
+  let faviconUrl = '';
+  let hostname = '';
+  try {
+    const urlObj = new URL(url);
+    faviconUrl = `${urlObj.origin}/favicon.ico`;
+    hostname = urlObj.hostname.replace(/^www\./, ''); // Remove 'www.' prefix if present
+  } catch (error) {
+    console.error('Error parsing URL for favicon:', error);
+  }
+
+  let preview: React.ReactNode | undefined = undefined;
+
+  preview = (
+    <div className="space-y-2 max-h-[500px] overflow-y-auto">
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-sm text-primary underline hover:text-primary/80"
+      >
+        Open the original web page here.
+      </a>
+      <iframe src={`${url}`} style={{ width: '100%', height: '100vh' }} title="Web viewer" />
+    </div>
+  );
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Badge
+          variant="secondary"
+          className="mx-1 inline-flex cursor-pointer items-center gap-1.5 text-xs font-normal hover:bg-secondary/80 m-1"
+          title={url}
+        >
+          {faviconUrl && (
+            <img
+              src={faviconUrl}
+              alt=""
+              className="size-3 flex-shrink-0"
+              onError={(e) => {
+                // Hide the image if favicon fails to load
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          )}
+          <span className="max-w-[200px] truncate capitalize">{title}</span>
+          {hostname && (
+            <span className="text-muted-foreground">· {hostname}</span>
+          )}
+        </Badge>
+      </DialogTrigger>
+      <DialogContent className="max-w-[900px] max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Link className="flex items-center gap-1" href={url} target="_blank">
+                <span className="max-w-[700px] truncate hover:underline cursor-pointer">{title}
+                  {hostname && (
+                    <span className="text-muted-foreground"> · {hostname}</span>
+                  )}
+                </span>
+                <LinkIcon className="size-4" />
+              </Link>
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="text-sm">
+            {/* content */}
+            <div className="relative p-4 border-l-4 border-primary/30 bg-muted/30 rounded-md mb-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 italic text-muted-foreground">
+                  <Response parseIncompleteMarkdown={false}>
+                    {snippet}
+                  </Response>
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(snippet);
+                    toast({
+                      title: "Copied to clipboard",
+                      description: "The citation snippet has been copied.",
+                    });
+                  }}
+                  className="flex-shrink-0 p-1.5 rounded hover:bg-muted transition-colors"
+                  title="Copy snippet to clipboard"
+                >
+                  <CopyIcon className="size-3.5" />
+                </button>
+              </div>
+            </div>
+            {/* preview */}
+            <div className="space-y-2 max-h-[500px] overflow-y-auto">
+              <iframe src={`${url}`} style={{ width: '100%', height: '100vh' }} title="Web viewer" />
+            </div>
+
+          </div>
+
+          <table className="w-full border-collapse border border-border text-xs text-muted-foreground mt-4">
+            <thead>
+              <tr>
+                <th className="px-4 py-2 text-left font-semibold border-b border-border bg-muted/50">Field</th>
+                <th className="px-4 py-2 text-left font-semibold border-b border-border bg-muted/50">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-border">
+                <td className="px-4 py-2">Domain</td>
+                <td className="px-4 py-2">{new URL(url).hostname}</td>
+              </tr>
+              <tr className="border-b border-border">
+                <td className="px-4 py-2">Page</td>
+                <td className="px-4 py-2">{new URL(url).pathname}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Custom component to render citations as badges with hover dialog
+const KnowledgeSourceCitationBadge = ({ itemName, chunkId, chunkIndex, context, itemId }: {
   itemName: string;
   itemId: string;
   chunkId: string;
@@ -192,7 +331,7 @@ const CitationBadge = ({ itemName, chunkId, chunkIndex, context, itemId }: {
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  if (!context || !chunkId) {
+  if (!context) {
     return null;
   }
 
@@ -367,6 +506,10 @@ const CitationBadge = ({ itemName, chunkId, chunkIndex, context, itemId }: {
                   <td className="px-4 py-2 text-sm">{itemName}</td>
                 </tr>
                 <tr>
+                  <td className="px-4 py-2 text-sm">Item ID</td>
+                  <td className="px-4 py-2 text-sm">{itemId}</td>
+                </tr>
+                <tr>
                   <td className="px-4 py-2 text-sm">Chunk ID</td>
                   <td className="px-4 py-2 text-sm">{chunkId}</td>
                 </tr>
@@ -393,7 +536,7 @@ const CitationBadge = ({ itemName, chunkId, chunkIndex, context, itemId }: {
 
 const components = {
   // Custom component to render citation markers as badges
-  'cite-marker': ({ node }: { node?: any }) => {
+  'cite-marker-knowledge-source': ({ node }: { node?: any }) => {
     const dataCitation = node?.properties?.['dataCitation'] as string | undefined;
 
     if (!dataCitation) {
@@ -415,12 +558,45 @@ const components = {
         const context = citeParts[4];
 
         return (
-          <CitationBadge
+          <KnowledgeSourceCitationBadge
             context={context?.trim()}
             itemName={itemName?.trim()}
             itemId={itemId?.trim()}
             chunkId={chunkId?.trim()}
             chunkIndex={chunkIndex?.trim()}
+          />
+        );
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error parsing citation:', error);
+      return null;
+    }
+  },
+  'cite-marker-web-search': ({ node }: { node?: any }) => {
+    const dataCitation = node?.properties?.['dataCitation'] as string | undefined;
+
+    if (!dataCitation) {
+      return null;
+    }
+
+    try {
+      const citationContent = decodeURIComponent(dataCitation);
+      // Each cite-marker contains a single citation in format:
+      // url⟪⟫title⟪⟫snippet (using ⟪⟫ as delimiter to handle commas and pipes in content)
+      const citeParts = citationContent.split('⟪⟫');
+
+      if (citeParts.length >= 3) {
+        const url = citeParts[0];
+        const title = citeParts[1];
+        const snippet = citeParts[2];
+
+        return (
+          <WebSearchCitationBadge
+            url={url?.trim()}
+            title={title?.trim()}
+            snippet={snippet?.trim()}
           />
         );
       }
