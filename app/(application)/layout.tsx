@@ -13,6 +13,8 @@ import { serverSideAuthCheck } from "@/lib/server-side-auth-check";
 import { ConfigContextProvider } from "@/components/config-context";
 import { config as api, BackendConfigType } from "@/util/api";
 import { config as apiConfig } from "@/util/api";
+import { LanguageProvider } from "@/components/language-provider";
+import { LOCALE_COOKIE, Locale, defaultLocale } from "@/i18n/config";
 
 export default async function RootLayout({
     children,
@@ -21,6 +23,7 @@ export default async function RootLayout({
 }) {
     const cookieStore = await cookies()
     const defaultOpen = cookieStore.get("sidebar_state")?.value === "true"
+    const locale = (cookieStore.get(LOCALE_COOKIE)?.value as Locale) || defaultLocale;
 
     const headersList = await headers()
     const pathname = headersList.get('x-next-pathname') || '/';
@@ -31,6 +34,9 @@ export default async function RootLayout({
     const backend = await api.backend();
     console.log("[EXULU] backend", backend)
     const json: BackendConfigType = await backend.json();
+
+    // Load messages for the current locale
+    const messages = (await import(`../../messages/${locale}.json`)).default;
 
     const config = {
         backend: process.env.BACKEND || "",
@@ -77,22 +83,24 @@ export default async function RootLayout({
             >
                 <script type="module" defer src="https://cdn.jsdelivr.net/npm/ldrs/dist/auto/grid.js"></script>
                 <ConfigContextProvider config={config}>
-                    <ThemeProvider
-                        attribute="class"
-                        defaultTheme="system"
-                        enableSystem
-                        disableTransitionOnChange>
-                        <main className="grow flex min-w-0 w-full">
-                            <div className="grow flex flex-col min-w-0 w-full">
-                                <TanstackQueryClientProvider>
-                                    <Authenticated sidebarDefaultOpen={defaultOpen} user={user} config={config}>
-                                        {children}
-                                    </Authenticated>
-                                </TanstackQueryClientProvider>
-                            </div>
-                        </main>
-                        <Toaster />
-                    </ThemeProvider>
+                    <LanguageProvider initialLocale={locale} initialMessages={messages}>
+                        <ThemeProvider
+                            attribute="class"
+                            defaultTheme="system"
+                            enableSystem
+                            disableTransitionOnChange>
+                            <main className="grow flex min-w-0 w-full">
+                                <div className="grow flex flex-col min-w-0 w-full">
+                                    <TanstackQueryClientProvider>
+                                        <Authenticated sidebarDefaultOpen={defaultOpen} user={user} config={config}>
+                                            {children}
+                                        </Authenticated>
+                                    </TanstackQueryClientProvider>
+                                </div>
+                            </main>
+                            <Toaster />
+                        </ThemeProvider>
+                    </LanguageProvider>
                 </ConfigContextProvider>
             </body>
         </html>

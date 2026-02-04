@@ -44,7 +44,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { columns } from "./columns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { SearchBar } from "./search-bar";
 import { Item } from "@EXULU_SHARED/models/item";
 import { CREATE_ITEM, CREATE_ONE_POSTFIX, DELETE_ITEM, GET_ITEMS, PAGINATION_POSTFIX, UPDATE_ITEM } from "@/queries/queries";
 import { ItemsFilter, ItemFilters } from "./items-filter";

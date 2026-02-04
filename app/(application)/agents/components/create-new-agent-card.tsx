@@ -5,6 +5,7 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { CreateNewAgent } from "./create-new-agent";
+import { useTranslations } from "next-intl";
 
 interface CreateNewAgentCardProps {
   createAgent: any;
@@ -13,6 +14,8 @@ interface CreateNewAgentCardProps {
 }
 
 export function CreateNewAgentCard({ createAgent, createAgentResult, company }: CreateNewAgentCardProps) {
+  const t = useTranslations();
+
   return (
     <CreateNewAgent
       createAgent={createAgent}
@@ -23,7 +26,7 @@ export function CreateNewAgentCard({ createAgent, createAgentResult, company }: 
         <CardHeader className="pb-3 h-full">
           <div className="w-full h-full rounded-lg flex items-center justify-center mb-4 flex-col">
             <div className="text-center text-muted-foreground">
-              <p className="text-lg">Create New Agent</p>
+              <p className="text-lg">{t('agents.createNewAgent')}</p>
             </div>
           </div>
         </CardHeader>

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,8 +20,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { agents, ImageStyle } from "@/util/api";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 export function CreateNewAgent({ createAgent, createAgentResult, company, children }) {
+  const t = useTranslations();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -32,29 +36,29 @@ export function CreateNewAgent({ createAgent, createAgentResult, company, childr
   const [imageStyle, setImageStyle] = useState<ImageStyle>("app_icon");
 
   const imageStyles = [
-    { value: "origami", label: "Origami" },
-    { value: "anime", label: "Anime" },
-    { value: "japanese_anime", label: "Japanese Anime" },
-    { value: "vaporwave", label: "Vaporwave" },
-    { value: "lego", label: "Lego" },
-    { value: "paper_cut", label: "Paper Cut" },
-    { value: "felt_puppet", label: "Felt Puppet" },
-    { value: "3d", label: "3D" },
-    { value: "app_icon", label: "App Icon" },
-    { value: "pixel_art", label: "Pixel Art" },
-    { value: "isometric", label: "Isometric" },
+    { value: "origami", label: t('agents.imageStyles.origami') },
+    { value: "anime", label: t('agents.imageStyles.anime') },
+    { value: "japanese_anime", label: t('agents.imageStyles.japanese_anime') },
+    { value: "vaporwave", label: t('agents.imageStyles.vaporwave') },
+    { value: "lego", label: t('agents.imageStyles.lego') },
+    { value: "paper_cut", label: t('agents.imageStyles.paper_cut') },
+    { value: "felt_puppet", label: t('agents.imageStyles.felt_puppet') },
+    { value: "3d", label: t('agents.imageStyles.3d') },
+    { value: "app_icon", label: t('agents.imageStyles.app_icon') },
+    { value: "pixel_art", label: t('agents.imageStyles.pixel_art') },
+    { value: "isometric", label: t('agents.imageStyles.isometric') },
   ];
 
   return (
     <Dialog>
       <DialogTrigger asChild>
-        {children || <Button variant="secondary">Create new agent</Button>}
+        {children || <Button variant="secondary">{t('agents.createNewAgent')}</Button>}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[475px]">
         <DialogHeader>
-          <DialogTitle>Create a new agent</DialogTitle>
+          <DialogTitle>{t('agents.createDialog.title')}</DialogTitle>
           <DialogDescription>
-            Give your new agent a name and a description (optional).
+            {t('agents.createDialog.description')}
           </DialogDescription>
         </DialogHeader>
         {
@@ -70,8 +74,8 @@ export function CreateNewAgent({ createAgent, createAgentResult, company, childr
               <div className="w-full mb-4">
                 <div className="space-y-4">
                   <div className="text-center">
-                    <h3 className="text-lg font-semibold mb-2">Generating your agent images...</h3>
-                    <p className="text-sm text-muted-foreground mb-4">Creating {imageGenerationProgress}/4 image options</p>
+                    <h3 className="text-lg font-semibold mb-2">{t('agents.createDialog.generatingImages')}</h3>
+                    <p className="text-sm text-muted-foreground mb-4">{t('agents.createDialog.generatingProgress', { current: imageGenerationProgress })}</p>
                     <div className="w-32 h-2 bg-muted rounded-full overflow-hidden mx-auto">
                       <div
                         className="h-full bg-primary transition-all duration-300 ease-out"
@@ -93,7 +97,7 @@ export function CreateNewAgent({ createAgent, createAgentResult, company, childr
                             <Loading className="w-6 h-6 text-muted-foreground" />
                           )}
                           <span className="text-xs text-muted-foreground mt-2">
-                            {index < imageGenerationProgress ? 'Complete' : 'Generating...'}
+                            {index < imageGenerationProgress ? t('agents.createDialog.complete') : t('agents.createDialog.generating')}
                           </span>
                         </div>
                       </div>
@@ -138,7 +142,7 @@ export function CreateNewAgent({ createAgent, createAgentResult, company, childr
             <div className="grid gap-4 py-4">
               <div className="w-full mb-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="name">Name</Label>
+                  <Label htmlFor="name">{t('common.name')}</Label>
                   <Input
                     onChange={(e) => {
                       setName(e.target.value);
@@ -148,7 +152,7 @@ export function CreateNewAgent({ createAgent, createAgentResult, company, childr
                   />
                 </div>
                 <div className="grid gap-2 mt-3">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description">{t('common.description')}</Label>
                   <Input
                     onChange={(e) => {
                       setDescription(e.target.value);
@@ -157,7 +161,7 @@ export function CreateNewAgent({ createAgent, createAgentResult, company, childr
                   />
                 </div>
                 <div className="grid gap-2 mt-3">
-                  <Label htmlFor="backend">Backend</Label>
+                  <Label htmlFor="backend">{t('common.backend')}</Label>
                   <AgentBackendSelector onSelect={(id) => {
                     setBackend(id)
                   }} />
@@ -169,15 +173,15 @@ export function CreateNewAgent({ createAgent, createAgentResult, company, childr
                     onCheckedChange={(checked) => setGenerateImage(checked === true)}
                   />
                   <Label htmlFor="generateImage" className="text-sm font-normal">
-                    Generate AI image for this agent
+                    {t('agents.createDialog.generateImageLabel')}
                   </Label>
                 </div>
                 {generateImage && (
                   <div className="grid gap-2 mt-3">
-                    <Label htmlFor="imageStyle">Image Style</Label>
+                    <Label htmlFor="imageStyle">{t('agents.createDialog.imageStyle')}</Label>
                     <Select onValueChange={(value) => setImageStyle(value as typeof imageStyle)} defaultValue={imageStyle}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select image style" />
+                        <SelectValue placeholder={t('agents.createDialog.imageStylePlaceholder')} />
                       </SelectTrigger>
                       <SelectContent>
                         {imageStyles.map((style) => (
@@ -191,11 +195,7 @@ export function CreateNewAgent({ createAgent, createAgentResult, company, childr
                 )}
                 <Alert variant="info" className="mt-3">
                   <AlertDescription>
-                    Exulu can generate a cool image for your agent if an <strong>OPENAI_IMAGE_GENERATION_API_KEY</strong> has been added to your{" "}
-                    <a href="/variables" className="text-primary hover:underline">
-                      variables page
-                    </a>
-                    .
+                    {t('agents.createDialog.imageInfoAlert')}
                   </AlertDescription>
                 </Alert>
               </div>
@@ -224,7 +224,7 @@ export function CreateNewAgent({ createAgent, createAgentResult, company, childr
 
                 // Validate required fields
                 if (!name) {
-                  toast.error("Please fill in all fields");
+                  toast.error(t('agents.createDialog.fillAllFields'));
                   return;
                 }
 
@@ -264,7 +264,7 @@ export function CreateNewAgent({ createAgent, createAgentResult, company, childr
                     }
                   } catch (error) {
                     console.error("Failed to generate images:", error);
-                    toast.error("Failed to generate images. Please try again.");
+                    toast.error(t('agents.createDialog.imageGenerationFailed'));
                   } finally {
                     setImageGenerating(false);
                   }
@@ -272,11 +272,11 @@ export function CreateNewAgent({ createAgent, createAgentResult, company, childr
 
               } catch (error) {
                 console.error("Failed to create agent:", error);
-                toast.error("Failed to create agent. Please try again.");
+                toast.error(t('agents.createDialog.createFailed'));
               }
             }}
             type="submit">
-            {(generatedImages.length > 0 || !generateImage) ? 'Create Agent' : (imageGenerating ? 'Generating...' : 'Generate Images')} 
+            {(generatedImages.length > 0 || !generateImage) ? t('agents.createDialog.buttonCreate') : (imageGenerating ? t('agents.createDialog.buttonGenerating') : t('agents.createDialog.buttonGenerateImages'))}
             {(createAgentResult.loading || imageGenerating) && <Loading className="ml-2" />}
           </Button>
         </DialogFooter>

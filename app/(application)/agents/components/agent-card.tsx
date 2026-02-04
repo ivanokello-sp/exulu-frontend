@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Info } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface AgentCardProps {
   agent: Agent;
@@ -18,6 +19,7 @@ interface AgentCardProps {
 }
 
 export function AgentCard({ agent, onSelect, showDetails }: AgentCardProps) {
+  const t = useTranslations();
 
   const handleCardClick = () => {
     if (onSelect) {
@@ -35,7 +37,7 @@ export function AgentCard({ agent, onSelect, showDetails }: AgentCardProps) {
     ? agent.description.length > 200
       ? agent.description.substring(0, 200) + "..."
       : agent.description
-    : "No description available";
+    : t('agents.noDescriptionAvailable');
 
   return (
     <>
@@ -83,7 +85,7 @@ export function AgentCard({ agent, onSelect, showDetails }: AgentCardProps) {
                 variant={agent.active ? "default" : "secondary"}
                 className="text-xs mt-2"
               >
-                {agent.active ? "Active" : "Inactive"}
+                {agent.active ? t('common.active') : t('common.inactive')}
               </Badge>
 
             </div>

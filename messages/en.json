@@ -1,0 +1,174 @@
+{
+  "navigation": {
+    "dashboard": "Dashboard",
+    "knowledge": "Knowledge",
+    "agents": "Agents",
+    "prompts": "Prompts",
+    "projects": "Projects",
+    "chat": "Chat",
+    "transcriptions": "Transcriptions",
+    "templates": "Templates",
+    "evals": "Evals",
+    "automation": "Automation",
+    "users": "Users",
+    "keys": "Keys",
+    "variables": "Variables",
+    "api": "API",
+    "theme": "Theme",
+    "logout": "Logout",
+    "terms": "Terms"
+  },
+  "language": {
+    "switchTo": "Switch to {language}",
+    "german": "German",
+    "english": "English"
+  },
+  "agentSelection": {
+    "searchPlaceholder": "Search agents...",
+    "noAgentsFound": "No agents found matching your search",
+    "noAgentsAvailable": "No agents available",
+    "sessionCreated": "Session created successfully! Sessions started in a project are accessible for viewing by project members.",
+    "sessionError": "Failed to create session. Please try again.",
+    "newSession": "New session with {agentName}"
+  },
+  "common": {
+    "success": "Success",
+    "error": "Error",
+    "loading": "Loading...",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "active": "Active",
+    "inactive": "Inactive",
+    "enabled": "Enabled",
+    "name": "Name",
+    "description": "Description",
+    "backend": "Backend"
+  },
+  "agents": {
+    "title": "Agents",
+    "subtitle": "Manage your AI agents and create new ones.",
+    "searchPlaceholder": "Search agents...",
+    "errorLoading": "Error loading agents",
+    "errorLoadingDescription": "There was an error loading your agents. Please try again.",
+    "createNewAgent": "Create New Agent",
+    "noDescriptionAvailable": "No description available",
+    "createDialog": {
+      "title": "Create a new agent",
+      "description": "Give your new agent a name and a description (optional).",
+      "generateImageLabel": "Generate AI image for this agent",
+      "imageStyle": "Image Style",
+      "imageStylePlaceholder": "Select image style",
+      "generatingImages": "Generating your agent images...",
+      "generatingProgress": "Creating {current}/4 image options",
+      "complete": "Complete",
+      "generating": "Generating...",
+      "buttonCreate": "Create Agent",
+      "buttonGenerating": "Generating...",
+      "buttonGenerateImages": "Generate Images",
+      "fillAllFields": "Please fill in all fields",
+      "imageGenerationFailed": "Failed to generate images. Please try again.",
+      "createFailed": "Failed to create agent. Please try again.",
+      "imageInfoAlert": "Exulu can generate a cool image for your agent if an OPENAI_IMAGE_GENERATION_API_KEY has been added to your variables page."
+    },
+    "detailsSheet": {
+      "noModelSelected": "No model selected",
+      "description": "Description",
+      "noDescriptionAvailable": "No description available.",
+      "capabilities": "Capabilities",
+      "tools": "Tools",
+      "noToolsEnabled": "No tools enabled",
+      "security": "Security",
+      "protected": "Protected",
+      "unprotected": "Unprotected",
+      "active": "Active",
+      "accessControl": "Access Control",
+      "scanners": {
+        "promptGuard": "Prompt Guard",
+        "codeShield": "Code Shield",
+        "agentAlignment": "Agent Alignment",
+        "hiddenAscii": "Hidden ASCII Detection",
+        "piiDetection": "PII Detection"
+      },
+      "capabilityLabels": {
+        "images": "Images",
+        "files": "Files",
+        "audio": "Audio",
+        "video": "Video",
+        "none": "None"
+      }
+    },
+    "deleteDialog": {
+      "title": "Delete this agent",
+      "confirmationPrompt": "Type \"{confirmation}\" to confirm",
+      "confirmationText": "delete this agent",
+      "buttonDelete": "Delete"
+    },
+    "imageStyles": {
+      "origami": "Origami",
+      "anime": "Anime",
+      "japanese_anime": "Japanese Anime",
+      "vaporwave": "Vaporwave",
+      "lego": "Lego",
+      "paper_cut": "Paper Cut",
+      "felt_puppet": "Felt Puppet",
+      "3d": "3D",
+      "app_icon": "App Icon",
+      "pixel_art": "Pixel Art",
+      "isometric": "Isometric"
+    }
+  },
+  "dashboard": {
+    "title": "Analytics Dashboard",
+    "subtitle": "Monitor your AI workflows and performance metrics.",
+    "summary": "Summary",
+    "summaryCards": {
+      "agentSessions": "Agent Sessions",
+      "agentCalls": "Agent Calls",
+      "tokenUsage": "Token Usage",
+      "workflowRuns": "Workflow Runs",
+      "functionCalls": "Function Calls"
+    },
+    "leaderboards": {
+      "title": "Leaderboards",
+      "viewToggle": {
+        "count": "Count",
+        "tokens": "Tokens"
+      },
+      "topUsers": {
+        "title": "Top Users",
+        "subtitleCount": "Most active users by agent calls",
+        "subtitleTokens": "Most active users by token usage"
+      },
+      "topProjects": {
+        "title": "Top Projects",
+        "subtitleCount": "Most active projects by agent calls",
+        "subtitleTokens": "Most active projects by token usage"
+      },
+      "topAgents": {
+        "title": "Top Agents",
+        "subtitleCount": "Most used agents by call count",
+        "subtitleTokens": "Most used agents by token usage"
+      },
+      "valueLabels": {
+        "calls": "calls",
+        "tokens": "tokens"
+      }
+    },
+    "timeSeriesAnalytics": {
+      "title": "Time Series Analytics",
+      "unitOptions": {
+        "tokens": "Tokens",
+        "count": "Count"
+      },
+      "groupByOptions": {
+        "label": "Label",
+        "user": "User",
+        "role": "Role"
+      }
+    }
+  }
+}

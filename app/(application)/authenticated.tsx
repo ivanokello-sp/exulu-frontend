@@ -21,8 +21,8 @@ interface AuthenticatedProps {
   sidebarDefaultOpen: boolean;
   config: {
     n8n: {
-      enabled: boolean;
-      url: string;
+      enabled?: boolean;
+      url?: string;
     };
   };
 }

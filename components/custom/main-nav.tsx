@@ -21,11 +21,13 @@ import {
 import { cn } from "@/lib/utils";
 import { UserRole } from "@/types/models/user-role";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
-import { ChevronUp, Moon, Sun, Code, MessageCircle, Users, Key, LayoutDashboard, Database, ListTodo, Bot, Route, Variable, FileCheck, Sparkles, Settings, LogOut, FileText, FolderOpen, Brain, Album, BookCheck, TextSelect, ClipboardType, BarChart2, BarChart, BarChart4, Workflow, Form, FileAudio } from "lucide-react";
+import { ChevronUp, Moon, Sun, Code, MessageCircle, Users, Key, LayoutDashboard, Database, ListTodo, Bot, Route, Variable, FileCheck, Sparkles, Settings, LogOut, FileText, FolderOpen, Brain, Album, BookCheck, TextSelect, ClipboardType, BarChart2, BarChart, BarChart4, Workflow, Form, FileAudio, Languages } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import Logo from "../logo";
+import { useLanguage } from "@/components/language-provider";
+import { useTranslations } from "next-intl";
 
 interface User {
   email: string;
@@ -35,63 +37,63 @@ interface User {
 
 interface Config {
   n8n?: {
-    enabled: boolean;
-    url: string;
+    enabled?: boolean;
+    url?: string;
   };
 }
 
-const buildNavigation = (user: User, role: UserRole, config: Config) => {
+const buildNavigation = (user: User, role: UserRole, config: Config, t: any) => {
   const navigationItems: { label: string; path: string; icon: React.ReactNode }[] = [];
 
   if (user.super_admin) {
     navigationItems.push({
-      label: "Dashboard",
+      label: t('navigation.dashboard'),
       path: "dashboard",
       icon: <BarChart4 />,
     });
   }
 
   navigationItems.push({
-    label: "Knowledge",
+    label: t('navigation.knowledge'),
     path: "data",
     icon: <Brain />,
   });
 
   if (user.super_admin || role.agents === "write") {
     navigationItems.push({
-      label: "Agents",
+      label: t('navigation.agents'),
       path: "agents",
       icon: <Bot />,
     });
   }
 
   navigationItems.push({
-    label: "Prompts",
+    label: t('navigation.prompts'),
     path: "prompts",
     icon: <ClipboardType />,
   });
 
   navigationItems.push({
-    label: "Projects",
+    label: t('navigation.projects'),
     path: "projects",
     icon: <FolderOpen />,
   });
 
   navigationItems.push({
-    label: "Chat",
+    label: t('navigation.chat'),
     path: "chat",
     icon: <MessageCircle />,
   });
 
   navigationItems.push({
-    label: "Transcriptions",
+    label: t('navigation.transcriptions'),
     path: "transcriptions",
     icon: <FileAudio />,
   });
 
   if (user.super_admin || role.workflows === "write") {
     navigationItems.push({
-      label: "Templates",
+      label: t('navigation.templates'),
       path: "workflows",
       icon: <Form />,
     });
@@ -99,7 +101,7 @@ const buildNavigation = (user: User, role: UserRole, config: Config) => {
 
   if (user.super_admin || role.evals === "read" || role.evals === "write") {
     navigationItems.push({
-      label: "Evals",
+      label: t('navigation.evals'),
       path: "evals",
       icon: <BookCheck />,
     });
@@ -110,7 +112,7 @@ const buildNavigation = (user: User, role: UserRole, config: Config) => {
     && config.n8n?.enabled
   ) {
     navigationItems.push({
-      label: "Automation",
+      label: t('navigation.automation'),
       path: "n8n",
       icon: <Workflow />,
     });
@@ -118,7 +120,7 @@ const buildNavigation = (user: User, role: UserRole, config: Config) => {
 
   if (user.super_admin || role.users === "write") {
     navigationItems.push({
-      label: "Users",
+      label: t('navigation.users'),
       path: "users",
       icon: <Users />,
     });
@@ -126,7 +128,7 @@ const buildNavigation = (user: User, role: UserRole, config: Config) => {
 
   if (user.super_admin || role.api === "write") {
     navigationItems.push({
-      label: "Keys",
+      label: t('navigation.keys'),
       path: "keys",
       icon: <Key />,
     });
@@ -134,7 +136,7 @@ const buildNavigation = (user: User, role: UserRole, config: Config) => {
 
   if (user.super_admin || role.variables === "write") {
     navigationItems.push({
-      label: "Variables",
+      label: t('navigation.variables'),
       path: "variables",
       icon: <Variable />,
     });
@@ -142,7 +144,7 @@ const buildNavigation = (user: User, role: UserRole, config: Config) => {
 
   if (user.super_admin || role.api === "write") {
     navigationItems.push({
-      label: "API",
+      label: t('navigation.api'),
       path: "explorer",
       icon: <Code />,
     });
@@ -150,7 +152,7 @@ const buildNavigation = (user: User, role: UserRole, config: Config) => {
 
   if (user.super_admin) {
     navigationItems.push({
-      label: "Theme",
+      label: t('navigation.theme'),
       path: "configuration",
       icon: <Settings />,
     });
@@ -199,7 +201,9 @@ function NavigationItems({ items }: { items: { label: string; path: string; icon
 export function MainNavSidebar({ sidebarDefaultOpen, config }: { sidebarDefaultOpen: boolean, config: Config }) {
 
   const { user } = useContext(UserContext);
-  const navigationItems = buildNavigation(user, user.role, config);
+  const t = useTranslations();
+  const { locale, setLocale } = useLanguage();
+  const navigationItems = buildNavigation(user, user.role, config, t);
   const router = useRouter();
   const { setTheme, theme } = useTheme();
   const params = useParams()
@@ -254,13 +258,19 @@ export function MainNavSidebar({ sidebarDefaultOpen, config }: { sidebarDefaultO
                 <DropdownMenuItem onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
                   <div className="flex items-center gap-2 w-full">
                     {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                    <span>Theme</span>
+                    <span>{t('navigation.theme')}</span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLocale(locale === 'en' ? 'de' : 'en')}>
+                  <div className="flex items-center gap-2 w-full">
+                    <Languages className="h-4 w-4" />
+                    <span>{locale === 'en' ? 'Deutsch' : 'English'}</span>
                   </div>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push("/api/auth/signout")}>
                   <div className="flex items-center gap-2 w-full">
                     <LogOut className="h-4 w-4" />
-                    <span>Logout</span>
+                    <span>{t('navigation.logout')}</span>
                   </div>
                 </DropdownMenuItem>
                 {/* <DropdownMenuItem onClick={() => window.open("https://www.exulu.com/toc", "_blank")}>

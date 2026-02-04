@@ -142,7 +142,7 @@ export const ToolCallApproval = ({
                                 })
                             }
                         >
-                            Deny and tell {agent?.name || 'me'} what to do different
+                            Deny
                         </Button>
                     </div>
                 </CardContent>

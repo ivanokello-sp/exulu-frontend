@@ -5,7 +5,7 @@ import { Message, MessageContent } from '@/components/ai-elements/message'
 import { Response } from '@/components/ai-elements/response'
 import { Reasoning, ReasoningTrigger, ReasoningContent } from "@/components/ai-elements/reasoning"
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai-elements/source"
-import { RefreshCcwIcon, CopyIcon, ChevronDown, ChevronRight, Search, FileText, Database, ListChecks, LayoutList, EditIcon, Trash2Icon } from "lucide-react"
+import { RefreshCcwIcon, CopyIcon, ChevronDown, ChevronRight, Search, FileText, Database, ListChecks, LayoutList, EditIcon, Trash2Icon, DownloadIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
@@ -62,10 +62,10 @@ interface MessageRendererProps {
   className?: string
   showActions?: boolean
   showEdit?: boolean
-  agent: Agent
+  agent?: Agent
   showRemove?: boolean
   showTokens?: boolean
-  addToolApprovalResponse: ChatAddToolApproveResponseFunction
+  addToolApprovalResponse?: ChatAddToolApproveResponseFunction
   onRegenerate?: () => void
   onUpdate?: (messages: UIMessage[]) => void
   UntypedToolPartComponent?: React.ComponentType<{
@@ -77,6 +77,7 @@ interface MessageRendererProps {
   }>
   addToContext?: (item: any) => void
   writeAccess?: boolean
+  AgentVisualComponent?: React.ComponentType<any>
   config?: {
     marginTopFirstMessage?: string
     customAssistantClassnames?: string
@@ -97,6 +98,7 @@ export function MessageRenderer({
   UntypedToolPartComponent,
   addToContext,
   writeAccess = true,
+  AgentVisualComponent,
   config,
   addToolApprovalResponse
 }: MessageRendererProps) {
@@ -198,12 +200,18 @@ export function MessageRenderer({
   }, [streamingTexts.length]);
 
 
+  // Find the index of the last assistant message
+  const lastAssistantMessageIndex = messagesToRender?.map((msg, idx) =>
+    msg.role === 'assistant' ? idx : -1
+  ).filter(idx => idx !== -1).pop() ?? -1;
+
   return (
     <>
       {messagesToRender?.map((message, messageIndex) => {
         const isFirstMessage = messageIndex === 0
         const isLastMessage =
           messageIndex === messages.length - 1;
+        const isLastAssistantMessage = messageIndex === lastAssistantMessageIndex;
         const messageMetadata = message.metadata as any
 
         // iterate through all parts and find the ones that have a type of 'text' and contain '<file name="', if so
@@ -224,7 +232,7 @@ export function MessageRenderer({
         }) ?? [];
         console.log("files", files);
 
-        return (
+        const messageElement = (
           <Message
             className={cn(
               message.role === 'assistant' && (
@@ -416,7 +424,12 @@ export function MessageRenderer({
 
                 if (part.type?.toLowerCase().includes('context_search')) {
 
-                  if ((part as any)?.state === 'approval-requested' || (part as any)?.state === 'approval-responded') {
+                  if (
+                    (
+                      (part as any)?.state === 'approval-requested' ||
+                      (part as any)?.state === 'approval-responded'
+                    ) && agent && addToolApprovalResponse
+                  ) {
                     return (
                       <ToolCallApproval agent={agent} part={part as any} addToolApprovalResponse={addToolApprovalResponse} />
                     )
@@ -476,7 +489,9 @@ export function MessageRenderer({
                 if (
                   (part.type.startsWith('tool-') || part.type === 'dynamic-tool') &&
                   UntypedToolPartComponent &&
-                  addToContext
+                  addToContext &&
+                  agent &&
+                  addToolApprovalResponse
                 ) {
                   const untypedToolPart = part as DynamicToolUIPart
                   const callId = untypedToolPart.toolCallId
@@ -537,6 +552,7 @@ export function MessageRenderer({
                     <Reasoning
                       key={`${message.id}-${i}`}
                       className="w-full"
+                      defaultOpen={false}
                       isStreaming={status === 'streaming'}
                     >
                       <ReasoningTrigger />
@@ -601,6 +617,37 @@ export function MessageRenderer({
                         <CopyIcon className="size-3" />
                       </MessageAction>
                     )}
+                    {showActions && message.role === 'assistant' && (
+                      <MessageAction
+                        className="mr-1"
+                        onClick={() => {
+                          const messageText = message.parts?.map((part: any) => part?.text || "").join('\n')
+
+                          // Create a blob with the text content
+                          const blob = new Blob([messageText], { type: 'text/plain' })
+                          const url = URL.createObjectURL(blob)
+
+                          // Create a temporary link and trigger download
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = `message-${new Date().getTime()}.txt`
+                          document.body.appendChild(a)
+                          a.click()
+
+                          // Cleanup
+                          document.body.removeChild(a)
+                          URL.revokeObjectURL(url)
+
+                          toast({
+                            title: "Downloaded message",
+                            description: "The message was downloaded as a text file.",
+                          })
+                        }}
+                        label="Download"
+                      >
+                        <DownloadIcon className="size-3" />
+                      </MessageAction>
+                    )}
                     {(showTokens && message.role === 'assistant' && messageMetadata?.totalTokens) && (
                       <small className="text-muted-foreground">
                         {Intl.NumberFormat('en-US').format(messageMetadata?.totalTokens)} tokens
@@ -632,7 +679,21 @@ export function MessageRenderer({
                 )}
             </MessageContent>
           </Message>
-        )
+        );
+
+        // Wrap the last assistant message with AgentVisual on the left
+        if (isLastAssistantMessage && message.role === 'assistant' && AgentVisualComponent && agent) {
+          return (
+            <div key={message.id + '_wrapper'} className="flex items-start gap-3 w-full">
+              <div className="shrink-0 mt-1">
+                <AgentVisualComponent agent={agent} status={status} className="w-12 h-12" />
+              </div>
+              {messageElement}
+            </div>
+          );
+        }
+
+        return messageElement;
       })}
     </>
   )

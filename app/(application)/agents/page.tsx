@@ -12,10 +12,12 @@ import { Agent } from "@EXULU_SHARED//models/agent";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { AgentDetailsSheet } from "./components/agent-details-sheet";
+import { useTranslations } from "next-intl";
 
 export const dynamic = "force-dynamic";
 
 export default function AgentsPage() {
+  const t = useTranslations();
   const router = useRouter();
   const { user } = useContext(UserContext);
   const company = user.company;
@@ -67,9 +69,9 @@ export default function AgentsPage() {
   if (error) {
     return (
       <div className="container mx-auto py-12 text-center">
-        <h1 className="text-2xl font-bold mb-4">Error loading agents</h1>
+        <h1 className="text-2xl font-bold mb-4">{t('agents.errorLoading')}</h1>
         <p className="text-muted-foreground">
-          There was an error loading your agents. Please try again.
+          {t('agents.errorLoadingDescription')}
         </p>
       </div>
     );
@@ -78,16 +80,16 @@ export default function AgentsPage() {
   return (
     <div className="container mx-auto py-12 px-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Agents</h1>
+        <h1 className="text-3xl font-bold mb-2">{t('agents.title')}</h1>
         <p className="text-muted-foreground mb-6">
-          Manage your AI agents and create new ones.
+          {t('agents.subtitle')}
         </p>
         {/* Search Bar */}
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search agents..."
+            placeholder={t('agents.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"

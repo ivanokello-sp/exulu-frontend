@@ -83,6 +83,14 @@ import { useSearchParams } from "next/navigation";
 import { ToolCallApproval } from "@/components/tool-call-approval";
 import { ItemsSelectionModal } from "@/components/items-selection-modal";
 import { SessionItem } from "@/components/project-details";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { Wrench } from "lucide-react";
 
 export function ChatLayout({
   session,
@@ -144,6 +152,7 @@ export function ChatLayout({
   const [incrementPromptUsage] = useIncrementPromptUsage();
 
   const [writeAccess, setWriteAccess] = useState<boolean>(currentSession ? checkChatSessionWriteAccess(currentSession, user) : true);
+  const [toolsSheetOpen, setToolsSheetOpen] = useState(false);
 
   const [rbac, setRbac] = useState({
     rights_mode: currentSession?.rights_mode || 'private',
@@ -448,6 +457,11 @@ export function ChatLayout({
     );
   };
 
+  // Calculate number of active tools
+  const activeToolsCount = useMemo(() => {
+    return (agent.tools?.length || 0) - disabledTools.length;
+  }, [agent.tools, disabledTools]);
+
   const updateMessageFiles = async (items: Item[]) => {
     const files = await Promise.all(items.map(async (item) => {
 
@@ -489,9 +503,9 @@ export function ChatLayout({
   }, [fileItems])
 
   return (
-    <div className="grid h-full w-full grid-cols-[1fr_auto]">
+    <div className="h-full w-full">
       {/* Main conversation area */}
-      <div className="col-span-1 grow flex flex-col flex-1 relative h-[100vh] overflow-hidden">
+      <div className="grow flex flex-col flex-1 relative h-[100vh] overflow-hidden">
         {/* Animated gradient at top - moved outside Conversation to prevent scroll interference */}
         <div className={`absolute w-full top-0 z-10 pointer-events-none`}>
           {agent.maxContextLength && (
@@ -499,7 +513,7 @@ export function ChatLayout({
           )}
         </div>
         {/* Context/token counter - moved outside Conversation to prevent scroll interference */}
-        <div className="flex justify-between absolute top-0 left-0 right-0 items-center px-4 py-2 border-b z-10 dark:bg-black bg-white top-6">
+        <div className="flex justify-between absolute top-0 left-0 right-0 items-center px-4 py-2 border-b z-10 dark:bg-black bg-white top-4">
           <div className="flex items-center gap-4">
             <Badge variant="secondary" className="text-xs">
               {agent.modelName}
@@ -574,7 +588,7 @@ export function ChatLayout({
               </div>
             </div> : null}
           {/* @ts-ignore */}
-          <ConversationContent className="px-6">
+          <ConversationContent className="px-6 max-w-[850px] mx-auto">
             {messages?.length > 0 && (
               <MessageRenderer
                 addToolApprovalResponse={addToolApprovalResponse}
@@ -586,6 +600,7 @@ export function ChatLayout({
                 status={status}
                 onRegenerate={regenerate}
                 UntypedToolPartComponent={UntypedToolPart}
+                AgentVisualComponent={AgentVisual}
                 agent={agent}
                 addToContext={(item) => {
                   setFileItems([...(fileItems || []), item])
@@ -615,141 +630,178 @@ export function ChatLayout({
           </div>
         )}
         {writeAccess && (
-          <form
-            onSubmit={onSubmit}
-            className="px-6 border-input border rounded flex mx-5 p-5 flex-col gap-2 mb-5">
-            <div className="items-center flex relative gap-2 w-full">
-              {
-                configContext?.fileUploads?.s3endpoint && (<UppyDashboard
-                  id={`chat-${currentSession?.id || 'new'}`}
-                  selectionLimit={10}
-                  allowedFileTypes={[
-                    ...agent.capabilities?.audio || [],
-                    ...agent.capabilities?.video || [],
-                    ...agent.capabilities?.files || [],
-                    ...agent.capabilities?.images || [],
-                  ]}
-                  dependencies={[]}
-                  onConfirm={(items) => {
-                    setFileItems(items)
-                  }}
-                />)
-              }
-
-              {/* Select or add items to knowledge bases */}
-              <ItemsSelectionModal onConfirm={async (data) => {
-                console.log("data", data)
-                let sessionToUse = currentSession;
-                // Call update session mutation to add the item to the session
-                if (currentSession?.id === "new" || !currentSession) {
-                  // Create the session first
-                  const createdSession = await createSession();
-                  if (!createdSession) {
-                    toast({
-                      title: "Error",
-                      description: "Failed to create session. Please try again.",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  sessionToUse = createdSession;
-                }
-                const update = [...(sessionItems || []), ...data.map((x) => `${x.context.id}/${x.item.id}`)];
-                updateAgentSessionItems({
-                  variables: {
-                    id: sessionToUse?.id,
-                    session_items: update
-                  }
-                })
-                setSessionItems(update);
-              }} buttonText="" tooltipText="Select or create items from/for knowledge sources to add to the chat." />
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
+          <>
+            <form
+              onSubmit={onSubmit}
+              className="px-6 border-input flex mx-5 p-5 flex-col gap-2 mb-2">
+              <div className="items-center flex flex-col relative gap-2 w-full">
+                <div className="flex relative gap-2 w-[850px]">
+                  <TextareaAutosize
+                    autoComplete="off"
+                    autoFocus={true}
+                    minRows={1}
+                    value={input}
+                    ref={inputRef}
+                    onKeyDown={handleKeyPress}
+                    onChange={(e) => setInput(e.target.value)}
+                    name="message"
+                    placeholder={`Ask me anything...`}
+                    className="border max-h-40 px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 w-full items-center h-28 resize-none overflow-hidden dark:bg-card/35"
+                  />
+                  {status !== "streaming" ? (
                     <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
                       className="shrink-0"
-                      onClick={() => setPromptSelectorOpen(true)}
+                      variant="secondary"
+                      size="icon"
+                      disabled={status === "submitted" || !input?.trim()}
                     >
-                      <FileText className="h-4 w-4" />
+                      <ArrowUp className=" size-6 text-muted-foreground" />
                     </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Insert prompt from library</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TextareaAutosize
-                autoComplete="off"
-                autoFocus={true}
-                minRows={1}
-                value={input}
-                ref={inputRef}
-                onKeyDown={handleKeyPress}
-                onChange={(e) => setInput(e.target.value)}
-                name="message"
-                placeholder={`Ask me anything...`}
-                className="max-h-40 px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 w-full items-center h-28 resize-none overflow-hidden dark:bg-card/35"
-              />
-              {status !== "streaming" ? (
-                <Button
-                  className="shrink-0"
-                  variant="secondary"
-                  size="icon"
-                  disabled={status === "submitted" || !input?.trim()}
-                >
-                  <ArrowUp className=" size-6 text-muted-foreground" />
-                </Button>
-              ) : (
-                <Button
-                  className="shrink-0"
-                  variant="secondary"
-                  size="icon"
-                  onClick={stop}
-                >
-                  <StopIcon className="size-6 text-muted-foreground" />
-                </Button>
-              )}
-            </div>
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-              {/* Show  selected files */}
-              {fileItems?.map((item) => (
-                <FileItem s3Key={item} disabled={true} active={false} onRemove={() => {
-                  setFileItems(fileItems?.filter((i) => i !== item))
-                }} />
-              ))}
-              {sessionItems?.map((item) => (
-                <SessionItem gid={item} onRemove={async () => {
-                  const update = sessionItems?.filter((i) => i !== item);
+                  ) : (
+                    <Button
+                      className="shrink-0"
+                      variant="secondary"
+                      size="icon"
+                      onClick={stop}
+                    >
+                      <StopIcon className="size-6 text-muted-foreground" />
+                    </Button>
+                  )}
+                </div>
+                <div className="items-center flex relative gap-2 w-[850px]">
+                  {/* {
+                  configContext?.fileUploads?.s3endpoint && (<UppyDashboard
+                    id={`chat-${currentSession?.id || 'new'}`}
+                    selectionLimit={10}
+                    allowedFileTypes={[
+                      ...agent.capabilities?.audio || [],
+                      ...agent.capabilities?.video || [],
+                      ...agent.capabilities?.files || [],
+                      ...agent.capabilities?.images || [],
+                    ]}
+                    dependencies={[]}
+                    onConfirm={(items) => {
+                      setFileItems(items)
+                    }}
+                  />)
+                } */}
 
-                  let sessionToUse = currentSession;
-                  if (currentSession?.id === "new" || !currentSession) {
-                    const createdSession = await createSession();
-                    if (!createdSession) {
-                      toast({
-                        title: "Error",
-                        description: "Failed to create session. Please try again.",
-                        variant: "destructive",
-                      });
-                      return;
+                  {/* Select or add items to knowledge bases */}
+                  <ItemsSelectionModal onConfirm={async (data) => {
+                    console.log("data", data)
+                    let sessionToUse = currentSession;
+                    // Call update session mutation to add the item to the session
+                    if (currentSession?.id === "new" || !currentSession) {
+                      // Create the session first
+                      const createdSession = await createSession();
+                      if (!createdSession) {
+                        toast({
+                          title: "Error",
+                          description: "Failed to create session. Please try again.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      sessionToUse = createdSession;
                     }
-                    sessionToUse = createdSession;
-                  }
+                    const update = [...(sessionItems || []), ...data.map((x) => `${x.context.id}/${x.item.id}`)];
+                    updateAgentSessionItems({
+                      variables: {
+                        id: sessionToUse?.id,
+                        session_items: update
+                      }
+                    })
+                    setSessionItems(update);
+                  }} buttonText="" tooltipText="Select or create items from/for knowledge sources to add to the chat." />
 
-                  updateAgentSessionItems({
-                    variables: {
-                      id: sessionToUse?.id,
-                      session_items: update
+                  {/* Tools button */}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0 relative"
+                          onClick={() => setToolsSheetOpen(true)}
+                        >
+                          <Wrench className="h-4 w-4" />
+                          {activeToolsCount > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                              {activeToolsCount}
+                            </span>
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{activeToolsCount} {activeToolsCount === 1 ? 'tool' : 'tools'} active</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
+                          onClick={() => setPromptSelectorOpen(true)}
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Insert prompt from library</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+
+
+              </div>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 w-[850px] mx-auto">
+                {/* Show  selected files */}
+                {fileItems?.map((item) => (
+                  <FileItem s3Key={item} disabled={true} active={false} onRemove={() => {
+                    setFileItems(fileItems?.filter((i) => i !== item))
+                  }} />
+                ))}
+                {sessionItems?.map((item) => (
+                  <SessionItem gid={item} onRemove={async () => {
+                    const update = sessionItems?.filter((i) => i !== item);
+
+                    let sessionToUse = currentSession;
+                    if (currentSession?.id === "new" || !currentSession) {
+                      const createdSession = await createSession();
+                      if (!createdSession) {
+                        toast({
+                          title: "Error",
+                          description: "Failed to create session. Please try again.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      sessionToUse = createdSession;
                     }
-                  })
-                  setSessionItems(update)
-                }} />
-              ))}
-            </div>
-          </form>
+
+                    updateAgentSessionItems({
+                      variables: {
+                        id: sessionToUse?.id,
+                        session_items: update
+                      }
+                    })
+                    setSessionItems(update)
+                  }} />
+                ))}
+              </div>
+            </form>
+            {/* Disclaimer text */}
+            <p className="text-xs text-center text-muted-foreground mb-5">
+              AI can make mistakes. Check important info.
+            </p>
+          </>
         )}
         {/* Save Workflow Modal */}
         <SaveWorkflowModal
@@ -778,169 +830,178 @@ export function ChatLayout({
             onSubmit={handleSubmitVariables}
           />
         )}
-      </div>
 
-      {/* Agent Details Sidebar */}
-      {writeAccess && (
-        <div className="w-80 border-l bg-muted/20 p-4 space-y-4">
-          {
-            messages?.length > 0 && (
-              <div>
-                <AgentVisual agent={agent} status={status} className="w-80" />
-              </div>
-            )
-          }
-          <div>
-            <p className="text-sm font-medium text-center">{agent.name}</p>
-          </div>
-          {agent.description && (
-            <p className="text-xs text-muted-foreground mt-1">
-              {agent.description?.length > 100 ? agent.description?.substring(0, 100) + "..." : agent.description}
-            </p>
-          )}
-          <hr className="my-2" />
-          {currentSession && (
-            <div className="mt-1">
-              <div className="border rounded">
+        {/* Agent Details Sheet */}
+        {writeAccess && (
+          <Sheet open={toolsSheetOpen} onOpenChange={setToolsSheetOpen}>
+            <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>{agent.name}</SheetTitle>
+                {agent.description && (
+                  <SheetDescription>
+                    {agent.description?.length > 100 ? agent.description?.substring(0, 100) + "..." : agent.description}
+                  </SheetDescription>
+                )}
+              </SheetHeader>
+
+              <div className="mt-6 space-y-4">
                 {
-                  creatorQuery.loading && (
-                    <div className="flex flex-row justify-between p-3">
-                      <p className="text-sm font-medium">Session created by</p>
-                      <Loading className="ml-2" />
+                  messages?.length > 0 && (
+                    <div>
+                      <AgentVisual agent={agent} status={status} className="w-full" />
                     </div>
                   )
                 }
-                {creatorQuery.data?.userById && !creatorQuery.loading && (
-                  <div className="flex flex-row justify-between p-3">
-                    <p className="text-sm font-medium">Session created by</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {creatorQuery.data.userById.name ? <p className="text-sm font-medium capitalize">
-                        {creatorQuery.data.userById.name}
-                      </p> : <p className="text-sm font-medium">{creatorQuery.data.userById.email}</p>}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          {currentSession?.project && (
-            <div className="mt-1">
-              <div className="border rounded">
-                {
-                  projectQuery.loading && (
-                    <div className="flex flex-row justify-between p-3">
-                      <p className="text-sm font-medium">This chat is part of a project:</p>
-                      <Loading className="ml-2" />
-                    </div>
-                  )
-                }
-                {projectQuery.data?.projectById && !projectQuery.loading && (
-                  <div className="flex flex-col p-3 gap-2">
-                    <p className="text-sm font-medium">Project</p>
-                    <Link
-                      href={`/projects/${currentSession.project}`}
-                      className="text-sm text-primary hover:underline"
-                    >
-                      {projectQuery.data.projectById.name}
-                    </Link>
-                    {projectQuery.data.projectById.description && (
-                      <p className="text-xs text-muted-foreground">
-                        {projectQuery.data.projectById.description}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          <div>
-            <p className="text-xs font-medium text-muted-foreground pt-2">
-              You can disable tools for individual messages in this session by clicking the switch:</p>
-            <TooltipProvider>
-              <div className="space-y-1 pt-2">
-                {agent.tools && agent.tools.length > 0 ? (
-                  agent.tools.map((tool, index) => {
-                    const isEnabled = !disabledTools.includes(tool.id);
-                    return (
-                      <Tooltip key={tool.name + "_" + index}>
-                        <TooltipTrigger asChild>
-                          <div className="p-2 rounded-md border text-xs bg-background flex items-center justify-between">
-                            <p className="font-medium flex items-center gap-2 capitalize">
-                              {tool.name.replace(/_/g, " ")}
-                            </p>
-                            <Switch
-                              checked={isEnabled}
-                              onCheckedChange={() => toggleTool(tool.id)}
-                            />
+
+                {currentSession && (
+                  <div>
+                    <div className="border rounded">
+                      {
+                        creatorQuery.loading && (
+                          <div className="flex flex-row justify-between p-3">
+                            <p className="text-sm font-medium">Session created by</p>
+                            <Loading className="ml-2" />
                           </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="max-w-[200px] text-wrap">{tool.description}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    );
-                  })
-                ) : (
-                  <p className="text-xs text-muted-foreground">No tools enabled.</p>
+                        )
+                      }
+                      {creatorQuery.data?.userById && !creatorQuery.loading && (
+                        <div className="flex flex-row justify-between p-3">
+                          <p className="text-sm font-medium">Session created by</p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            {creatorQuery.data.userById.name ? <p className="text-sm font-medium capitalize">
+                              {creatorQuery.data.userById.name}
+                            </p> : <p className="text-sm font-medium">{creatorQuery.data.userById.email}</p>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {currentSession?.project && (
+                  <div>
+                    <div className="border rounded">
+                      {
+                        projectQuery.loading && (
+                          <div className="flex flex-row justify-between p-3">
+                            <p className="text-sm font-medium">This chat is part of a project:</p>
+                            <Loading className="ml-2" />
+                          </div>
+                        )
+                      }
+                      {projectQuery.data?.projectById && !projectQuery.loading && (
+                        <div className="flex flex-col p-3 gap-2">
+                          <p className="text-sm font-medium">Project</p>
+                          <Link
+                            href={`/projects/${currentSession.project}`}
+                            className="text-sm text-primary hover:underline"
+                          >
+                            {projectQuery.data.projectById.name}
+                          </Link>
+                          {projectQuery.data.projectById.description && (
+                            <p className="text-xs text-muted-foreground">
+                              {projectQuery.data.projectById.description}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground pb-2">
+                    You can disable tools for individual messages in this session by clicking the switch:
+                  </p>
+                  <TooltipProvider>
+                    <div className="space-y-1">
+                      {agent.tools && agent.tools.length > 0 ? (
+                        agent.tools.map((tool, index) => {
+                          const isEnabled = !disabledTools.includes(tool.id);
+                          return (
+                            <Tooltip key={tool.name + "_" + index}>
+                              <TooltipTrigger asChild>
+                                <div className="p-2 rounded-md border text-xs bg-background flex items-center justify-between">
+                                  <p className="font-medium flex items-center gap-2 capitalize">
+                                    {tool.name.replace(/_/g, " ")}
+                                  </p>
+                                  <Switch
+                                    checked={isEnabled}
+                                    onCheckedChange={() => toggleTool(tool.id)}
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="max-w-[200px] text-wrap">{tool.description}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          );
+                        })
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No tools enabled.</p>
+                      )}
+                    </div>
+                  </TooltipProvider>
+                </div>
+
+                {currentSession && (
+                  <div>
+                    <Collapsible className="border rounded">
+                      <CardHeader className="px-3 py-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-col">
+                            <p className="text-sm font-medium">
+                              Access control ({currentSession.rights_mode || "private"})
+                            </p>
+                          </div>
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon" className="size-8">
+                              <ChevronsUpDown className="size-4" />
+                              <span className="sr-only">Toggle</span>
+                            </Button>
+                          </CollapsibleTrigger>
+                        </div>
+                      </CardHeader>
+                      <CollapsibleContent>
+                        <CardContent className="space-y-4 p-3">
+                          <RBACControl
+                            allowedModes={['private', 'users', 'roles']}
+                            initialRightsMode={currentSession.rights_mode}
+                            initialUsers={currentSession.RBAC?.users}
+                            initialRoles={currentSession.RBAC?.roles}
+                            // initialProjects={currentSession.RBAC?.projects}
+                            onChange={(rights_mode, users, roles) => {
+                              setRbac({
+                                rights_mode,
+                                users,
+                                roles,
+                                // projects
+                              })
+                            }}
+                          />
+                          <Button disabled={updateAgentSessionRbacResult.loading} onClick={() => {
+                            updateAgentSessionRbac({
+                              variables: {
+                                id: currentSession.id,
+                                rights_mode: rbac.rights_mode,
+                                RBAC: {
+                                  users: rbac.users,
+                                  roles: rbac.roles,
+                                  // projects: rbac.projects
+                                }
+                              }
+                            })
+                          }}>Save access rights {updateAgentSessionRbacResult.loading && <Loading className="ml-2" />} </Button>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
                 )}
               </div>
-            </TooltipProvider>
-          </div>
-          {currentSession && (
-            <div className="mt-1">
-              <Collapsible className="border rounded">
-                <CardHeader className="px-3 py-1">
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-col">
-                      <p className="text-sm font-medium">
-                        Access control ({currentSession.rights_mode || "private"})
-                      </p>
-                    </div>
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="icon" className="size-8">
-                        <ChevronsUpDown className="size-4" />
-                        <span className="sr-only">Toggle</span>
-                      </Button>
-                    </CollapsibleTrigger>
-                  </div>
-                </CardHeader>
-                <CollapsibleContent>
-                  <CardContent className="space-y-4 p-3">
-                    <RBACControl
-                      allowedModes={['private', 'users', 'roles']}
-                      initialRightsMode={currentSession.rights_mode}
-                      initialUsers={currentSession.RBAC?.users}
-                      initialRoles={currentSession.RBAC?.roles}
-                      // initialProjects={currentSession.RBAC?.projects}
-                      onChange={(rights_mode, users, roles) => {
-                        setRbac({
-                          rights_mode,
-                          users,
-                          roles,
-                          // projects
-                        })
-                      }}
-                    />
-                    <Button disabled={updateAgentSessionRbacResult.loading} onClick={() => {
-                      updateAgentSessionRbac({
-                        variables: {
-                          id: currentSession.id,
-                          rights_mode: rbac.rights_mode,
-                          RBAC: {
-                            users: rbac.users,
-                            roles: rbac.roles,
-                            // projects: rbac.projects
-                          }
-                        }
-                      })
-                    }}>Save access rights {updateAgentSessionRbacResult.loading && <Loading className="ml-2" />} </Button>
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
-          )}
-        </div>
-      )}
+            </SheetContent>
+          </Sheet>
+        )}
+      </div>
     </div>
   );
 }
