@@ -1,7 +1,19 @@
+export interface AgentTool {
+    id: string;
+    type: string;
+    config: {
+        name: string;
+        variable: string;
+        type: "boolean" | "string" | "number" | "variable";
+    }[];
+    name: string;
+    description?: string;
+}
 export interface Agent {
     id: string;
     modelName?: string;
     providerName?: string;
+    welcomemessage?: string;
     backend: string;
     type: "agent";
     name: string;
@@ -27,16 +39,7 @@ export interface Agent {
     description?: string;
     instructions?: string;
     slug?: string;
-    tools?: {
-        id: string;
-        type: string;
-        config: {
-            name: string;
-            variable: string;
-        }[];
-        name: string;
-        description: string;
-    }[];
+    tools?: AgentTool[];
     maxContextLength?: number;
     authenticationInformation?: string;
     systemInstructions?: string;
@@ -59,6 +62,8 @@ export interface Agent {
     // Lottie animation fields
     animation_idle?: string;
     animation_responding?: string;
+    // Native memory context
+    memory?: string;
     createdAt?: string;
     updatedAt?: string;
 }

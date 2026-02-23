@@ -240,6 +240,7 @@ export function ContextEmbeddings(props: DataDisplayProps) {
                                                 return (<div key={config.name} className="space-y-2">
                                                     <VariableSelectionElement
                                                         configItem={config}
+                                                        disabled={false}
                                                         currentValue={currentValue?.value || ""}
                                                         variables={variables}
                                                         onVariableSelect={(variableName) => {

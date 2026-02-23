@@ -102,7 +102,9 @@ const AGENT_FIELDS = `
 id
 name
 providerapikey
+memory
 instructions
+welcomemessage
 description
 active
 image
@@ -671,6 +673,17 @@ export const GET_JOB_RESULT_BY_ID = gql`
     }
   }
 `;
+export const GET_RERANKERS = gql`
+  query GetRerankers {
+    rerankers {
+      items {
+        id
+        name
+        description
+      }
+    }
+  }
+`;
 export const GET_AGENT_BY_ID = gql`
   query GetAgentById($id: ID!, $project: ID) {
     agentById(id: $id, project: $project) {
@@ -913,6 +926,8 @@ export const UPDATE_AGENT_BY_ID = gql`
     $name: String
     $backend: String
     $description: String
+    $welcomemessage: String
+    $memory: String
     $instructions: String
     $rights_mode: String
     $animation_idle: String
@@ -924,10 +939,12 @@ export const UPDATE_AGENT_BY_ID = gql`
     $RBAC: RBACInput
   ) {
     agentsUpdateOneById(
-      input: { 
+      input: {
         name: $name
         backend: $backend
         description: $description
+        welcomemessage: $welcomemessage
+        memory: $memory
         category: $category
         instructions: $instructions
         animation_idle: $animation_idle
@@ -944,7 +961,9 @@ export const UPDATE_AGENT_BY_ID = gql`
           id
           name
           description
+          welcomemessage
           instructions
+          memory
           category
           animation_idle
           animation_responding
@@ -1466,7 +1485,7 @@ export const GET_EMBEDDING_JOBS_STATISTICS = gql`
 
 export const GET_FUNCTION_CALLS_STATISTICS = gql`
   query FunctionCallsStatistics($from: Date!, $to: Date!) {
-    trackingStatistics(filters: {
+    trackingStatistics(limit: 10, filters: {
       type: { eq: TOOL_CALL }
       createdAt: { and: [{ gte: $from }, { lte: $to }] }
     }) {
@@ -1478,7 +1497,7 @@ export const GET_FUNCTION_CALLS_STATISTICS = gql`
 
 export const GET_AGENT_RUN_STATISTICS = gql`  
   query AgentCallsStatistics($from: Date!, $to: Date!) {
-    trackingStatistics(filters: {
+    trackingStatistics(limit: 10, filters: {
       type: { eq: AGENT_RUN }
       name: { eq: "count" }
       createdAt: { and: [{ gte: $from }, { lte: $to }] }
@@ -1491,7 +1510,7 @@ export const GET_AGENT_RUN_STATISTICS = gql`
 
 export const GET_TOKEN_USAGE_STATISTICS = gql`  
   query AgentCallsStatistics($from: Date!, $to: Date!) {
-    trackingStatistics(filters: {
+    trackingStatistics(limit: 10, filters: {
       name: { in: ["inputTokens", "outputTokens"] }
       createdAt: { and: [{ gte: $from }, { lte: $to }] }
     }) {
@@ -1507,6 +1526,7 @@ export const GET_TIME_SERIES_STATISTICS = gql`
   query TimeSeriesStatistics($type: typeEnum!, $from: Date!, $to: Date!, $names: [String!]) {
     trackingStatistics(
       groupBy: "createdAt"
+      limit: 12
       filters: {
         type: { eq: $type }
         createdAt: { and: [{ gte: $from }, { lte: $to }] }
@@ -1523,6 +1543,7 @@ export const GET_USER_STATISTICS = gql`
 query UserStatistics($from: Date!, $to: Date!, $names: [String!]) {
   trackingStatistics(
     groupBy: "user"
+    limit: 4
     filters: {
       type: { eq: AGENT_RUN }
       createdAt: { and: [{ gte: $from }, { lte: $to }] }
@@ -1539,6 +1560,7 @@ export const GET_PROJECT_STATISTICS = gql`
 query ProjectStatistics($from: Date!, $to: Date!, $names: [String!]) {
   trackingStatistics(
     groupBy: "project"
+    limit: 4
     filters: {
       type: { eq: AGENT_RUN }
       createdAt: { and: [{ gte: $from }, { lte: $to }] }
@@ -1555,6 +1577,7 @@ export const GET_AGENT_STATISTICS = gql`
 query AgentStatistics($from: Date!, $to: Date!, $names: [String!]) {
   trackingStatistics(
     groupBy: "label"
+    limit: 4
     filters: {
       type: { eq: AGENT_RUN }
       name: { in: $names }
@@ -1588,6 +1611,7 @@ export const GET_DONUT_STATISTICS = gql`
   query DonutStatistics($type: typeEnum!, $groupBy: String!, $from: Date!, $to: Date!, $names: [String!]) {
     trackingStatistics(
       groupBy: $groupBy
+      limit: 10
       filters: {
         type: { eq: $type }
         name: { in: $names }

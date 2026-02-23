@@ -13,9 +13,10 @@ import { TodoList } from "./ai-elements/todo-list"
 import { FileItem } from "./uppy-dashboard"
 import { Card, CardContent } from "@/components/ui/card";
 import { useRouter } from "next/navigation"
-import { KnowledgeSourceSearchResultChunk } from "@/types/models/knowledge-source-search-results"
+import { AgenticKnowledgeSourceSearchResults, KnowledgeSourceSearchResultChunk } from "@/types/models/knowledge-source-search-results"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useState, useEffect } from "react"
 import { MessageActions, MessageAction } from '@/components/ai-elements/message'
 import { Skeleton } from "./ui/skeleton"
@@ -26,6 +27,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { CheckIcon, XIcon } from "lucide-react"
 import { ToolCallApproval } from "./tool-call-approval"
 import { Agent } from "@/types/models/agent"
+import {
+  Tool,
+  ToolContent,
+  ToolHeader,
+  ToolOutput,
+  ToolInput,
+} from '@/components/ai-elements/tool';
+
 interface ItemWithChunks {
   id: string,
   external_id: string,
@@ -245,8 +254,9 @@ export function MessageRenderer({
             from={message.role}
             key={message.id}
           >
-            <MessageContent>
+            <MessageContent id={"message_id_" + message.id}>
               {message.parts?.map((part, i) => {
+
                 if (part.type === 'step-start') {
                   return null
                 }
@@ -266,7 +276,7 @@ export function MessageRenderer({
                     // Transform JSON citations into cite-marker format
                     text = text.replace(/\{([^}]+)\}/g, (match, content) => {
                       // Check if this looks like a citation object
-                      if (!content.includes('item_name:')) {
+                      if (!content.includes('item_name')) {
                         return match; // Not a citation, keep original
                       }
 
@@ -283,14 +293,14 @@ export function MessageRenderer({
                         // Extract required fields
                         const itemName = fields.item_name;
                         const itemId = fields.item_id;
-                        const context = fields.context;
+                        const context = fields.context || ''; // Context can be empty
                         const chunkId = fields.chunk_id;
                         const chunkIndex = fields.chunk_index;
 
-                        // Validate that we have all required fields (chunk_index is optional)
-                        if (itemName && itemId && context) {
+                        // Validate that we have all required fields (context and chunk_index are optional)
+                        if (itemName && itemId) {
                           // Create citation string: item_name|item_id|chunk_id|chunk_index|context
-                          const knowledgeSourceCitationData = `${itemName}|${itemId}|${chunkId}|${chunkIndex || ''}|${context}`;
+                          const knowledgeSourceCitationData = `${itemName}|${itemId}|${chunkId || ''}|${chunkIndex || ''}|${context}`;
                           return `<cite-marker-knowledge-source data-citation="${encodeURIComponent(knowledgeSourceCitationData)}"></cite-marker-knowledge-source>`;
                         }
 
@@ -437,23 +447,43 @@ export function MessageRenderer({
 
                   const dynamicToolPart = part as any;
                   let output = dynamicToolPart.output as {
-                    result: KnowledgeSourceSearchResultChunk[]
+                    result: KnowledgeSourceSearchResultChunk[] | AgenticKnowledgeSourceSearchResults
                   };
+
                   if (typeof output === "string") {
                     output = JSON.parse(output)
                   }
                   if (typeof output?.result === "string") {
-                    output.result = JSON.parse(output?.result)
+                    try {
+                      output.result = JSON.parse(output?.result)
+                    } catch (error) {
+                      // Means the output is not a valid JSON, so treating it as text
+                      return null;
+
+                    }
                   }
                   console.log("output", output);
                   console.log("output.result", output?.result);
 
+                  const chunks = Array.isArray(output?.result) ? output?.result : output?.result?.chunks;
+                  const reasoning: {
+                    text: string;
+                    tools: {
+                      name: string;
+                      id: string;
+                      input: any;
+                      output: any;
+                    }[]
+                  }[] = !Array.isArray(output?.result) ? output?.result?.reasoning : [];
+
                   // Map the chunks to items
                   const itemsMap = new Map<string, ItemWithChunks>();
-                  const uniqueContexts = new Set(output?.result?.map(chunk => chunk.context?.name.replaceAll('_', ' ')));
+                  const uniqueContexts = new Set(chunks?.map(chunk => {
+                    return chunk.context?.name ? chunk.context.name.replaceAll('_', ' ') : '';
+                  }));
                   const contextNames = Array.from(uniqueContexts).join(', ');
-                  if (output?.result) {
-                    for (const chunk of output?.result) {
+                  if (chunks) {
+                    for (const chunk of chunks) {
 
                       if (itemsMap.has(chunk.item_id)) {
                         itemsMap.get(chunk.item_id)?.chunks.push(chunk);
@@ -474,15 +504,19 @@ export function MessageRenderer({
                     }
                   }
                   return (
-                    <ContextSearchResults
-                      key={`${message.id}-${i}`}
-                      part={dynamicToolPart}
-                      input={dynamicToolPart.input}
-                      state={dynamicToolPart.state}
-                      contextNames={contextNames}
-                      items={Array.from(itemsMap.values())}
-                      totalChunks={output?.result?.length ?? 0}
-                    />
+                    <>
+                      <ContextSearchResults
+                        key={`${message.id}-${i}`}
+                        part={dynamicToolPart}
+                        input={dynamicToolPart.input}
+                        state={dynamicToolPart.state}
+                        contextNames={contextNames}
+                        streaming={status !== "ready" && status !== "error" && isLastMessage && message.role === 'assistant'}
+                        items={Array.from(itemsMap.values())}
+                        reasoning={reasoning}
+                        totalChunks={chunks?.length ?? 0}
+                      />
+                    </>
                   )
                 }
 
@@ -700,6 +734,8 @@ export function MessageRenderer({
 }
 
 const ContextSearchResults = ({
+  reasoning,
+  streaming,
   contextNames,
   input,
   items,
@@ -707,6 +743,16 @@ const ContextSearchResults = ({
   totalChunks,
   part,
 }: {
+  streaming: boolean;
+  reasoning: {
+    text: string;
+    tools: {
+      name: string;
+      id: string;
+      input: any;
+      output: any;
+    }[]
+  }[];
   contextNames: string;
   input: Record<string, any>;
   items: ItemWithChunks[];
@@ -716,100 +762,245 @@ const ContextSearchResults = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showAllItems, setShowAllItems] = useState(false);
+  const [showAllReasoning, setShowAllReasoning] = useState(false);
 
   const uniqueContexts = new Set(items.map(item => item.context.name));
   const displayItems = showAllItems ? items : items.slice(0, 3);
-  return (
-    <div className="my-3 border rounded-lg overflow-hidden bg-card">
-      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger className="w-full">
-          <div className="flex items-center justify-between p-4 hover:bg-accent/50 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-md bg-primary/10">
-                <Search className="h-4 w-4 text-primary" />
-              </div>
-              <div className="text-left">
-                <div className="font-medium text-sm flex items-center gap-2">
-                  Context search results {contextNames}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
-                  {uniqueContexts.size > 0 && (
-                    <span className="flex items-center gap-1">
-                      <Database className="h-3 w-3" />
-                      {uniqueContexts.size} {uniqueContexts.size === 1 ? 'context' : 'contexts'}
+
+  // Render a single reasoning step
+  const renderReasoningStep = (step: {
+    text: string; tools: {
+      name: string;
+      id: string;
+      input: any;
+      output: {
+        chunk_index: number;
+        item_name: string;
+        item_id: string;
+        context: {
+          name: string;
+          id: string;
+        }
+      }[]
+    }[]
+  }, index: number, animate: boolean = true) => (
+    <div
+      key={index}
+      className={cn(
+        "flex items-start gap-2",
+        animate && "animate-in fade-in slide-in-from-left-3 duration-500"
+      )}
+      style={animate ? { animationDelay: `${index * 100}ms`, animationFillMode: 'backwards' } : undefined}
+    >
+      <div
+        className={cn(
+          "w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-medium text-primary shrink-0 mt-0.5",
+          animate && "animate-in zoom-in duration-300"
+        )}
+        style={animate ? { animationDelay: `${index * 100 + 200}ms`, animationFillMode: 'backwards' } : undefined}
+      >
+        {index + 1}
+      </div>
+      <div className="text-muted-foreground text-xs leading-relaxed flex-1">
+        <span>{step.text}</span>
+        {step.tools.length > 0 && (
+          <span
+            className={cn(
+              "ml-1",
+              animate && "animate-in fade-in duration-300"
+            )}
+            style={animate ? { animationDelay: `${index * 100 + 400}ms`, animationFillMode: 'backwards' } : undefined}
+          >
+            (using{' '}
+            {step.tools.map((tool, toolIndex) => (
+              <TooltipProvider key={tool.id}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="font-semibold text-foreground cursor-help underline decoration-dotted">
+                      {tool.name}
                     </span>
-                  )}
-                  <span className="flex items-center gap-1">
-                    <FileText className="h-3 w-3" />
-                    {items.length} {items.length === 1 ? 'item' : 'items'}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <LayoutList className="h-3 w-3" />
-                    {totalChunks} chunks
-                  </span>
-                </div>
-              </div>
-            </div>
-            {isOpen ? (
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            )}
-          </div>
-        </CollapsibleTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-md max-h-96 overflow-auto">
+                    <pre className="text-xs whitespace-pre-wrap">
+                      {JSON.stringify(tool.input, null, 2)}
+                    </pre>
+                    {tool.output?.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        <span className="font-semibold text-foreground">Output:</span>
+                        {tool.output.map((chunk) => (
+                          <div key={chunk.item_id + chunk.chunk_index}>
+                            <span className="font-semibold text-foreground">Item:</span>
+                            <span className="text-muted-foreground">{chunk.item_name}</span>
+                            <span className="font-semibold text-foreground">Chunk:</span>
+                            <span className="text-muted-foreground">{chunk.chunk_index}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )).reduce((prev, curr, i) => [prev, i === step.tools.length - 1 ? '' : ', ', curr] as any)}
+            )
+          </span>
+        )}
+      </div>
+    </div>
+  );
 
-        <CollapsibleContent>
-          <div className="border-t">
-            {/* Search Parameters */}
-            {(input && Object.keys(input).length > 0) && (
-              <div className="p-4 bg-muted/30 border-b">
-                <div className="text-xs font-medium text-muted-foreground mb-2">Search Parameters</div>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(input).map(([key, value]) => (
-                    <Badge key={key} variant="outline" className="text-xs">
-                      <span className="font-medium">{camelCaseToLabel(key)}:</span>
-                      <span className="ml-1 font-normal">
-                        {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                      </span>
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
+  return (
+    <>
+      {/* Sequential Reasoning Steps Visualization */}
+      {reasoning && reasoning.length > 0 && (
+        <div className="mt-3 space-y-3">
+          {streaming ? (
+            // Show latest 5 steps while streaming with animations
+            <>
+              {reasoning.length > 5 && !showAllReasoning && (
+                <button
+                  onClick={() => setShowAllReasoning(true)}
+                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors group w-full"
+                >
+                  <div className="flex-1 border-t border-dashed border-muted-foreground/30 group-hover:border-foreground/30 transition-colors" />
+                  <span className="shrink-0">{reasoning.length - 5} more reasoning {reasoning.length - 5 === 1 ? 'step' : 'steps'} - show all</span>
+                  <div className="flex-1 border-t border-dashed border-muted-foreground/30 group-hover:border-foreground/30 transition-colors" />
+                </button>
+              )}
+              {showAllReasoning
+                ? reasoning.map((step, index) => renderReasoningStep(step, index, true))
+                : reasoning.slice(-5).map((step, index) => {
+                  const actualIndex = reasoning.length - 5 + index;
+                  return renderReasoningStep(step, actualIndex >= 0 ? actualIndex : index, true);
+                })
+              }
+            </>
+          ) : (
+            // Show collapsed view when not streaming
+            <>
+              {!showAllReasoning && reasoning.length > 1 && (
+                <button
+                  onClick={() => setShowAllReasoning(true)}
+                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors group w-full"
+                >
+                  <div className="flex-1 border-t border-dashed border-muted-foreground/30 group-hover:border-foreground/30 transition-colors" />
+                  <span className="shrink-0">{reasoning.length} reasoning {reasoning.length === 1 ? 'step' : 'steps'} - show details</span>
+                  <div className="flex-1 border-t border-dashed border-muted-foreground/30 group-hover:border-foreground/30 transition-colors" />
+                </button>
+              )}
 
-            {/* Results Grid */}
-            <div className="p-4">
-              {items.length > 0 ? (
+              {showAllReasoning && (
+                // Show all steps without animation when expanded
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-3">
-                    {displayItems.map((item) => (
-                      <SearchResultItem key={item.id} item={item} />
-                    ))}
-                  </div>
-                  {items.length > 3 && (
-                    <div className="mt-4 text-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowAllItems(!showAllItems);
-                        }}
-                        className="text-sm text-primary hover:underline"
-                      >
-                        {showAllItems ? 'Show less' : `Show ${items.length - 3} more items`}
-                      </button>
-                    </div>
+                  {reasoning.map((step, index) => renderReasoningStep(step, index, false))}
+                  {reasoning.length > 1 && (
+                    <button
+                      onClick={() => setShowAllReasoning(false)}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-7"
+                    >
+                      Show less
+                    </button>
                   )}
                 </>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  No items found.
-                </div>
               )}
-            </div>
+            </>
+          )}
+        </div>
+      )}
+      {
+        state === "output-available" && items?.length > 0 && !streaming && (
+          <div className="my-3 border rounded-lg overflow-hidden bg-card">
+            <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+              <CollapsibleTrigger className="w-full">
+                <div className="flex items-center justify-between p-4 hover:bg-accent/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-md bg-primary/10">
+                      <Search className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-medium text-sm flex items-center gap-2">
+                        Context search results {contextNames}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+                        {uniqueContexts.size > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Database className="h-3 w-3" />
+                            {uniqueContexts.size} {uniqueContexts.size === 1 ? 'context' : 'contexts'}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1">
+                          <FileText className="h-3 w-3" />
+                          {items.length} {items.length === 1 ? 'item' : 'items'}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <LayoutList className="h-3 w-3" />
+                          {totalChunks} chunks
+                        </span>
+                      </div>
+
+                    </div>
+                  </div>
+                  {isOpen ? (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+              </CollapsibleTrigger>
+
+              <CollapsibleContent>
+                <div className="border-t">
+                  {/* Search Parameters */}
+                  {(input && Object.keys(input).length > 0) && (
+                    <div className="p-4 bg-muted/30 border-b">
+                      <div className="text-xs font-medium text-muted-foreground mb-2">Search Parameters</div>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(input).map(([key, value]) => (
+                          <Badge key={key} variant="outline" className="text-xs">
+                            <span className="font-medium">{camelCaseToLabel(key)}:</span>
+                            <span className="ml-1 font-normal">
+                              {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                            </span>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Results Grid */}
+                  <div className="p-4">
+                    {items.length > 0 ? (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-3">
+                          {displayItems.map((item) => (
+                            <SearchResultItem key={item.id} item={item} />
+                          ))}
+                        </div>
+                        {items.length > 3 && (
+                          <div className="mt-4 text-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowAllItems(!showAllItems);
+                              }}
+                              className="text-sm text-primary hover:underline"
+                            >
+                              {showAllItems ? 'Show less' : `Show ${items.length - 3} more items`}
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground text-sm">
+                        No items found.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
+        )}
+    </>
   );
 };
 

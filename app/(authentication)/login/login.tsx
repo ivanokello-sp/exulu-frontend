@@ -193,7 +193,7 @@ export default function Login() {
                 )}
               </Button>
 
-              <Button
+              {/* <Button
                 variant="outline"
                 disabled={submitting}
                 type="button"
@@ -217,7 +217,7 @@ export default function Login() {
                     Sign in with Microsoft Teams
                   </div>
                 )}
-              </Button>
+              </Button> */}
 
               {
                 configContext?.google_client_id && (<Button

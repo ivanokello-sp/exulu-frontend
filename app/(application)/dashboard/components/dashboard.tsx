@@ -110,7 +110,6 @@ export default function DashboardComponent() {
                         }}
                         icon={<Users className="h-5 w-5" />}
                         valueLabel={leaderboardView === "count" ? t('dashboard.leaderboards.valueLabels.calls') : t('dashboard.leaderboards.valueLabels.tokens')}
-                        maxEntries={10}
                         nameFilter={leaderboardView === "count" ? ["count"] : ["inputTokens", "outputTokens"]}
                         hydrationQuery={GET_USERS_BY_IDS}
                         hydrationField="userByIds"
@@ -125,7 +124,6 @@ export default function DashboardComponent() {
                         }}
                         icon={<Layers className="h-5 w-5" />}
                         valueLabel={leaderboardView === "count" ? t('dashboard.leaderboards.valueLabels.calls') : t('dashboard.leaderboards.valueLabels.tokens')}
-                        maxEntries={10}
                         nameFilter={leaderboardView === "count" ? ["count"] : ["inputTokens", "outputTokens"]}
                         hydrationQuery={GET_PROJECTS_BY_IDS}
                         hydrationField="projectByIds"
@@ -140,7 +138,6 @@ export default function DashboardComponent() {
                         }}
                         icon={<Bot className="h-5 w-5" />}
                         valueLabel={leaderboardView === "count" ? t('dashboard.leaderboards.valueLabels.calls') : t('dashboard.leaderboards.valueLabels.tokens')}
-                        maxEntries={10}
                         nameFilter={leaderboardView === "count" ? ["count"] : ["inputTokens", "outputTokens"]}
                     />
                 </div>

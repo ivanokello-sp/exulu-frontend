@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Image, FileText, Volume2, Video, Shield, Users, Wrench, Text } from "lucide-react";
 import { GET_AGENT_BY_ID, GET_TOOLS } from "@/queries/queries";
-import { Tool } from "@/types/models/tool";
+import { ExuluTool as Tool } from "@/types/models/tool";
 import { useTranslations } from "next-intl";
 
 interface AgentDetailsSheetProps {

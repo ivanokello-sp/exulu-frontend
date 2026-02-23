@@ -1,4 +1,4 @@
-export interface Tool {
+export interface ExuluTool {
     id: string;
     name: string;
     description: string;
@@ -9,6 +9,8 @@ export interface Tool {
     config: {
         name: string;
         description: string;
+        type: "boolean" | "string" | "number" | "variable";
+        default?: string | boolean | number | "variable";
         value?: string; // the exulu variable reference
     }[];
 }

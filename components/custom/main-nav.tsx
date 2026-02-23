@@ -85,12 +85,6 @@ const buildNavigation = (user: User, role: UserRole, config: Config, t: any) => 
     icon: <MessageCircle />,
   });
 
-  navigationItems.push({
-    label: t('navigation.transcriptions'),
-    path: "transcriptions",
-    icon: <FileAudio />,
-  });
-
   if (user.super_admin || role.workflows === "write") {
     navigationItems.push({
       label: t('navigation.templates'),

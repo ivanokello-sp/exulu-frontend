@@ -94,9 +94,15 @@ export function Leaderboard({
   const leaderboardData = useMemo(() => {
     if (!data?.trackingStatistics) return [];
 
-    const entries: LeaderboardEntry[] = data.trackingStatistics
+    // First, sort and slice to get the top entries
+    const topEntries = data.trackingStatistics
       .filter((item: any) => item?.group && item?.count)
-      .map((item: any) => {
+      .sort((a: any, b: any) => b.count - a.count)
+      .slice(0, maxEntries);
+
+    // Then map and hydrate only those top entries
+    const entries: LeaderboardEntry[] = topEntries
+      .map((item: any, index: number) => {
         let displayName = item.group;
 
         // Hydrate the name if hydration data is available
@@ -124,15 +130,10 @@ export function Leaderboard({
 
         return {
           name: displayName,
-          value: item.count
+          value: item.count,
+          rank: index + 1
         };
-      })
-      .sort((a: any, b: any) => b.value - a.value)
-      .slice(0, maxEntries)
-      .map((item: any, index: number) => ({
-        ...item,
-        rank: index + 1
-      }));
+      });
 
     return entries;
   }, [data, hydrationData, hydrationField, maxEntries]);

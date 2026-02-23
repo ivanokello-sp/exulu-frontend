@@ -16,3 +16,18 @@ export interface KnowledgeSourceSearchResultChunk {
         id: string
     }
 }
+
+export interface AgenticKnowledgeSourceSearchResults {
+    reasoning: {
+        text: string;
+        tools: {
+            name: string;
+            id: string;
+            input: any;
+            output: any;
+        }[]
+    }[]
+    text: string[]  
+    tools: any[]
+    chunks: KnowledgeSourceSearchResultChunk[]
+}

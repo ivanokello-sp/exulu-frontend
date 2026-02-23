@@ -10,8 +10,9 @@ import * as z from "zod";
 import { AgentDelete } from "@/app/(application)/agents/components/agent-delete";
 import {
   REMOVE_AGENT_BY_ID, UPDATE_AGENT_BY_ID, GET_AGENT_BY_ID, CREATE_AGENT_SESSION, GET_VARIABLES,
-  GET_TOOLS, GET_TOOL_CATEGORIES,
+  GET_TOOLS, GET_TOOL_CATEGORIES, GET_CONTEXTS,
   COPY_AGENT_BY_ID,
+  GET_RERANKERS,
 } from "@/queries/queries";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,9 +37,9 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Agent } from "@EXULU_SHARED//models/agent";
+import { Agent, AgentTool } from "@EXULU_SHARED//models/agent";
 import { UserContext } from "@/app/(application)/authenticated";
-import { Tool } from "@EXULU_SHARED/models/tool";
+import { ExuluTool } from "@EXULU_SHARED/models/tool";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { CopyIcon } from "@/icons";
@@ -56,7 +57,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Check, ChevronsUpDown, Wrench, Image, FileText, Volume2, Video, Info, AlertCircle, Settings, Text, Search, X } from "lucide-react";
+import { Check, ChevronsUpDown, Wrench, Image, FileText, Volume2, Video, Info, AlertCircle, Settings, Text, Search, X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RBACControl } from "@/components/rbac";
 import {
@@ -88,6 +89,8 @@ import { PromptBrowserSheet } from "./components/prompt-browser-sheet";
 import { usePrompts } from "@/hooks/use-prompts";
 import { Response } from '@/components/ai-elements/response';
 import { PromptCard } from "@/app/(application)/prompts/components/prompt-card";
+import { AgentBackendSelector } from "../../components/agent-backend-selector";
+import { RerankerSelector } from "@/components/reranker-selector";
 
 const categories = [
   "marketing",
@@ -104,12 +107,14 @@ const categories = [
 // Component for handling individual tool configuration items
 export const VariableSelectionElement = ({
   configItem,
+  disabled,
   currentValue,
   variables,
   onVariableSelect
 }: {
-  configItem: { name: string; description: string; default?: string },
-  currentValue: string,
+  configItem: { name: string; description: string; default?: string | boolean | number },
+  disabled: boolean,
+  currentValue: string | boolean | number,
   variables: any[],
   onVariableSelect: (variableName: string) => void
 }) => {
@@ -118,17 +123,12 @@ export const VariableSelectionElement = ({
 
   return (
     <div className="space-y-2">
-      <div className="text-sm">
-        <div className="font-medium capitalize">
-          {configItem.name.replace(/_/g, " ")}
-        </div>
-        <div className="text-muted-foreground text-xs capitalize">{configItem.description}</div>
-      </div>
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen} modal={true}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             role="combobox"
+            disabled={disabled}
             aria-expanded={popoverOpen}
             className="w-full justify-between text-sm">
             {selectedVariable ? selectedVariable.name : "Select variable..."}
@@ -175,7 +175,7 @@ export const VariableSelectionElement = ({
                 <CardTitle className="text-md">Default value</CardTitle>
               </CardHeader>
               <CardContent>
-                <TextPreview text={configItem.default} sliceLength={200} />
+                <TextPreview text={configItem.default?.toString() || ''} sliceLength={200} />
               </CardContent>
             </Card>
           )
@@ -186,6 +186,8 @@ export const VariableSelectionElement = ({
 };
 
 const agentFormSchema = z.object({
+  backend: z.string(),
+  welcomemessage: z.string().optional(),
   name: z
     .string()
     .min(2, {
@@ -235,7 +237,8 @@ export default function AgentForm({
   const router = useRouter();
   const { user } = useContext(UserContext);
   const configContext = useContext(ConfigContext);
-  const [enabledTools, setEnabledTools] = useState<{ id: string, config: { name: string, variable: string }[] }[]>(
+  console.log("agent tools", agent.tools)
+  const [enabledTools, setEnabledTools] = useState<AgentTool[]>(
     // Convert legacy string[] format to new object format
     agent.tools ? agent.tools : []
   )
@@ -271,6 +274,7 @@ export default function AgentForm({
     hiddenAscii: agent.firewall?.scanners?.hiddenAscii || false,
     piiDetection: agent.firewall?.scanners?.piiDetection || false,
   })
+  const [memory, setMemory] = useState<string>(agent.memory || '')
 
   const { toast } = useToast();
 
@@ -284,7 +288,7 @@ export default function AgentForm({
 
   const { data: toolsData, loading: toolsLoading } = useQuery<{
     tools: {
-      items: Tool[]
+      items: ExuluTool[]
       total: number
       page: number
       limit: number
@@ -301,11 +305,18 @@ export default function AgentForm({
     variables: { page: 1, limit: 100 },
   });
 
+  const { data: contextsData } = useQuery<{
+    contexts: {
+      items: { id: string; name: string; description: string; }[]
+    }
+  }>(GET_CONTEXTS);
+
   const { data: categoriesData } = useQuery<{
     toolCategories: string[]
   }>(GET_TOOL_CATEGORIES);
 
   const variables = variablesData?.variablesPagination?.items || [];
+  const contexts = contextsData?.contexts?.items || [];
 
   // Fetch prompts assigned to this agent using server-side filtering
   const { data: promptsData, loading: promptsLoading, refetch: refetchPrompts } = usePrompts({
@@ -322,7 +333,7 @@ export default function AgentForm({
 
   // Filter out agent's own tool and group by category
   const filteredTools = useMemo(() => {
-    return toolsData?.tools?.items?.filter((tool: Tool) => tool.id !== agent.id) || [];
+    return toolsData?.tools?.items?.filter((tool: ExuluTool) => tool.id !== agent.id) || [];
   }, [toolsData?.tools?.items, agent.id]);
 
   // Group tools by category for organized display
@@ -333,7 +344,7 @@ export default function AgentForm({
       }
       acc[tool.category].push(tool);
       return acc;
-    }, {} as Record<string, Tool[]>);
+    }, {} as Record<string, ExuluTool[]>);
   }, [filteredTools]);
 
   // Get categories from backend
@@ -419,7 +430,9 @@ export default function AgentForm({
   const agentForm = useForm<AgentFormValues>({
     resolver: zodResolver(agentFormSchema),
     defaultValues: agent ?? {
+      backend: undefined,
       name: "New agent",
+      welcomemessage: "",
       instructions: "",
       steps: [],
       firewall: {
@@ -436,9 +449,9 @@ export default function AgentForm({
     mode: "onChange",
   });
 
-  const [createAgentSession] = useMutation(
-    CREATE_AGENT_SESSION,
-  );
+  const agenticRetrievalTool = useMemo(() => {
+    return toolsData?.tools?.items?.find((tool: ExuluTool) => tool.id === "agentic_context_search") || null;
+  }, [toolsData?.tools?.items]);
 
   return (
     <div className="h-full flex-col md:flex">
@@ -455,8 +468,10 @@ export default function AgentForm({
                       name: data.name,
                       description: data.description,
                       instructions: data.instructions,
+                      welcomemessage: data.welcomemessage,
                       category: data.category,
                       active: data.active,
+                      memory: memory || null,
                       providerapikey: providerapikey,
                       animation_idle: animation_idle,
                       animation_responding: animation_responding,
@@ -520,220 +535,149 @@ export default function AgentForm({
                       <div className="grid grid-rows-1 grid-flow-col gap-6 lg:grid-cols-2">
                         <div className="col">
                           <div className="flex flex-col space-y-4">
-                            <div className="flex flex-col space-y-2">
-                              <Card>
-                                <CardHeader>
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                      {agent.image && (
-                                        <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-                                          <img
-                                            src={agent.image}
-                                            alt={`${agent.name} profile`}
-                                            className="w-full h-full object-cover"
-                                          />
-                                        </div>
-                                      )}
-                                      <CardTitle>Agent</CardTitle>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                      <span>ID: {agent.id}</span>
-                                      <button
-                                        type="button"
-                                        onClick={copyAgentId}
-                                        className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground"
-                                        title="Copy Agent ID"
-                                      >
-                                        <CopyIcon />
-                                      </button>
-                                    </div>
+                            <Card>
+                              <CardHeader>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    {agent.image && (
+                                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                                        <img
+                                          src={agent.image}
+                                          alt={`${agent.name} profile`}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+                                    )}
+                                    <CardTitle>Agent</CardTitle>
                                   </div>
-                                </CardHeader>
-                                <CardContent className="grid gap-4">
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <span>ID: {agent.id}</span>
+                                    <button
+                                      type="button"
+                                      onClick={copyAgentId}
+                                      className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground"
+                                      title="Copy Agent ID"
+                                    >
+                                      <CopyIcon />
+                                    </button>
+                                  </div>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="grid gap-4">
 
 
-                                  <FormField
-                                    control={agentForm.control}
-                                    name={`name`}
-                                    render={({ field }) => (
+                                <FormField
+                                  control={agentForm.control}
+                                  name={`name`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Name</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="text"
+                                          className="resize-none"
+                                          {...field}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={agentForm.control}
+                                  name={`category`}
+                                  render={({ field }: any) => {
+                                    if (!field.value) {
+                                      field.value = "";
+                                    }
+                                    return (
                                       <FormItem>
-                                        <FormLabel>Name</FormLabel>
+                                        <FormLabel>Category</FormLabel>
                                         <FormControl>
-                                          <Input
-                                            type="text"
-                                            className="resize-none"
+                                          <Select onValueChange={(value) => {
+                                            field.onChange(value);
+                                          }}>
+                                            <SelectTrigger>
+                                              <SelectValue className="capitalize" placeholder={field.value || `Select a category`} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {
+                                                categories.map((category) => (
+                                                  <SelectItem className="capitalize" key={category} value={category}>
+                                                    {category}
+                                                  </SelectItem>
+                                                ))
+                                              }
+                                            </SelectContent>
+                                          </Select>
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    );
+                                  }}
+                                />
+
+                                <FormField
+                                  control={agentForm.control}
+                                  name={`description`}
+                                  render={({ field }: any) => {
+                                    if (!field.value) {
+                                      field.value = "";
+                                    }
+                                    return (
+                                      <FormItem>
+                                        <FormLabel>Description</FormLabel>
+                                        <FormControl>
+                                          <Textarea
+                                            rows={2}
                                             {...field}
+                                            value={field.value ?? ""}
                                           />
                                         </FormControl>
                                         <FormMessage />
                                       </FormItem>
-                                    )}
-                                  />
-
-
-                                  <div>
-                                    <div className="text-sm font-medium mb-2">Modalities</div>
-                                    <p className="text-sm text-muted-foreground mb-2">
-                                      This agent uses <b>{agent.modelName}</b> from <b>{agent.providerName}</b> and can use the following capabilities:
-                                    </p>
-                                    <TooltipProvider>
-                                      <div className="flex items-center gap-3 mt-2">
-                                        <div className={`p-2 rounded-md ${agent.capabilities?.text ? 'bg-primary text-primary-foreground' : 'bg-gray-500 text-white'}`}>
-                                          <Text className="h-4 w-4" />
-                                        </div>
-
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <div className={`p-2 rounded-md ${agent.capabilities?.images?.length ? 'bg-primary text-primary-foreground' : 'bg-gray-500 text-white'}`}>
-                                              <Image className="h-4 w-4" />
-                                            </div>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>Images: {agent.capabilities?.images?.length ? agent.capabilities.images.join(", ") : "None"}</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <div className={`p-2 rounded-md ${agent.capabilities?.files?.length ? 'bg-primary text-primary-foreground' : 'bg-gray-500 text-white'}`}>
-                                              <FileText className="h-4 w-4" />
-                                            </div>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>Files: {agent.capabilities?.files?.length ? agent.capabilities.files.join(", ") : "None"}</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <div className={`p-2 rounded-md ${agent.capabilities?.audio?.length ? 'bg-primary text-primary-foreground' : 'bg-gray-500 text-white'}`}>
-                                              <Volume2 className="h-4 w-4" />
-                                            </div>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>Audio: {agent.capabilities?.audio?.length ? agent.capabilities.audio.join(", ") : "None"}</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <div className={`p-2 rounded-md ${agent.capabilities?.video?.length ? 'bg-primary text-primary-foreground' : 'bg-gray-500 text-white'}`}>
-                                              <Video className="h-4 w-4" />
-                                            </div>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>Video: {agent.capabilities?.video?.length ? agent.capabilities.video.join(", ") : "None"}</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </div>
-                                    </TooltipProvider>
-                                  </div>
-
-
-                                  <FormField
-                                    control={agentForm.control}
-                                    name={`category`}
-                                    render={({ field }: any) => {
-                                      if (!field.value) {
-                                        field.value = "";
-                                      }
-                                      return (
-                                        <FormItem>
-                                          <FormLabel>Category</FormLabel>
-                                          <FormControl>
-                                            <Select onValueChange={(value) => {
-                                              field.onChange(value);
-                                            }}>
-                                              <SelectTrigger>
-                                                <SelectValue className="capitalize" placeholder={field.value || `Select a category`} />
-                                              </SelectTrigger>
-                                              <SelectContent>
-                                                {
-                                                  categories.map((category) => (
-                                                    <SelectItem className="capitalize" key={category} value={category}>
-                                                      {category}
-                                                    </SelectItem>
-                                                  ))
-                                                }
-                                              </SelectContent>
-                                            </Select>
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      );
-                                    }}
-                                  />
-
-                                  <FormField
-                                    control={agentForm.control}
-                                    name={`description`}
-                                    render={({ field }: any) => {
-                                      if (!field.value) {
-                                        field.value = "";
-                                      }
-                                      return (
-                                        <FormItem>
-                                          <FormLabel>Description</FormLabel>
-                                          <FormControl>
-                                            <Textarea
-                                              rows={2}
-                                              className="resize-none"
-                                              {...field}
-                                              value={field.value ?? ""}
-                                            />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      );
-                                    }}
-                                  />
-                                  {
-                                    agent.systemInstructions && <FormField
-                                      control={agentForm.control}
-                                      name={`instructions`}
-                                      render={({ field }: any) => {
-                                        return (
-                                          <FormItem>
-                                            <FormLabel>System Instructions</FormLabel>
-                                            <FormDescription>
-                                              These are system instructions set by the developer and 
-                                              cannot be changed via the UI. They are 
-                                              included in every session with this agent.
-                                            </FormDescription>
-                                            <FormControl>
-                                              <Textarea
-                                                disabled
-                                                rows={5}
-                                                className="resize-none"
-                                                value={agent.systemInstructions ?? ""}
-                                              />
-                                            </FormControl>
-                                            <FormMessage />
-                                          </FormItem>
-                                        );
-                                      }}
-                                    />
-                                  }
-                                  <FormField
+                                    );
+                                  }}
+                                />
+                                <FormField
+                                  control={agentForm.control}
+                                  name={`welcomemessage`}
+                                  render={({ field }: any) => {
+                                    return (
+                                      <FormItem>
+                                        <FormLabel>Welcome Message</FormLabel>
+                                        {/* Optional: can be show in the Chat UI when the agent is first loaded */}
+                                        <FormControl>
+                                          <Textarea
+                                            rows={2}
+                                            {...field}
+                                            value={field.value ?? ""}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    );
+                                  }}
+                                />
+                                {
+                                  agent.systemInstructions && <FormField
                                     control={agentForm.control}
                                     name={`instructions`}
                                     render={({ field }: any) => {
-                                      if (!field.value) {
-                                        field.value = "";
-                                      }
                                       return (
                                         <FormItem>
-                                          <FormLabel>Custom Instructions</FormLabel>
+                                          <FormLabel>System Instructions</FormLabel>
                                           <FormDescription>
-                                            These are custom instructions you can set for this agent, they will be included
-                                            in every session with this agent.
+                                            These are system instructions set by the developer and
+                                            cannot be changed via the UI. They are
+                                            included in every session with this agent.
                                           </FormDescription>
                                           <FormControl>
                                             <Textarea
+                                              disabled
                                               rows={5}
-                                              className="resize-none"
-                                              {...field}
-                                              value={field.value ?? ""}
+                                              value={agent.systemInstructions ?? ""}
                                             />
                                           </FormControl>
                                           <FormMessage />
@@ -741,184 +685,54 @@ export default function AgentForm({
                                       );
                                     }}
                                   />
-                                  <div className="space-y-2 w-full overflow-x-hidden">
-                                    <div className="text-sm">
-                                      <div className="font-medium">Provider API Key</div>
-                                      <div className="text-muted-foreground text-xs">Select a variable containing the API key for the provider</div>
-                                      {
-                                        agent.authenticationInformation && (
-                                          <div className="text-muted-foreground text-xs">
-                                            <Response>{agent.authenticationInformation}</Response>
-                                          </div>
-                                        )
-                                      }
-                                    </div>
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          role="combobox"
-                                          className="w-full justify-between text-sm"
-                                        >
-                                          {variables.find((v: any) => v.name === providerapikey)?.name || "Select variable..."}
-                                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-full p-0 z-[9999]">
-                                        <Command>
-                                          <CommandInput placeholder="Search variables..." />
-                                          <CommandList>
-                                            <CommandEmpty>No variables found.</CommandEmpty>
-                                            <CommandGroup>
-                                              {variables.map((variable: any) => (
-                                                <CommandItem
-                                                  key={variable.id}
-                                                  onSelect={() => {
-                                                    setProviderapikey(variable.name);
-                                                  }}
-                                                >
-                                                  <Check
-                                                    className={cn(
-                                                      "mr-2 h-4 w-4",
-                                                      providerapikey === variable.name ? "opacity-100" : "opacity-0"
-                                                    )}
-                                                  />
-                                                  <div className="flex flex-col">
-                                                    <span>{variable.name}</span>
-                                                    {variable.encrypted && (
-                                                      <span className="text-xs text-muted-foreground">🔒 Encrypted</span>
-                                                    )}
-                                                  </div>
-                                                </CommandItem>
-                                              ))}
-                                            </CommandGroup>
-                                          </CommandList>
-                                        </Command>
-                                      </PopoverContent>
-                                    </Popover>
-                                  </div>
-
-                                  {configContext?.fileUploads?.s3endpoint && (
-                                    <Card className="bg-transparent">
-                                      <Collapsible>
-                                        <CardHeader className="p-4">
-                                          <div className="flex items-center justify-between">
-                                            <div className="flex flex-col">
-                                              <p className="text-base">
-                                                Custom visualizations
-                                              </p>
-                                              <p className="text-sm text-muted-foreground mb-0">
-                                                Upload custom Lottie animations for idle and responding states.
-                                              </p>
-                                            </div>
-                                            <CollapsibleTrigger asChild>
-                                              <Button variant="ghost" size="icon" className="size-8">
-                                                <ChevronsUpDown className="size-4" />
-                                                <span className="sr-only">Toggle</span>
-                                              </Button>
-                                            </CollapsibleTrigger>
-                                          </div>
-                                        </CardHeader>
-
-                                        <CollapsibleContent className="mt-5">
-                                          <CardContent className="space-y-4">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                              {/* Idle Animation */}
-                                              <div className="space-y-2">
-                                                <div>
-                                                  <div className="text-sm font-medium">Idle Animation</div>
-                                                  <div className="text-xs text-muted-foreground">Animation when agent is waiting</div>
-                                                </div>
-
-                                                <FileDataCard s3key={animation_idle}>
-                                                  <UppyDashboard
-                                                    id="agent-idle-animation"
-                                                    global={true}
-                                                    allowedFileTypes={['.json']}
-                                                    selectionLimit={1}
-                                                    buttonText=""
-                                                    dependencies={[agent.id]}
-                                                    onConfirm={(keys) => {
-                                                      if (keys.length > 0) {
-                                                        setAnimation_idle(keys[0]);
-                                                      }
-                                                    }}
-                                                  />
-                                                  {animation_idle && (
-                                                    <div className="mt-2 p-2 border rounded bg-muted/30">
-                                                      <div className="text-xs text-muted-foreground mb-1">Preview:</div>
-                                                      <div className="w-12 h-12 mx-auto">
-                                                        <AgentVisual
-                                                          agent={{ ...agent, animation_idle }}
-                                                          status="ready"
-                                                        />
-                                                      </div>
-                                                    </div>
-                                                  )}
-                                                </FileDataCard>
-                                              </div>
-
-                                              {/* Responding Animation */}
-                                              <div className="space-y-2">
-                                                <div>
-                                                  <div className="text-sm font-medium">Responding Animation</div>
-                                                  <div className="text-xs text-muted-foreground">Animation when agent is responding</div>
-                                                </div>
-
-                                                <FileDataCard s3key={animation_responding}>
-                                                  <UppyDashboard
-                                                    id="agent-responding-animation"
-                                                    global={true}
-                                                    allowedFileTypes={['.json']}
-                                                    selectionLimit={1}
-                                                    buttonText=""
-                                                    dependencies={[agent.id]}
-                                                    onConfirm={(keys) => {
-                                                      if (keys.length > 0) {
-                                                        setAnimation_responding(keys[0]);
-                                                      }
-                                                    }}
-                                                  />
-                                                  {animation_responding && (
-                                                    <div className="mt-2 p-2 border rounded bg-muted/30">
-                                                      <div className="text-xs text-muted-foreground mb-1">Preview:</div>
-                                                      <div className="w-12 h-12 mx-auto">
-                                                        <AgentVisual
-                                                          agent={{ ...agent, animation_responding }}
-                                                          status="streaming"
-                                                        />
-                                                      </div>
-                                                    </div>
-                                                  )}
-                                                </FileDataCard>
-                                              </div>
-                                            </div>
-                                          </CardContent>
-                                        </CollapsibleContent>
-                                      </Collapsible>
-                                    </Card>
-                                  )}
-
-                                  <>
-                                    <div className="text-sm font-medium mb-0">    You can test this agent using the Exulu
-                                      UI without activating the agent if you
-                                      are a super admin:</div>
-                                    <Button
-                                      className="mt-0"
-                                      onClick={async () => {
-                                        console.log("agent", agent)
-                                        router.push(
-                                          `/chat/${agent.id}/new`,
-                                        );
-                                      }}
-                                      type={"button"}
-                                      variant={"default"}>
-                                      Go to chat
-                                    </Button>
-                                  </>
-                                </CardContent>
-                              </Card>
-                            </div>
+                                }
+                                <FormField
+                                  control={agentForm.control}
+                                  name={`instructions`}
+                                  render={({ field }: any) => {
+                                    if (!field.value) {
+                                      field.value = "";
+                                    }
+                                    return (
+                                      <FormItem>
+                                        <FormLabel>Custom Instructions</FormLabel>
+                                        <FormDescription>
+                                          These are custom instructions you can set for this agent, they will be included
+                                          in every session with this agent.
+                                        </FormDescription>
+                                        <FormControl>
+                                          <Textarea
+                                            rows={5}
+                                            {...field}
+                                            value={field.value ?? ""}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    );
+                                  }}
+                                />
+                              </CardContent>
+                            </Card>
+                            <Card>
+                              <CardContent className="pt-6">
+                                <>
+                                  <div className="text-sm font-medium mb-0">You can test this agent using the Exulu UI without activating the agent if you are a super admin:</div>
+                                  <Button
+                                    className="mt-2"
+                                    onClick={async () => {
+                                      console.log("agent", agent)
+                                      router.push(
+                                        `/chat/${agent.id}/new`,
+                                      );
+                                    }}
+                                    type={"button"}
+                                    variant={"default"}>
+                                    Go to chat
+                                  </Button>
+                                </>
+                              </CardContent>
+                            </Card>
                           </div>
                         </div>
                         <div className="col">
@@ -933,7 +747,7 @@ export default function AgentForm({
                                       Is this agent active?
                                     </FormLabel>
                                     <FormDescription>
-                                      When active this agent will be available via the Exulu UI
+                                      When active this agent will be available via the UI
                                       and API endpoint.
                                     </FormDescription>
                                   </div>
@@ -982,6 +796,94 @@ export default function AgentForm({
                                           roles,
                                           // projects
                                         })
+                                      }}
+                                    />
+                                  </CardContent>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            </Card>
+
+                            <Card className="bg-transparent">
+                              <Collapsible>
+                                <CardHeader className="p-4">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                      <p className="text-base">
+                                        Provider Configuration <Badge variant="outline">{agent.modelName} from {agent.providerName}</Badge>
+                                      </p>
+                                      <p className="text-sm text-muted-foreground mb-0">
+                                        Configure the language model provider assigned to this agent.
+                                      </p>
+                                    </div>
+                                    <CollapsibleTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="size-8">
+                                        <ChevronsUpDown className="size-4" />
+                                        <span className="sr-only">Toggle</span>
+                                      </Button>
+                                    </CollapsibleTrigger>
+                                  </div>
+                                </CardHeader>
+
+                                <CollapsibleContent className="mt-5">
+                                  <CardContent className="space-y-4">
+                                    <div className="text-sm">
+                                      This agent currently uses <b>{agent.modelName}</b> from <b>{agent.providerName}</b>. It supports the following modalities:
+                                    </div>
+                                    <TooltipProvider>
+                                      <div className="flex items-center gap-3 mt-2">
+                                        <div className={`p-2 rounded-md ${agent.capabilities?.text ? 'bg-none text-primary-foreground' : 'bg-gray-500 text-white'}`}>
+                                          <Text className="h-4 w-4" />
+                                        </div>
+
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div className={`p-2 rounded-md ${agent.capabilities?.images?.length ? 'bg-primary text-primary-foreground' : 'bg-gray-500 text-white'}`}>
+                                              <Image className="h-4 w-4" />
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Images: {agent.capabilities?.images?.length ? agent.capabilities.images.join(", ") : "None"}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div className={`p-2 rounded-md ${agent.capabilities?.files?.length ? 'bg-primary text-primary-foreground' : 'bg-gray-500 text-white'}`}>
+                                              <FileText className="h-4 w-4" />
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Files: {agent.capabilities?.files?.length ? agent.capabilities.files.join(", ") : "None"}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div className={`p-2 rounded-md ${agent.capabilities?.audio?.length ? 'bg-primary text-primary-foreground' : 'bg-gray-500 text-white'}`}>
+                                              <Volume2 className="h-4 w-4" />
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Audio: {agent.capabilities?.audio?.length ? agent.capabilities.audio.join(", ") : "None"}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div className={`p-2 rounded-md ${agent.capabilities?.video?.length ? 'bg-primary text-primary-foreground' : 'bg-gray-500 text-white'}`}>
+                                              <Video className="h-4 w-4" />
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Video: {agent.capabilities?.video?.length ? agent.capabilities.video.join(", ") : "None"}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </div>
+                                    </TooltipProvider>
+                                    <AgentBackendSelector
+                                      value={agent.backend}
+                                      onSelect={(id) => {
+                                        agentForm.setValue("backend", id);
                                       }}
                                     />
                                   </CardContent>
@@ -1049,9 +951,393 @@ export default function AgentForm({
                                   </CardContent>
                                 </CollapsibleContent>
                               </Collapsible>
-
-
                             </Card>
+
+                            <Card className="bg-transparent">
+                              <Collapsible>
+                                <CardHeader className="p-4">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                      <p className="text-base">
+                                        Provider Authentication
+                                      </p>
+                                      <p className="text-sm text-muted-foreground mb-0">
+                                        Configure authentication for the language model provider assigned to this agent.
+                                      </p>
+                                    </div>
+                                    <CollapsibleTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="size-8">
+                                        <ChevronsUpDown className="size-4" />
+                                        <span className="sr-only">Toggle</span>
+                                      </Button>
+                                    </CollapsibleTrigger>
+                                  </div>
+                                </CardHeader>
+                                <CollapsibleContent className="mt-5">
+                                  <CardContent className="space-y-4">
+                                    <div className="space-y-2 w-full overflow-x-hidden">
+                                      <div className="text-sm">
+                                        <div className="font-medium">Provider API Key</div>
+                                        <div className="text-muted-foreground text-xs">Select a variable containing the API key for the provider</div>
+                                      </div>
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            className="w-full justify-between text-sm"
+                                          >
+                                            {variables.find((v: any) => v.name === providerapikey)?.name || "Select variable..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-full p-0 z-[9999]">
+                                          <Command>
+                                            <CommandInput placeholder="Search variables..." />
+                                            <CommandList>
+                                              <CommandEmpty>No variables found.</CommandEmpty>
+                                              <CommandGroup>
+                                                {variables.map((variable: any) => (
+                                                  <CommandItem
+                                                    key={variable.id}
+                                                    onSelect={() => {
+                                                      setProviderapikey(variable.name);
+                                                    }}
+                                                  >
+                                                    <Check
+                                                      className={cn(
+                                                        "mr-2 h-4 w-4",
+                                                        providerapikey === variable.name ? "opacity-100" : "opacity-0"
+                                                      )}
+                                                    />
+                                                    <div className="flex flex-col">
+                                                      <span>{variable.name}</span>
+                                                      {variable.encrypted && (
+                                                        <span className="text-xs text-muted-foreground">🔒 Encrypted</span>
+                                                      )}
+                                                    </div>
+                                                  </CommandItem>
+                                                ))}
+                                              </CommandGroup>
+                                            </CommandList>
+                                          </Command>
+                                        </PopoverContent>
+                                      </Popover>
+                                      {agent.authenticationInformation && (
+                                        <Collapsible>
+                                          <div className="flex items-center justify-between mt-2">
+                                            <CollapsibleTrigger asChild>
+                                              <Button variant="ghost" size="sm" className="text-xs h-auto p-1">
+                                                <Info className="h-3 w-3 mr-1" />
+                                                Authentication Information
+                                                <ChevronsUpDown className="ml-1 h-3 w-3" />
+                                              </Button>
+                                            </CollapsibleTrigger>
+                                          </div>
+                                          <CollapsibleContent className="mt-2">
+                                            <div className="text-muted-foreground text-xs p-3 border rounded-lg bg-muted/30">
+                                              <Response>{agent.authenticationInformation}</Response>
+                                            </div>
+                                          </CollapsibleContent>
+                                        </Collapsible>
+                                      )}
+                                    </div>
+                                  </CardContent>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            </Card>
+
+                            {/* Native memory configuration */}
+                            <Card className="bg-transparent">
+                              <Collapsible>
+                                <CardHeader className="p-4">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                      <p className="text-base">
+                                        Agent Memory
+                                        {
+                                          memory ? (
+                                            <Badge variant="outline" className="ml-2">
+                                              enabled
+                                            </Badge>
+                                          ) : (
+                                            <Badge variant="outline" className="ml-2">
+                                              disabled
+                                            </Badge>
+                                          )
+                                        }
+                                      </p>
+                                      <p className="text-sm text-muted-foreground mb-0">
+                                        If enabled, long-term memory allows the agent to store new items during chat when prompted. Memories are user-scoped by default, with optional global memories created by admins. Memory retrieval occurs before any tool calls or response generation.
+                                      </p>
+                                    </div>
+                                    <CollapsibleTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="size-8">
+                                        <ChevronsUpDown className="size-4" />
+                                        <span className="sr-only">Toggle</span>
+                                      </Button>
+                                    </CollapsibleTrigger>
+                                  </div>
+                                </CardHeader>
+                                <CollapsibleContent className="mt-5">
+                                  <CardContent className="space-y-4">
+                                    <div className="text-sm text-muted-foreground mb-0">
+                                      Select the context to use for the agent's memory.
+                                    </div>
+                                    <div className="space-y-2 w-full overflow-x-hidden">
+                                      <Popover modal={true}>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            className="w-full justify-between text-sm"
+                                          >
+                                            {contexts.find((c: any) => c.id === memory)?.name || "Select context..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="max-h-[300px] p-0 z-[9999]">
+                                          <Command>
+                                            <CommandInput placeholder="Search contexts..." />
+                                            <CommandList>
+                                              <CommandEmpty>No contexts found.</CommandEmpty>
+                                              <CommandGroup>
+                                                <CommandItem
+                                                  onSelect={() => {
+                                                    setMemory('');
+                                                  }}
+                                                >
+                                                  <Check
+                                                    className={cn(
+                                                      "mr-2 h-4 w-4",
+                                                      memory === '' ? "opacity-100" : "opacity-0"
+                                                    )}
+                                                  />
+                                                  <div className="flex flex-col">
+                                                    <span className="text-muted-foreground">None</span>
+                                                  </div>
+                                                </CommandItem>
+                                                {contexts.map((context: any) => (
+                                                  <CommandItem
+                                                    key={context.id}
+                                                    onSelect={() => {
+                                                      console.log("context", context)
+                                                      setMemory(context.id);
+                                                    }}
+                                                  >
+                                                    <Check
+                                                      className={cn(
+                                                        "mr-2 h-4 w-4",
+                                                        memory === context.id ? "opacity-100" : "opacity-0"
+                                                      )}
+                                                    />
+                                                    <div className="flex flex-col">
+                                                      <span>{context.name}</span>
+                                                      {context.description && (
+                                                        <span className="text-xs text-muted-foreground line-clamp-1">{context.description}</span>
+                                                      )}
+                                                    </div>
+                                                  </CommandItem>
+                                                ))}
+                                              </CommandGroup>
+                                            </CommandList>
+                                          </Command>
+                                        </PopoverContent>
+                                      </Popover>
+                                    </div>
+                                  </CardContent>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            </Card>
+
+                            {configContext?.fileUploads?.s3endpoint && (
+                              <Card className="bg-transparent">
+                                <Collapsible>
+                                  <CardHeader className="p-4">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex flex-col">
+                                        <p className="text-base">
+                                          Custom Visualizations
+                                        </p>
+                                        <p className="text-sm text-muted-foreground mb-0">
+                                          Upload custom Lottie animations for idle and responding states.
+                                        </p>
+                                      </div>
+                                      <CollapsibleTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="size-8">
+                                          <ChevronsUpDown className="size-4" />
+                                          <span className="sr-only">Toggle</span>
+                                        </Button>
+                                      </CollapsibleTrigger>
+                                    </div>
+                                  </CardHeader>
+
+                                  <CollapsibleContent className="mt-5">
+                                    <CardContent className="space-y-4">
+                                      <div className="grid grid-cols-1 gap-4">
+                                        {/* Idle Animation */}
+                                        <div className="space-y-2">
+                                          <div>
+                                            <div className="text-sm font-medium">Idle Animation</div>
+                                            <div className="text-xs text-muted-foreground">Animation when agent is waiting</div>
+                                          </div>
+
+                                          <FileDataCard s3key={animation_idle}>
+                                            <UppyDashboard
+                                              id="agent-idle-animation"
+                                              global={true}
+                                              allowedFileTypes={['.json']}
+                                              selectionLimit={1}
+                                              buttonText=""
+                                              dependencies={[agent.id]}
+                                              onConfirm={(keys) => {
+                                                if (keys.length > 0) {
+                                                  setAnimation_idle(keys[0]);
+                                                }
+                                              }}
+                                            />
+                                            {animation_idle && (
+                                              <div className="mt-2 p-2 border rounded bg-muted/30">
+                                                <div className="text-xs text-muted-foreground mb-1">Preview:</div>
+                                                <div className="w-12 h-12 mx-auto">
+                                                  <AgentVisual
+                                                    agent={{ ...agent, animation_idle }}
+                                                    status="ready"
+                                                  />
+                                                </div>
+                                              </div>
+                                            )}
+                                          </FileDataCard>
+                                        </div>
+
+                                        {/* Responding Animation */}
+                                        <div className="space-y-2">
+                                          <div>
+                                            <div className="text-sm font-medium">Responding Animation</div>
+                                            <div className="text-xs text-muted-foreground">Animation when agent is responding</div>
+                                          </div>
+
+                                          <FileDataCard s3key={animation_responding}>
+                                            <UppyDashboard
+                                              id="agent-responding-animation"
+                                              global={true}
+                                              allowedFileTypes={['.json']}
+                                              selectionLimit={1}
+                                              buttonText=""
+                                              dependencies={[agent.id]}
+                                              onConfirm={(keys) => {
+                                                if (keys.length > 0) {
+                                                  setAnimation_responding(keys[0]);
+                                                }
+                                              }}
+                                            />
+                                            {animation_responding && (
+                                              <div className="mt-2 p-2 border rounded bg-muted/30">
+                                                <div className="text-xs text-muted-foreground mb-1">Preview:</div>
+                                                <div className="w-12 h-12 mx-auto">
+                                                  <AgentVisual
+                                                    agent={{ ...agent, animation_responding }}
+                                                    status="streaming"
+                                                  />
+                                                </div>
+                                              </div>
+                                            )}
+                                          </FileDataCard>
+                                        </div>
+                                      </div>
+                                    </CardContent>
+                                  </CollapsibleContent>
+                                </Collapsible>
+                              </Card>
+                            )}
+
+                            {
+                              agenticRetrievalTool && (
+                                <Card className="bg-transparent">
+                                  <Collapsible>
+                                    <CardHeader className="p-4">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                          <p className="text-base">
+                                            Agentic Retrieval Configuration
+                                            {
+                                              enabledTools.some(t => t.id === "agentic_context_search") ? (
+                                                <Badge variant="outline" className="ml-2">
+                                                  enabled
+                                                </Badge>
+                                              ) : <Badge variant="outline" className="ml-2">
+                                                disabled
+                                              </Badge>
+
+                                            }
+                                          </p>
+                                          <p className="text-sm text-muted-foreground mb-0">
+                                            Agentic retrieval uses a tool loop to intelligently
+                                            search and retrieve relevant information across any number
+                                            of knowledge contexts.
+                                          </p>
+                                        </div>
+                                        <CollapsibleTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="size-8">
+                                            <ChevronsUpDown className="size-4" />
+                                            <span className="sr-only">Toggle</span>
+                                          </Button>
+                                        </CollapsibleTrigger>
+                                      </div>
+                                    </CardHeader>
+                                    <CollapsibleContent className="mt-5">
+                                      <CardContent className="space-y-4">
+
+                                        <div className="text-sm text-muted-foreground mb-0">
+                                          Configure the agentic retrieval tool. This tool is used to search and retrieve relevant information across any number of knowledge contexts.
+
+                                        </div>
+
+                                        <Switch
+                                          checked={enabledTools.some(t => t.id === "agentic_context_search")}
+                                          onCheckedChange={(value) => {
+                                            let updated = [...enabledTools];
+                                            if (value) {
+                                              // Add tool with empty config initially
+                                              const newToolConfig = {
+                                                id: agenticRetrievalTool.id,
+                                                type: agenticRetrievalTool.type,
+                                                name: agenticRetrievalTool.name,
+                                                config: agenticRetrievalTool.config?.map(configItem => ({
+                                                  name: configItem.name,
+                                                  variable: '',
+                                                  type: configItem.type
+                                                })) || []
+                                              };
+                                              updated = [...enabledTools, newToolConfig];
+                                            } else {
+                                              updated = enabledTools.filter(t => t.id !== agenticRetrievalTool.id);
+                                            }
+                                            setEnabledTools(updated);
+                                          }}
+                                        />
+
+                                        <ToolConfigurationElement
+                                          tool={agenticRetrievalTool}
+                                          config={enabledTools.find(t => t.id === "agentic_context_search")?.config || []}
+                                          variables={variables}
+                                          update={(value, name) => {
+                                            console.log("value", value)
+                                            const updated = enabledTools.map(t => {
+                                              if (t.id === "agentic_context_search") {
+                                                return { ...t, config: t.config.map(c => c.name === name ? { ...c, variable: value } : c) }
+                                              }
+                                              return t;
+                                            });
+                                            console.log("updated", updated)
+                                            setEnabledTools(updated);
+                                          }}
+                                        />
+                                      </CardContent>
+                                    </CollapsibleContent>
+                                  </Collapsible>
+                                </Card>)
+                            }
 
                             {/* <FormField
                               control={agentForm.control}
@@ -1258,353 +1544,205 @@ export default function AgentForm({
 
                                   <div className="space-y-6">
                                     {/* Show tools grouped by category */}
-                                    {selectedCategory === "all" ? (
-                                      // Group view: show each category as a collapsible section
-                                      Object.entries(toolsByCategory).map(([categoryName, categoryTools]) => {
-                                        const enabledInCategory = categoryTools.filter(tool =>
-                                          enabledTools.some(et => et.id === tool.id)
-                                        ).length;
+                                    {Object.entries(toolsByCategory).map(([categoryName, categoryTools]) => {
+                                      const enabledInCategory = categoryTools.filter(tool =>
+                                        enabledTools.some(et => et.id === tool.id)
+                                      ).length;
 
-                                        const isCollapsed = collapsedCategories.has(categoryName);
+                                      const isCollapsed = collapsedCategories.has(categoryName);
 
-                                        return (
-                                          <Collapsible key={categoryName} open={!isCollapsed} onOpenChange={() => toggleCategoryCollapse(categoryName)}>
-                                            <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
-                                              <CollapsibleTrigger asChild>
-                                                <Button variant="ghost" className="flex items-center gap-2 p-0 h-auto font-medium">
-                                                  <ChevronsUpDown className="h-4 w-4" />
-                                                  <span className="capitalize">{categoryName}</span>
-                                                  <Badge variant="secondary" className="text-xs">
-                                                    {enabledInCategory}/{categoryTools.length}
-                                                  </Badge>
-                                                </Button>
-                                              </CollapsibleTrigger>
+                                      return (
+                                        <Collapsible key={categoryName} open={!isCollapsed} onOpenChange={() => toggleCategoryCollapse(categoryName)}>
+                                          <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                                            <CollapsibleTrigger asChild>
+                                              <Button variant="ghost" className="flex items-center gap-2 p-0 h-auto font-medium">
+                                                <ChevronsUpDown className="h-4 w-4" />
+                                                <span className="capitalize">{categoryName}</span>
+                                                <Badge variant="secondary" className="text-xs">
+                                                  {enabledInCategory} enabled.
+                                                </Badge>
+                                              </Button>
+                                            </CollapsibleTrigger>
 
-                                              <div className="flex items-center gap-2">
-                                                <Button
-                                                  variant="outline"
-                                                  size="sm"
-                                                  onClick={() => {
-                                                    // Bulk enable all tools in this category
-                                                    const newlyEnabled = categoryTools
-                                                      .filter(tool => !enabledTools.some(et => et.id === tool.id))
-                                                      .map(tool => ({
-                                                        id: tool.id,
-                                                        type: tool.type,
-                                                        config: tool.config?.map(configItem => ({
-                                                          name: configItem.name,
-                                                          variable: ''
-                                                        })) || []
-                                                      }));
-                                                    setEnabledTools([...enabledTools, ...newlyEnabled]);
-                                                  }}
-                                                  disabled={enabledInCategory === categoryTools.length}
-                                                >
-                                                  Enable All
-                                                </Button>
+                                            <div className="flex items-center gap-2">
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                  // Bulk enable all tools in this category
+                                                  const newlyEnabled: AgentTool[] = categoryTools
+                                                    .filter(tool => !enabledTools.some(et => et.id === tool.id))
+                                                    .map(tool => ({
+                                                      id: tool.id,
+                                                      type: tool.type,
+                                                      name: tool.name,
+                                                      config: tool.config?.map(configItem => ({
+                                                        name: configItem.name,
+                                                        variable: '',
+                                                        type: configItem.type
+                                                      })) || []
+                                                    }));
+                                                  setEnabledTools([...enabledTools, ...newlyEnabled]);
+                                                }}
+                                                disabled={enabledInCategory === categoryTools.length}
+                                              >
+                                                Enable All
+                                              </Button>
 
-                                                <Button
-                                                  variant="outline"
-                                                  size="sm"
-                                                  onClick={() => {
-                                                    // Bulk disable all tools in this category
-                                                    const categoryToolIds = categoryTools.map(t => t.id);
-                                                    const filtered = enabledTools.filter(et => !categoryToolIds.includes(et.id));
-                                                    setEnabledTools(filtered);
-                                                  }}
-                                                  disabled={enabledInCategory === 0}
-                                                >
-                                                  Disable All
-                                                </Button>
-                                              </div>
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                  // Bulk disable all tools in this category
+                                                  const categoryToolIds = categoryTools.map(t => t.id);
+                                                  const filtered = enabledTools.filter(et => !categoryToolIds.includes(et.id));
+                                                  setEnabledTools(filtered);
+                                                }}
+                                                disabled={enabledInCategory === 0}
+                                              >
+                                                Disable All
+                                              </Button>
                                             </div>
+                                          </div>
 
-                                            <CollapsibleContent className="mt-2">
-                                              <div className="space-y-2 pl-4">
-                                                {categoryTools.map((tool: Tool) => {
-                                                  const isEnabled = enabledTools.some(et => et.id === tool.id);
-                                                  const toolConfig = enabledTools.find(et => et.id === tool.id);
-                                                  const requiredConfigCount = tool.config?.length || 0;
-                                                  const filledConfigCount = toolConfig?.config?.filter(c => c.variable && c.variable.trim() !== '').length || 0;
-                                                  const hasEmptyConfigs = isEnabled && requiredConfigCount > 0 && filledConfigCount < requiredConfigCount;
+                                          <CollapsibleContent className="mt-2">
+                                            <div className="space-y-2 pl-4">
+                                              {categoryTools.map((exuluTool: ExuluTool) => {
+                                                if (exuluTool.id === "agentic_context_search") {
+                                                  return null;
+                                                }
+                                                const isEnabled = enabledTools.some(et => et.id === exuluTool.id);
+                                                const agentTool = enabledTools.find(et => et.id === exuluTool.id);
+                                                const requiredConfigCount = exuluTool.config?.length || 0;
+                                                const filledConfigCount = agentTool?.config?.filter(c => c.variable).length || 0;
+                                                const hasEmptyConfigs = isEnabled && requiredConfigCount > 0 && filledConfigCount < requiredConfigCount;
 
-                                                  return (
-                                                    <div key={tool?.id} className="rounded-lg border p-4">
-                                                      <div className="flex items-center justify-between">
-                                                        <div className="flex items-center flex-1">
-                                                          <div className="flex-1">
-                                                            <div className="flex items-center gap-2">
-                                                              <div className="font-medium capitalize">{tool?.name?.replace(/_/g, " ")}</div>
-                                                              <div className="flex items-center gap-1">
-                                                                {
-                                                                  requiredConfigCount > 0 && isEnabled && <>
-                                                                    <Badge variant="secondary" className="text-xs">
-                                                                      {filledConfigCount}/{requiredConfigCount}
-                                                                    </Badge>
-                                                                    {hasEmptyConfigs && (
-                                                                      <AlertCircle className="h-4 w-4 text-destructive" />
-                                                                    )}
-                                                                  </>
-                                                                }
-                                                                <Badge variant={"outline"}>{tool?.category}</Badge>
-                                                              </div>
-                                                            </div>
-                                                            <div className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                                              {tool?.description}
+                                                return (
+                                                  <div key={exuluTool?.id} className="rounded-lg border p-4">
+                                                    <div className="flex items-center justify-between">
+                                                      <div className="flex items-center flex-1">
+                                                        <div className="flex-1">
+                                                          <div className="flex items-center gap-2">
+                                                            <div className="font-medium capitalize">{exuluTool?.name?.replace(/_/g, " ")}</div>
+                                                            <div className="flex items-center gap-1">
+                                                              {
+                                                                requiredConfigCount > 0 && isEnabled && <>
+                                                                  <Badge variant="secondary" className="text-xs">
+                                                                    {filledConfigCount}/{requiredConfigCount}
+                                                                  </Badge>
+                                                                  {hasEmptyConfigs && (
+                                                                    <AlertCircle className="h-4 w-4 text-destructive" />
+                                                                  )}
+                                                                </>
+                                                              }
+                                                              <Badge variant={"outline"}>{exuluTool?.category}</Badge>
                                                             </div>
                                                           </div>
-                                                          <Sheet open={sheetOpen === tool.id} onOpenChange={() => {
-                                                            if (sheetOpen === tool.id) {
-                                                              setSheetOpen(false);
-                                                            } else {
-                                                              setSheetOpen(tool.id);
-                                                            }
-                                                          }}>
-                                                            {
-                                                              (requiredConfigCount > 0 && !isEnabled) ? <SheetTrigger asChild>
-                                                                <Button variant="ghost" size="sm">
-                                                                  <Settings className="h-4 w-4" />
-                                                                </Button>
-                                                              </SheetTrigger> : <Button type="button" disabled={true} variant="ghost" size="sm">
+                                                          <div className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                                            {exuluTool?.description}
+                                                          </div>
+                                                        </div>
+                                                        <Sheet open={sheetOpen === exuluTool.id} onOpenChange={() => {
+                                                          if (sheetOpen === exuluTool.id) {
+                                                            setSheetOpen(false);
+                                                          } else {
+                                                            setSheetOpen(exuluTool.id);
+                                                          }
+                                                        }}>
+                                                          {
+                                                            (requiredConfigCount > 0 && !isEnabled) ? <SheetTrigger asChild>
+                                                              <Button variant="ghost" size="sm">
                                                                 <Settings className="h-4 w-4" />
                                                               </Button>
-                                                            }
+                                                            </SheetTrigger> : <Button type="button" disabled={true} variant="ghost" size="sm">
+                                                              <Settings className="h-4 w-4" />
+                                                            </Button>
+                                                          }
 
-                                                            <SheetTrigger asChild>
-                                                              <Button className="mr-2" variant="ghost" size="sm">
-                                                                <Info className="h-4 w-4" />
-                                                              </Button>
-                                                            </SheetTrigger>
-                                                            <SheetContent className="w-[400px] sm:w-[540px]">
-                                                              <SheetHeader>
-                                                                <SheetTitle>{tool?.name}</SheetTitle>
-                                                                <SheetDescription>
-                                                                  {tool?.description}
-                                                                </SheetDescription>
-                                                              </SheetHeader>
-                                                              <div className="py-6">
-                                                                <div className="space-y-4">
-                                                                  {/* Tool Configuration in Sheet */}
-                                                                  {tool.config && tool.config.length > 0 && (
-                                                                    <div className="space-y-4">
-                                                                      <div className="text-md font-medium">Configuration variables:</div>
-                                                                      {tool.config.map((configItem, configIndex) => {
-                                                                        const currentValue = toolConfig?.config.find(c => c.name === configItem.name)?.variable || '';
-                                                                        return (
-                                                                          <div key={configIndex} className="space-y-2">
-                                                                            {isEnabled ? (
-                                                                              <VariableSelectionElement
-                                                                                configItem={configItem}
-                                                                                currentValue={currentValue}
-                                                                                variables={variables}
-                                                                                onVariableSelect={(variableName) => {
-                                                                                  const updated = enabledTools.map(et => {
-                                                                                    if (et.id === tool.id) {
-                                                                                      return {
-                                                                                        ...et,
-                                                                                        config: et.config.map(c =>
-                                                                                          c.name === configItem.name
-                                                                                            ? { ...c, variable: variableName }
-                                                                                            : c
-                                                                                        )
-                                                                                      };
-                                                                                    }
-                                                                                    return et;
-                                                                                  });
-                                                                                  console.log("updated", updated)
-                                                                                  setEnabledTools(updated);
-                                                                                }}
-                                                                              />
-                                                                            ) : (
-                                                                              <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
-                                                                                Enable this tool to configure
-                                                                              </div>
-                                                                            )}
-                                                                          </div>
-                                                                        );
-                                                                      })}
-                                                                    </div>
-                                                                  )}
-                                                                </div>
+                                                          <SheetTrigger asChild>
+                                                            <Button className="mr-2" variant="ghost" size="sm">
+                                                              <Info className="h-4 w-4" />
+                                                            </Button>
+                                                          </SheetTrigger>
+                                                          <SheetContent className="w-[400px] sm:w-[540px]">
+                                                            <SheetHeader>
+                                                              <SheetTitle>{exuluTool?.name}</SheetTitle>
+                                                              <SheetDescription>
+                                                                {exuluTool?.description}
+                                                              </SheetDescription>
+                                                            </SheetHeader>
+                                                            <div className="py-6">
+                                                              <div className="space-y-4">
+                                                                {/* Tool Configuration in Sheet */}
+                                                                {exuluTool.config && exuluTool.config.length > 0 && (
+                                                                  <div className="space-y-4">
+                                                                    <div className="text-md font-medium">Configuration variables:</div>
+                                                                    {/* If configItem.type is boolean or number, show an input field instead of a variable selection element */}
+                                                                    <ToolConfigurationElement
+                                                                      tool={exuluTool}
+                                                                      config={agentTool?.config || []}
+                                                                      variables={variables}
+                                                                      update={(value, name) => {
+                                                                        console.log("value", value)
+                                                                        const updated = enabledTools.map(et => {
+                                                                          if (et.id === exuluTool.id) {
+                                                                            return {
+                                                                              ...et,
+                                                                              config: et.config.map(c =>
+                                                                                c.name === name
+                                                                                  ? { ...c, variable: value }
+                                                                                  : c
+                                                                              )
+                                                                            };
+                                                                          }
+                                                                          return et;
+                                                                        });
+                                                                        console.log("updated", updated)
+                                                                        setEnabledTools(updated);
+                                                                      }}
+                                                                    />
+                                                                  </div>
+                                                                )}
                                                               </div>
-                                                            </SheetContent>
-                                                          </Sheet>
-                                                        </div>
-                                                        <Switch
-                                                          checked={isEnabled}
-                                                          onCheckedChange={(value) => {
-                                                            let updated = [...enabledTools];
-                                                            if (value) {
-                                                              // Add tool with empty config initially
-                                                              const newToolConfig = {
-                                                                id: tool.id,
-                                                                type: tool.type,
-                                                                config: tool.config?.map(configItem => ({
-                                                                  name: configItem.name,
-                                                                  variable: ''
-                                                                })) || []
-                                                              };
-                                                              updated = [...enabledTools, newToolConfig];
-                                                              if (tool.config?.length > 0) {
-                                                                setSheetOpen(tool.id);
-                                                              }
-                                                            } else {
-                                                              updated = enabledTools.filter(t => t.id !== tool.id);
+                                                            </div>
+                                                          </SheetContent>
+                                                        </Sheet>
+                                                      </div>
+                                                      <Switch
+                                                        checked={isEnabled}
+                                                        onCheckedChange={(value) => {
+                                                          let updated = [...enabledTools];
+                                                          if (value) {
+                                                            // Add tool with empty config initially
+                                                            const newToolConfig = {
+                                                              id: exuluTool.id,
+                                                              type: exuluTool.type,
+                                                              name: exuluTool.name,
+                                                              config: exuluTool.config?.map(configItem => ({
+                                                                name: configItem.name,
+                                                                variable: '',
+                                                                type: configItem.type
+                                                              })) || []
+                                                            };
+                                                            updated = [...enabledTools, newToolConfig];
+                                                            if (exuluTool.config?.length > 0) {
+                                                              setSheetOpen(exuluTool.id);
                                                             }
-                                                            setEnabledTools(updated);
-                                                          }}
-                                                        />
-                                                      </div>
-                                                    </div>
-                                                  );
-                                                })}
-                                              </div>
-                                            </CollapsibleContent>
-                                          </Collapsible>
-                                        );
-                                      })
-                                    ) : (
-                                      // Filtered view: show tools in selected category only
-                                      <div className="space-y-2">
-                                        {filteredTools.map((tool: Tool) => {
-                                          const isEnabled = enabledTools.some(et => et.id === tool.id);
-                                          const toolConfig = enabledTools.find(et => et.id === tool.id);
-                                          const requiredConfigCount = tool.config?.length || 0;
-                                          const filledConfigCount = toolConfig?.config?.filter(c => c.variable && c.variable.trim() !== '').length || 0;
-                                          const hasEmptyConfigs = isEnabled && requiredConfigCount > 0 && filledConfigCount < requiredConfigCount;
-
-                                          return (
-                                            <div key={tool?.id} className="rounded-lg border p-4">
-                                              <div className="flex items-center justify-between">
-                                                <div className="flex items-center flex-1">
-                                                  <div className="flex-1">
-                                                    <div className="flex items-center gap-2">
-                                                      <div className="font-medium">{tool?.name}</div>
-                                                      <div className="flex items-center gap-1">
-                                                        {
-                                                          requiredConfigCount > 0 && isEnabled && <>
-                                                            <Badge variant="secondary" className="text-xs">
-                                                              {filledConfigCount}/{requiredConfigCount}
-                                                            </Badge>
-                                                            {hasEmptyConfigs && (
-                                                              <AlertCircle className="h-4 w-4 text-destructive" />
-                                                            )}
-                                                          </>
-                                                        }
-                                                        <Badge variant={"outline"}>{tool?.category}</Badge>
-                                                      </div>
-                                                    </div>
-                                                    <div className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                                      {tool?.description}
+                                                          } else {
+                                                            updated = enabledTools.filter(t => t.id !== exuluTool.id);
+                                                          }
+                                                          setEnabledTools(updated);
+                                                        }}
+                                                      />
                                                     </div>
                                                   </div>
-                                                  <Sheet open={sheetOpen === tool.id} onOpenChange={() => {
-                                                    if (sheetOpen === tool.id) {
-                                                      setSheetOpen(false);
-                                                    } else {
-                                                      setSheetOpen(tool.id);
-                                                    }
-                                                  }}>
-                                                    {
-                                                      (requiredConfigCount > 0 && !isEnabled) ? <SheetTrigger asChild>
-                                                        <Button variant="ghost" size="sm">
-                                                          <Settings className="h-4 w-4" />
-                                                        </Button>
-                                                      </SheetTrigger> : <Button type="button" disabled={true} variant="ghost" size="sm">
-                                                        <Settings className="h-4 w-4" />
-                                                      </Button>
-                                                    }
-
-                                                    <SheetTrigger asChild>
-                                                      <Button className="mr-2" variant="ghost" size="sm">
-                                                        <Info className="h-4 w-4" />
-                                                      </Button>
-                                                    </SheetTrigger>
-                                                    <SheetContent className="w-[400px] sm:w-[540px]">
-                                                      <SheetHeader>
-                                                        <SheetTitle>{tool?.name}</SheetTitle>
-                                                        <SheetDescription>
-                                                          {tool?.description}
-                                                        </SheetDescription>
-                                                      </SheetHeader>
-                                                      <div className="py-6">
-                                                        <div className="space-y-4">
-                                                          {/* Tool Configuration in Sheet */}
-                                                          {tool.config && tool.config.length > 0 && (
-                                                            <div className="space-y-4">
-                                                              <div className="text-md font-medium">Configuration variables:</div>
-                                                              {tool.config.map((configItem, configIndex) => {
-                                                                const currentValue = toolConfig?.config.find(c => c.name === configItem.name)?.variable || '';
-                                                                return (
-                                                                  <div key={configIndex} className="space-y-2">
-                                                                    {isEnabled ? (
-                                                                      <VariableSelectionElement
-                                                                        configItem={configItem}
-                                                                        currentValue={currentValue}
-                                                                        variables={variables}
-                                                                        onVariableSelect={(variableName) => {
-                                                                          const updated = enabledTools.map(et => {
-                                                                            if (et.id === tool.id) {
-                                                                              return {
-                                                                                ...et,
-                                                                                config: et.config.map(c =>
-                                                                                  c.name === configItem.name
-                                                                                    ? { ...c, variable: variableName }
-                                                                                    : c
-                                                                                )
-                                                                              };
-                                                                            }
-                                                                            return et;
-                                                                          });
-                                                                          console.log("updated", updated)
-                                                                          setEnabledTools(updated);
-                                                                        }}
-                                                                      />
-                                                                    ) : (
-                                                                      <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
-                                                                        Enable this tool to configure
-                                                                      </div>
-                                                                    )}
-                                                                  </div>
-                                                                );
-                                                              })}
-                                                            </div>
-                                                          )}
-                                                        </div>
-                                                      </div>
-                                                    </SheetContent>
-                                                  </Sheet>
-                                                </div>
-                                                <Switch
-                                                  checked={isEnabled}
-                                                  onCheckedChange={(value) => {
-                                                    let updated = [...enabledTools];
-                                                    if (value) {
-                                                      // Add tool with empty config initially
-                                                      const newToolConfig = {
-                                                        id: tool.id,
-                                                        type: tool.type,
-                                                        config: tool.config?.map(configItem => ({
-                                                          name: configItem.name,
-                                                          variable: ''
-                                                        })) || []
-                                                      };
-                                                      updated = [...enabledTools, newToolConfig];
-                                                      if (tool.config?.length > 0) {
-                                                        setSheetOpen(tool.id);
-                                                      }
-                                                    } else {
-                                                      updated = enabledTools.filter(t => t.id !== tool.id);
-                                                    }
-                                                    setEnabledTools(updated);
-                                                  }}
-                                                />
-                                              </div>
+                                                );
+                                              })}
                                             </div>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
+                                          </CollapsibleContent>
+                                        </Collapsible>
+                                      );
+                                    })}
 
                                     {/* Empty state when no tools match filters */}
                                     {filteredTools.length === 0 && (searchTerm || selectedCategory !== "all") && (
@@ -1644,4 +1782,120 @@ export default function AgentForm({
       />
     </div>
   );
+}
+
+type Config = { name: string, variable: string | boolean | number, type: "string" | "number" | "boolean" | "variable" }
+
+const ToolConfigurationElement = ({
+  tool,
+  update,
+  config,
+  variables
+}: {
+  tool: ExuluTool,
+  update: (value: any, name: string) => void
+  config: Config[]
+  variables: any[]
+}) => {
+  return (<>
+    {tool.config.map((configItem, configIndex) => {
+      const configEntry = config.find(c => c.name === configItem.name);
+      const currentValue = configEntry?.variable ?? '';
+
+      if (configItem.name === "reranker") {
+        return (
+          <div key={configIndex} className="space-y-2 border rounded-md p-3">
+            <div className="text-sm font-medium capitalize">
+              {configItem.name.replace(/_/g, " ")}
+            </div>
+            {configItem.description && (
+              <TextPreview text={configItem.description} sliceLength={200} />
+            )}
+            <RerankerSelector disabled={!configEntry} value={currentValue as string} onSelect={(value) => {
+              update(value, configItem.name);
+            }} />
+          </div>
+        );
+      }
+
+      switch (configItem.type) {
+        case "string":
+          /* Text area */
+          return (
+            <div key={configIndex} className="space-y-2 border rounded-md p-3">
+              <div className="text-sm font-medium capitalize">
+                {configItem.name.replace(/_/g, " ")}
+              </div>
+              {configItem.description && (
+                <TextPreview text={configItem.description} sliceLength={200} />
+              )}
+              <Textarea
+                disabled={!configEntry}
+                value={(currentValue as string) || ''}
+                onChange={(e) => {
+                  update(e.target.value, configItem.name);
+                }}
+              />
+            </div>
+          );
+        case "number":
+          return (
+            <div key={configIndex} className="space-y-2 border rounded-md p-3">
+              <div className="text-sm font-medium capitalize">
+                {configItem.name.replace(/_/g, " ")}
+              </div>
+              {configItem.description && (
+                <TextPreview text={configItem.description} sliceLength={200} />
+              )}
+              <Input
+                type="number"
+                disabled={!configEntry}
+                value={currentValue?.toString() || ''}
+                onChange={(e) => {
+                  update(Number(e.target.value), configItem.name);
+                }}
+              />
+            </div>
+          );
+        case "boolean":
+          return (
+            <div key={configIndex} className="space-y-2 border rounded-md p-3">
+              <div className="text-sm font-medium capitalize">
+                {configItem.name.replace(/_/g, " ")}
+              </div>
+              {configItem.description && (
+                <TextPreview text={configItem.description} sliceLength={200} />
+              )}
+              <Switch
+                disabled={!configEntry}
+                checked={currentValue === 'true' || currentValue === true || currentValue === 1}
+                onCheckedChange={(value) => {
+                  update(value ? 'true' : 'false', configItem.name);
+                }}
+              />
+            </div>
+          );
+        default:
+          return (
+            <div key={configIndex} className="space-y-2 border rounded-md p-3">
+              <div className="text-sm font-medium capitalize">
+                {configItem.name.replace(/_/g, " ")}
+              </div>
+              {configItem.description && (
+                <TextPreview text={configItem.description} sliceLength={200} />
+              )}
+              <VariableSelectionElement
+                disabled={!configEntry}
+                configItem={configItem}
+                currentValue={currentValue}
+                variables={variables}
+                onVariableSelect={(variableName) => {
+                  update(variableName, configItem.name);
+                }}
+              />
+            </div>
+          );
+      }
+    })}
+  </>)
 }

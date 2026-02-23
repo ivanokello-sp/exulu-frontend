@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CREATE_TEST_CASE, UPDATE_TEST_CASE, GET_TOOLS } from "@/queries/queries";
 import { useToast } from "@/components/ui/use-toast";
 import { TestCase } from "@/types/models/test-case";
-import { Tool } from "@EXULU_SHARED/models/tool";
+import { ExuluTool as Tool } from "@EXULU_SHARED/models/tool";
 import { UIMessage, FileUIPart } from "ai";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

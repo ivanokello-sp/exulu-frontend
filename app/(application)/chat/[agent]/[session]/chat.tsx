@@ -2,7 +2,7 @@
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useMutation, useQuery } from "@apollo/client";
-import { ChatRequestOptions, DefaultChatTransport, DynamicToolUIPart, FileUIPart, lastAssistantMessageIsCompleteWithToolCalls, UIMessage } from "ai";
+import { ChatRequestOptions, DefaultChatTransport, DynamicToolUIPart, FileUIPart, UIMessage } from "ai";
 import { useChat } from '@ai-sdk/react';
 import * as React from "react";
 import { useContext, useEffect, useState, useMemo } from "react";
@@ -91,6 +91,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Wrench } from "lucide-react";
+import { Message, MessageContent } from "@/components/ai-elements/message";
 
 export function ChatLayout({
   session,
@@ -232,6 +233,9 @@ export function ChatLayout({
       } catch (x) {
         setError(error.message)
       }
+    },
+    onData: (data) => {
+      console.log("data!!", data)
     },
     transport: new DefaultChatTransport({
       api: `${configContext?.backend}${agent.slug}/${agent.id}`,
@@ -580,16 +584,31 @@ export function ChatLayout({
             <div className="size-full flex justify-center items-center">
               <div className="flex flex-col gap-4 items-center max-w-2xl w-full px-4 my-auto">
                 <Logo alt="Logo" width={120} height={120} className="h-30 w-40 object-contain" />
-                <p className="text-center text-lg text-muted-foreground">
-                  How can I help you today?
-                </p>
+                {
+                  !agent.welcomemessage && (
+                    <p className="text-center text-lg text-muted-foreground">
+                      How can I help you today?
+                    </p>
+                  )
+                }
 
                 <AgentVisual agent={agent} status={status} className="w-80" />
+                {
+                  agent.welcomemessage && (
+                    <Message
+                      className="mt-12"
+                      from="assistant"
+                      key="welcome-message"
+                    >
+                      <MessageContent id={"message_id_welcome_message"}>
+                      <Response className="chat-response-container">{agent.welcomemessage}</Response></MessageContent></Message>
+                  )
+                }
               </div>
             </div> : null}
           {/* @ts-ignore */}
           <ConversationContent className="px-6 max-w-[850px] mx-auto">
-            {messages?.length > 0 && (
+            {messages?.length > 0 ? (
               <MessageRenderer
                 addToolApprovalResponse={addToolApprovalResponse}
                 messages={messages}
@@ -607,7 +626,7 @@ export function ChatLayout({
                 }}
                 writeAccess={writeAccess}
               />
-            )}
+            ) : null}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
@@ -687,7 +706,7 @@ export function ChatLayout({
                 } */}
 
                   {/* Select or add items to knowledge bases */}
-                  <ItemsSelectionModal onConfirm={async (data) => {
+                  {/* <ItemsSelectionModal onConfirm={async (data) => {
                     console.log("data", data)
                     let sessionToUse = currentSession;
                     // Call update session mutation to add the item to the session
@@ -712,7 +731,7 @@ export function ChatLayout({
                       }
                     })
                     setSessionItems(update);
-                  }} buttonText="" tooltipText="Select or create items from/for knowledge sources to add to the chat." />
+                  }} buttonText="" tooltipText="Select or create items from/for knowledge sources to add to the chat." /> */}
 
                   {/* Tools button */}
                   <TooltipProvider>
@@ -1007,7 +1026,7 @@ export function ChatLayout({
 }
 
 
-const UntypedToolPart = ({
+export const UntypedToolPart = ({
   agent,
   untypedToolPart,
   callId,
@@ -1021,6 +1040,7 @@ const UntypedToolPart = ({
   addToolApprovalResponse: ChatAddToolApproveResponseFunction
 }) => {
 
+  console.log("untypedToolPart", untypedToolPart)
   const output = untypedToolPart.output as any;
   console.log("output", output)
   // Replace - and _, replace 'tool-' prefix

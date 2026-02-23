@@ -307,7 +307,7 @@ const ItemsList = ({
     const items = (data || prev)?.[context.id + PAGINATION_POSTFIX]?.items || [];
 
     return (
-        <div className="flex flex-col h-full">
+        <>
             <div className="px-6 py-3">
                 <Command className="border-0 shadow-none">
                     <CommandInput
@@ -316,79 +316,81 @@ const ItemsList = ({
                     />
                 </Command>
             </div>
+            <div className="flex flex-col h-full overflow-y-auto">
 
-            <div className="flex-1">
-                <div className="p-4">
-                    {loading && items.length === 0 ? (
-                        <div className="flex justify-center py-8">
-                            <Loading />
-                        </div>
-                    ) : items.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                            <File className="h-12 w-12 mb-3 opacity-20" />
-                            <p className="text-sm">No items in this folder</p>
-                            {search && <p className="text-xs mt-1">Try a different search</p>}
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {items.map((item: Item) => {
-                                const selected = isItemSelected(item.id ?? "");
-                                const updatedAt = item.updatedAt ? new Date(item.updatedAt) : null;
-                                const description = item.description || "";
-                                const descriptionPreview = description.length > 100
-                                    ? description.substring(0, 100) + "..."
-                                    : description;
+                <div className="flex-1">
+                    <div className="p-4">
+                        {loading && items.length === 0 ? (
+                            <div className="flex justify-center py-8">
+                                <Loading />
+                            </div>
+                        ) : items.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                                <File className="h-12 w-12 mb-3 opacity-20" />
+                                <p className="text-sm">No items in this folder</p>
+                                {search && <p className="text-xs mt-1">Try a different search</p>}
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {items.map((item: Item) => {
+                                    const selected = isItemSelected(item.id ?? "");
+                                    const updatedAt = item.updatedAt ? new Date(item.updatedAt) : null;
+                                    const description = item.description || "";
+                                    const descriptionPreview = description.length > 100
+                                        ? description.substring(0, 100) + "..."
+                                        : description;
 
-                                return (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => onToggleItem(item, context)}
-                                        className={cn(
-                                            "w-full flex items-start gap-3 px-4 py-3 rounded-md text-sm transition-colors",
-                                            "border text-left relative",
-                                            selected
-                                                ? "bg-primary/10 border-primary text-primary"
-                                                : "hover:bg-accent hover:text-accent-foreground border-transparent hover:border-border"
-                                        )}
-                                    >
-                                        <div className={cn(
-                                            "h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors mt-0.5",
-                                            selected
-                                                ? "bg-primary border-primary"
-                                                : "border-muted-foreground/30"
-                                        )}>
-                                            {selected && <Check className="h-3 w-3 text-primary-foreground" />}
-                                        </div>
-                                        <File className={cn(
-                                            "h-4 w-4 shrink-0 mt-0.5",
-                                            selected ? "text-primary" : "text-muted-foreground"
-                                        )} />
-                                        <div className="flex-1 min-w-0">
+                                    return (
+                                        <button
+                                            key={item.id}
+                                            onClick={() => onToggleItem(item, context)}
+                                            className={cn(
+                                                "w-full flex items-start gap-3 px-4 py-3 rounded-md text-sm transition-colors",
+                                                "border text-left relative",
+                                                selected
+                                                    ? "bg-primary/10 border-primary text-primary"
+                                                    : "hover:bg-accent hover:text-accent-foreground border-transparent hover:border-border"
+                                            )}
+                                        >
                                             <div className={cn(
-                                                "font-medium truncate",
-                                                selected && "text-primary"
+                                                "h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors mt-0.5",
+                                                selected
+                                                    ? "bg-primary border-primary"
+                                                    : "border-muted-foreground/30"
                                             )}>
-                                                {item.name}
+                                                {selected && <Check className="h-3 w-3 text-primary-foreground" />}
                                             </div>
-                                            {descriptionPreview && (
-                                                <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                                    {descriptionPreview}
+                                            <File className={cn(
+                                                "h-4 w-4 shrink-0 mt-0.5",
+                                                selected ? "text-primary" : "text-muted-foreground"
+                                            )} />
+                                            <div className="flex-1 min-w-0">
+                                                <div className={cn(
+                                                    "font-medium text-pretty",
+                                                    selected && "text-primary"
+                                                )}>
+                                                    {item.name}
                                                 </div>
-                                            )}
-                                            {updatedAt && (
-                                                <div className="text-xs text-muted-foreground mt-1">
-                                                    Updated {updatedAt.toLocaleDateString()} at {updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
+                                                {descriptionPreview && (
+                                                    <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                                        {descriptionPreview}
+                                                    </div>
+                                                )}
+                                                {updatedAt && (
+                                                    <div className="text-xs text-muted-foreground mt-1">
+                                                        Updated {updatedAt.toLocaleDateString()} at {updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
+        </>
     )
 }
 
