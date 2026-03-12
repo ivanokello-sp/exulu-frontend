@@ -25,6 +25,7 @@ import {
   CREATE_AGENT_SESSION,
   GET_AGENT_SESSIONS,
   UPDATE_AGENT_SESSION_ITEMS,
+  CREATE_FEEDBACK,
 } from "@/queries/queries";
 import { getToken } from "@/util/api"
 import { Agent } from "@EXULU_SHARED/models/agent";
@@ -92,6 +93,15 @@ import {
 } from "@/components/ui/sheet";
 import { Wrench } from "lucide-react";
 import { Message, MessageContent } from "@/components/ai-elements/message";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 export function ChatLayout({
   session,
@@ -148,6 +158,12 @@ export function ChatLayout({
 
   // Prompt selector state
   const [promptSelectorOpen, setPromptSelectorOpen] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState<{
+    session: string;
+    agent: string;
+    score: number;
+  } | null>(null);
+  const [feedbackDescription, setFeedbackDescription] = useState("");
   const [promptVariableFormOpen, setPromptVariableFormOpen] = useState(false);
   const [selectedPrompt, setSelectedPrompt] = useState<PromptLibrary | null>(null);
   const [incrementPromptUsage] = useIncrementPromptUsage();
@@ -187,6 +203,7 @@ export function ChatLayout({
 
   const [updateAgentSessionRbac, updateAgentSessionRbacResult] = useMutation(UPDATE_AGENT_SESSION_RBAC);
   const [updateAgentSessionItems, updateAgentSessionItemsResult] = useMutation(UPDATE_AGENT_SESSION_ITEMS);
+  const [createFeedback, createFeedbackResult] = useMutation(CREATE_FEEDBACK);
 
   const [tokenCounts, setTokenCounts] = useState<MessageMetadata>({
     totalTokens: 0,
@@ -461,6 +478,39 @@ export function ChatLayout({
     );
   };
 
+  const handleSubmitFeedback = async () => {
+    if (!feedbackModal) return;
+
+    try {
+      await createFeedback({
+        variables: {
+          input: {
+            session: feedbackModal.session,
+            score: feedbackModal.score,
+            agent: feedbackModal.agent,
+            description: feedbackDescription,
+            user: user.id,
+          },
+        },
+      });
+
+      toast({
+        title: "Feedback submitted",
+        description: "Thank you for your feedback!",
+      });
+
+      setFeedbackModal(null);
+      setFeedbackDescription("");
+    } catch (error) {
+      console.error("Failed to submit feedback:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit feedback. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Calculate number of active tools
   const activeToolsCount = useMemo(() => {
     return (agent.tools?.length || 0) - disabledTools.length;
@@ -601,7 +651,7 @@ export function ChatLayout({
                       key="welcome-message"
                     >
                       <MessageContent id={"message_id_welcome_message"}>
-                      <Response className="chat-response-container">{agent.welcomemessage}</Response></MessageContent></Message>
+                        <Response className="chat-response-container">{agent.welcomemessage}</Response></MessageContent></Message>
                   )
                 }
               </div>
@@ -610,6 +660,15 @@ export function ChatLayout({
           <ConversationContent className="px-6 max-w-[850px] mx-auto">
             {messages?.length > 0 ? (
               <MessageRenderer
+                handleFeedback={(messageId: string, feedback: 'positive' | 'negative') => {
+                  console.log("messageId", messageId)
+                  console.log("feedback", feedback)
+                  setFeedbackModal({
+                    session: currentSession?.id || '',
+                    agent: agent.id,
+                    score: feedback === 'positive' ? 1 : 0,
+                  })
+                }}
                 addToolApprovalResponse={addToolApprovalResponse}
                 messages={messages}
                 showTokens={true}
@@ -777,8 +836,6 @@ export function ChatLayout({
                     </Tooltip>
                   </TooltipProvider>
                 </div>
-
-
               </div>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 w-[850px] mx-auto">
                 {/* Show  selected files */}
@@ -849,6 +906,49 @@ export function ChatLayout({
             onSubmit={handleSubmitVariables}
           />
         )}
+        {/* Feedback Modal */}
+        <Dialog open={!!feedbackModal} onOpenChange={(open) => {
+          if (!open) {
+            setFeedbackModal(null);
+            setFeedbackDescription("");
+          }
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {feedbackModal?.score === 1 ? "What did you like?" : "What could be improved?"}
+              </DialogTitle>
+              <DialogDescription>
+                {feedbackModal?.score === 1
+                  ? "Let us know what worked well in this response."
+                  : "Help us understand what went wrong so we can improve."}
+              </DialogDescription>
+            </DialogHeader>
+            <Textarea
+              placeholder="Enter your feedback here..."
+              value={feedbackDescription}
+              onChange={(e) => setFeedbackDescription(e.target.value)}
+              className="min-h-[100px]"
+            />
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setFeedbackModal(null);
+                  setFeedbackDescription("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmitFeedback}
+                disabled={createFeedbackResult.loading || !feedbackDescription.trim()}
+              >
+                {createFeedbackResult.loading ? "Submitting..." : "Submit Feedback"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Agent Details Sheet */}
         {writeAccess && (

@@ -9,10 +9,9 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { AgentDelete } from "@/app/(application)/agents/components/agent-delete";
 import {
-  REMOVE_AGENT_BY_ID, UPDATE_AGENT_BY_ID, GET_AGENT_BY_ID, CREATE_AGENT_SESSION, GET_VARIABLES,
+  REMOVE_AGENT_BY_ID, UPDATE_AGENT_BY_ID, GET_AGENT_BY_ID, GET_VARIABLES,
   GET_TOOLS, GET_TOOL_CATEGORIES, GET_CONTEXTS,
   COPY_AGENT_BY_ID,
-  GET_RERANKERS,
 } from "@/queries/queries";
 import { Button } from "@/components/ui/button";
 import {
@@ -84,12 +83,11 @@ import UppyDashboard, { FileDataCard } from "@/components/uppy-dashboard";
 import AgentVisual from "@/components/lottie";
 import { ConfigContext } from "@/components/config-context";
 import { TextPreview } from "@/components/custom/text-preview";
-import { PromptEditorModal } from "@/app/(application)/prompts/components/prompt-editor-modal";
 import { PromptBrowserSheet } from "./components/prompt-browser-sheet";
 import { usePrompts } from "@/hooks/use-prompts";
 import { Response } from '@/components/ai-elements/response';
 import { PromptCard } from "@/app/(application)/prompts/components/prompt-card";
-import { AgentBackendSelector } from "../../components/agent-backend-selector";
+import { AgentProviderSelector } from "../../components/agent-provider-selector";
 import { RerankerSelector } from "@/components/reranker-selector";
 
 const categories = [
@@ -186,8 +184,9 @@ export const VariableSelectionElement = ({
 };
 
 const agentFormSchema = z.object({
-  backend: z.string(),
+  provider: z.string(),
   welcomemessage: z.string().optional(),
+  feedback: z.boolean().optional(),
   name: z
     .string()
     .min(2, {
@@ -430,7 +429,7 @@ export default function AgentForm({
   const agentForm = useForm<AgentFormValues>({
     resolver: zodResolver(agentFormSchema),
     defaultValues: agent ?? {
-      backend: undefined,
+      provider: undefined,
       name: "New agent",
       welcomemessage: "",
       instructions: "",
@@ -472,6 +471,7 @@ export default function AgentForm({
                       category: data.category,
                       active: data.active,
                       memory: memory || null,
+                      feedback: data.feedback,
                       providerapikey: providerapikey,
                       animation_idle: animation_idle,
                       animation_responding: animation_responding,
@@ -880,10 +880,10 @@ export default function AgentForm({
                                         </Tooltip>
                                       </div>
                                     </TooltipProvider>
-                                    <AgentBackendSelector
-                                      value={agent.backend}
+                                    <AgentProviderSelector
+                                      value={agent.provider}
                                       onSelect={(id) => {
-                                        agentForm.setValue("backend", id);
+                                        agentForm.setValue("provider", id);
                                       }}
                                     />
                                   </CardContent>
@@ -1149,6 +1149,30 @@ export default function AgentForm({
                                 </CollapsibleContent>
                               </Collapsible>
                             </Card>
+
+                            {/* Feedback configuration */}
+                            <FormField
+                              control={agentForm.control}
+                              name="feedback"
+                              render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                  <div className="space-y-0.5">
+                                    <FormLabel className="text-base">
+                                      Enable feedback collection?
+                                    </FormLabel>
+                                    <FormDescription>
+                                      When enabled, feedback can be collected from users during chat.
+                                    </FormDescription>
+                                  </div>
+                                  <FormControl>
+                                    <Switch
+                                      checked={field.value}
+                                      onCheckedChange={field.onChange}
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
 
                             {configContext?.fileUploads?.s3endpoint && (
                               <Card className="bg-transparent">

@@ -5,7 +5,7 @@ import { Message, MessageContent } from '@/components/ai-elements/message'
 import { Response } from '@/components/ai-elements/response'
 import { Reasoning, ReasoningTrigger, ReasoningContent } from "@/components/ai-elements/reasoning"
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai-elements/source"
-import { RefreshCcwIcon, CopyIcon, ChevronDown, ChevronRight, Search, FileText, Database, ListChecks, LayoutList, EditIcon, Trash2Icon, DownloadIcon } from "lucide-react"
+import { RefreshCcwIcon, CopyIcon, ChevronDown, ChevronRight, Search, FileText, Database, ListChecks, LayoutList, EditIcon, Trash2Icon, DownloadIcon, ThumbsUp, ThumbsDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
@@ -68,6 +68,7 @@ function camelCaseToLabel(camelCaseString) {
 interface MessageRendererProps {
   messages: UIMessage[]
   status?: "streaming" | "idle" | "error" | "submitted" | "ready"
+  handleFeedback?: (messageId: string, feedback: 'positive' | 'negative') => void
   className?: string
   showActions?: boolean
   showEdit?: boolean
@@ -109,7 +110,8 @@ export function MessageRenderer({
   writeAccess = true,
   AgentVisualComponent,
   config,
-  addToolApprovalResponse
+  addToolApprovalResponse,
+  handleFeedback
 }: MessageRendererProps) {
   const { toast } = useToast()
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
@@ -682,11 +684,6 @@ export function MessageRenderer({
                         <DownloadIcon className="size-3" />
                       </MessageAction>
                     )}
-                    {(showTokens && message.role === 'assistant' && messageMetadata?.totalTokens) && (
-                      <small className="text-muted-foreground">
-                        {Intl.NumberFormat('en-US').format(messageMetadata?.totalTokens)} tokens
-                      </small>
-                    )}
                     {showEdit && message.role === 'user' && (
                       <MessageAction
                         className="mr-1"
@@ -708,11 +705,36 @@ export function MessageRenderer({
                         <Trash2Icon className="size-3" />
                       </MessageAction>
                     )}
+                    {
+                      agent?.feedback && (
+                        <>
+                          <MessageAction
+                            className="mr-1"
+                            label="Feedback"
+                            onClick={() => handleFeedback?.(message.id, 'positive')}
+                          >
+                            <ThumbsUp className="size-3" />
+                          </MessageAction>
+                          <MessageAction
+                            className="mr-1"
+                            label="Feedback"
+                            onClick={() => handleFeedback?.(message.id, 'negative')}
+                          >
+                            <ThumbsDown className="size-3" />
+                          </MessageAction>
+                        </>
+                      )
+                    }
+                    {(showTokens && message.role === 'assistant' && messageMetadata?.totalTokens) && (
+                      <small className="text-muted-foreground">
+                        {Intl.NumberFormat('en-US').format(messageMetadata?.totalTokens)} tokens
+                      </small>
+                    )}
                   </MessageActions>
 
                 )}
             </MessageContent>
-          </Message>
+          </Message >
         );
 
         // Wrap the last assistant message with AgentVisual on the left

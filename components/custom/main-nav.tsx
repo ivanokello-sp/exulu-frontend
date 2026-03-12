@@ -21,7 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { UserRole } from "@/types/models/user-role";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
-import { ChevronUp, Moon, Sun, Code, MessageCircle, Users, Key, LayoutDashboard, Database, ListTodo, Bot, Route, Variable, FileCheck, Sparkles, Settings, LogOut, FileText, FolderOpen, Brain, Album, BookCheck, TextSelect, ClipboardType, BarChart2, BarChart, BarChart4, Workflow, Form, FileAudio, Languages } from "lucide-react";
+import { ChevronUp, Moon, Sun, Code, MessageCircle, Users, Key, LayoutDashboard, Database, ListTodo, Bot, Route, Variable, FileCheck, Sparkles, Settings, LogOut, FileText, FolderOpen, Brain, Album, BookCheck, TextSelect, ClipboardType, BarChart2, BarChart, BarChart4, Workflow, Form, FileAudio, Languages, MessageSquare, ThumbsUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Avatar, AvatarFallback } from "../ui/avatar";
@@ -98,6 +98,14 @@ const buildNavigation = (user: User, role: UserRole, config: Config, t: any) => 
       label: t('navigation.evals'),
       path: "evals",
       icon: <BookCheck />,
+    });
+  }
+
+  if (user.super_admin) {
+    navigationItems.push({
+      label: t('navigation.feedback'),
+      path: "feedback",
+      icon: <ThumbsUp />,
     });
   }
 

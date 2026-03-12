@@ -98,10 +98,22 @@ role
 favourite_agents
 `;
 
+const FEEDBACK_FIELDS = `
+id
+status
+agent
+description
+session
+score
+user
+createdAt
+`;
+
 const AGENT_FIELDS = `
 id
 name
 providerapikey
+feedback
 memory
 instructions
 welcomemessage
@@ -140,7 +152,7 @@ capabilities {
   audio
   video
 }
-backend
+provider
 rights_mode
 RBAC {
       type
@@ -179,6 +191,28 @@ export const GET_AGENTS = gql`
       }
       items {
         ${AGENT_FIELDS}
+      }
+    }
+  }
+`;
+
+export const GET_FEEDBACK = gql`
+  query GetFeedback(
+    $page: Int!
+    $limit: Int!
+    $filters: [FilterFeedback]
+    $sort: SortBy = { field: "updatedAt", direction: DESC }
+  ) {
+    feedbackPagination(page: $page, limit: $limit, filters: $filters, sort: $sort) {
+      pageInfo {
+        pageCount
+        itemCount
+        currentPage
+        hasPreviousPage
+        hasNextPage
+      }
+      items {
+        ${FEEDBACK_FIELDS}
       }
     }
   }
@@ -322,6 +356,16 @@ export const CREATE_ITEM = (context: string, fields?: string[]) => {
   `;
 };
 
+export const CREATE_FEEDBACK = gql`
+  mutation CreateFeedback($input: feedbackInput!) {
+    feedbackCreateOne(input: $input) {
+      item {
+        ${FEEDBACK_FIELDS}
+      }
+    }
+  }
+`;
+
 export const DELETE_CHUNKS = (context: string) => {
   const upperCaseContext = context.charAt(0).toUpperCase() + context.slice(1)
   return gql`
@@ -333,7 +377,6 @@ export const DELETE_CHUNKS = (context: string) => {
     }
   `;
 };
-
 
 export const GENERATE_CHUNKS = (context: string) => {
   const upperCaseContext = context.charAt(0).toUpperCase() + context.slice(1)
@@ -512,6 +555,14 @@ export const DELETE_WORKFLOW_SCHEDULE = gql`
   mutation DeleteWorkflowSchedule($workflow: ID!) {
     deleteWorkflowSchedule(workflow: $workflow) {
       status
+    }
+  }
+`;
+
+export const DELETE_FEEDBACK = gql`
+  mutation DeleteFeedback($id: ID!) {
+    feedbackRemoveOneById(id: $id) {
+      id
     }
   }
 `;
@@ -850,7 +901,7 @@ export const CREATE_AGENT = gql`
     $name: String!
     $description: String!
     $rights_mode: String!
-    $backend: String!
+    $provider: String!
     $image: String
     $RBAC: RBACInput
   ) {
@@ -859,7 +910,7 @@ export const CREATE_AGENT = gql`
         name: $name
         description: $description
         rights_mode: $rights_mode
-        backend: $backend
+        provider: $provider
         image: $image
         RBAC: $RBAC
       }
@@ -924,7 +975,8 @@ export const UPDATE_AGENT_BY_ID = gql`
   mutation UpdateAgent(
     $id: ID!
     $name: String
-    $backend: String
+    $feedback: Boolean
+    $provider: String
     $description: String
     $welcomemessage: String
     $memory: String
@@ -941,7 +993,8 @@ export const UPDATE_AGENT_BY_ID = gql`
     agentsUpdateOneById(
       input: {
         name: $name
-        backend: $backend
+        feedback: $feedback
+        provider: $provider
         description: $description
         welcomemessage: $welcomemessage
         memory: $memory
@@ -961,6 +1014,7 @@ export const UPDATE_AGENT_BY_ID = gql`
           id
           name
           description
+          feedback
           welcomemessage
           instructions
           memory

@@ -11,10 +11,10 @@ export interface AgentTool {
 }
 export interface Agent {
     id: string;
+    feedback?: boolean;
     modelName?: string;
     providerName?: string;
     welcomemessage?: string;
-    backend: string;
     type: "agent";
     name: string;
     image?: string;
