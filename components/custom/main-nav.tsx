@@ -219,7 +219,7 @@ export function MainNavSidebar({ sidebarDefaultOpen, config }: { sidebarDefaultO
 
   return (
     <Sidebar collapsible="icon" className="border-r">
-      <div className="flex items-center gap-3 border-b backdrop-blur-sm p-[12px] sticky top-0 z-10">
+      <div className="flex items-center gap-3 border-b bg-sidebar p-[12px] sticky top-0 z-10">
         <SidebarTrigger />
         <div className="flex items-center gap-2">
           <Logo alt="Logo" width={100} height={40} />

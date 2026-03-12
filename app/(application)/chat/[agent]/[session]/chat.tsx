@@ -124,6 +124,8 @@ export function ChatLayout({
   const [input, setInput] = useState('');
   const [disabledTools, setDisabledTools] = useState<string[]>([]);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
+  // Calculate max input length as 80% of agent's context window (rough char estimate: 1 token ≈ 4 chars)
+  const MAX_INPUT_LENGTH = agent.maxContextLength ? Math.floor((agent.maxContextLength * 0.8) * 4) : 50000;
   const [currentSession, setCurrentSession] = useState<AgentSession | null>(session);
   const [createAgentSession] = useMutation(CREATE_AGENT_SESSION, {
     refetchQueries: [
@@ -205,6 +207,32 @@ export function ChatLayout({
   const [updateAgentSessionItems, updateAgentSessionItemsResult] = useMutation(UPDATE_AGENT_SESSION_ITEMS);
   const [createFeedback, createFeedbackResult] = useMutation(CREATE_FEEDBACK);
 
+
+  // Global keyboard navigation
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Close modals/sheets in priority order
+        if (feedbackModal) {
+          setFeedbackModal(null);
+          setFeedbackDescription("");
+        } else if (promptVariableFormOpen) {
+          setPromptVariableFormOpen(false);
+        } else if (promptSelectorOpen) {
+          setPromptSelectorOpen(false);
+        } else if (toolsSheetOpen) {
+          setToolsSheetOpen(false);
+        } else if (showSaveWorkflowModal) {
+          setShowSaveWorkflowModal(false);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [feedbackModal, promptVariableFormOpen, promptSelectorOpen, toolsSheetOpen, showSaveWorkflowModal]);
+
+
   const [tokenCounts, setTokenCounts] = useState<MessageMetadata>({
     totalTokens: 0,
     reasoningTokens: 0,
@@ -243,16 +271,20 @@ export function ChatLayout({
       }
     },
     onError: (error) => {
-      console.log("error!!", error?.message)
+      if (process.env.NODE_ENV === 'development') {
+        console.error("[Chat Error]", error?.message);
+      }
       try {
         const { message } = JSON.parse(error?.message)
         setError(message)
       } catch (x) {
-        setError(error.message)
+        setError(error?.message || "An unexpected error occurred. Please try again.")
       }
     },
     onData: (data) => {
-      console.log("data!!", data)
+      if (process.env.NODE_ENV === 'development') {
+        console.log("[Chat Data]", data);
+      }
     },
     transport: new DefaultChatTransport({
       api: `${configContext?.backend}${agent.slug}/${agent.id}`,
@@ -381,8 +413,16 @@ export function ChatLayout({
         return;
       }
     } catch (error) {
-      console.error("Failed to create session:", error);
-      setError("Failed to create session. Please try again.");
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Failed to create session:", error);
+      }
+      const errorMessage = error instanceof Error ? error.message : "Failed to create session. Please check your connection and try again.";
+      setError(errorMessage);
+      toast({
+        title: "Session Creation Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
       return;
     }
   }
@@ -444,10 +484,14 @@ export function ChatLayout({
       sessionToUse = createdSession;
     }
 
-    console.log("[EXULU] Current session", currentSession);
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[EXULU] Current session", currentSession);
+    }
     const approvedTools = localStorage.getItem(`pre-approved-tool-calls-${currentSession?.id}`) || [];
 
-    console.log("[EXULU] Approved tools", approvedTools);
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[EXULU] Approved tools", approvedTools);
+    }
 
     sendMessage({
       text: input,
@@ -466,7 +510,17 @@ export function ChatLayout({
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      onSubmit(e as unknown as React.FormEvent<HTMLFormElement>);
+      // Prevent submission if already submitting or empty
+      if (status !== "submitted" && status !== "streaming" && input?.trim()) {
+        onSubmit(e as unknown as React.FormEvent<HTMLFormElement>);
+      }
+    }
+    if (e.key === "Escape") {
+      // Clear input on Escape
+      if (input) {
+        setInput('');
+        e.preventDefault();
+      }
     }
   };
 
@@ -502,10 +556,12 @@ export function ChatLayout({
       setFeedbackModal(null);
       setFeedbackDescription("");
     } catch (error) {
-      console.error("Failed to submit feedback:", error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Failed to submit feedback:", error);
+      }
       toast({
-        title: "Error",
-        description: "Failed to submit feedback. Please try again.",
+        title: "Error submitting feedback",
+        description: error instanceof Error ? error.message : "Failed to submit feedback. Please check your connection and try again.",
         variant: "destructive",
       });
     }
@@ -561,13 +617,14 @@ export function ChatLayout({
       {/* Main conversation area */}
       <div className="grow flex flex-col flex-1 relative h-[100vh] overflow-hidden">
         {/* Animated gradient at top - moved outside Conversation to prevent scroll interference */}
-        <div className={`absolute w-full top-0 z-10 pointer-events-none`}>
-          {agent.maxContextLength && (
+
+        {agent.maxContextLength ? (
+          <div className={`absolute w-full top-0 z-10 pointer-events-none bg-white dark:bg-black`}>
             <Progress className="w-full rounded-none pointer-events-auto" value={tokenCounts.totalTokens / agent.maxContextLength * 100} />
-          )}
-        </div>
+          </div>
+        ) : null}
         {/* Context/token counter - moved outside Conversation to prevent scroll interference */}
-        <div className="flex justify-between absolute top-0 left-0 right-0 items-center px-4 py-2 border-b z-10 dark:bg-black bg-white top-4">
+        <div className={`flex justify-between absolute left-0 right-0 items-center px-4 py-2 border-b z-10 dark:bg-black bg-white ${agent.maxContextLength ? 'top-4' : 'top-0'}`}>
           <div className="flex items-center gap-4">
             <Badge variant="secondary" className="text-xs">
               {agent.modelName}
@@ -581,8 +638,9 @@ export function ChatLayout({
             variant="outline"
             size="sm"
             disabled={!canCreateWorkflow}
-            onClick={() => setShowSaveWorkflowModal(true)}>
-            <Plus className="w-4 h-4 mr-2" />
+            onClick={() => setShowSaveWorkflowModal(true)}
+            aria-label="Save conversation as reusable template">
+            <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
             Save as Template
           </Button>
         </div>
@@ -661,8 +719,9 @@ export function ChatLayout({
             {messages?.length > 0 ? (
               <MessageRenderer
                 handleFeedback={(messageId: string, feedback: 'positive' | 'negative') => {
-                  console.log("messageId", messageId)
-                  console.log("feedback", feedback)
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log("Feedback submitted -", "messageId:", messageId, "feedback:", feedback);
+                  }
                   setFeedbackModal({
                     session: currentSession?.id || '',
                     agent: agent.id,
@@ -718,6 +777,7 @@ export function ChatLayout({
                     autoComplete="off"
                     autoFocus={true}
                     minRows={1}
+                    maxLength={MAX_INPUT_LENGTH}
                     value={input}
                     ref={inputRef}
                     onKeyDown={handleKeyPress}
@@ -725,13 +785,17 @@ export function ChatLayout({
                     name="message"
                     placeholder={`Ask me anything...`}
                     className="border max-h-40 px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 w-full items-center h-28 resize-none overflow-hidden dark:bg-card/35"
+                    aria-label="Chat message input"
+                    aria-describedby={input.length > MAX_INPUT_LENGTH * 0.9 ? "input-length-warning" : undefined}
                   />
                   {status !== "streaming" ? (
                     <Button
                       className="shrink-0"
                       variant="secondary"
                       size="icon"
+                      type="submit"
                       disabled={status === "submitted" || !input?.trim()}
+                      aria-label="Send message"
                     >
                       <ArrowUp className=" size-6 text-muted-foreground" />
                     </Button>
@@ -740,12 +804,23 @@ export function ChatLayout({
                       className="shrink-0"
                       variant="secondary"
                       size="icon"
+                      type="button"
                       onClick={stop}
+                      aria-label="Stop generating response"
                     >
                       <StopIcon className="size-6 text-muted-foreground" />
                     </Button>
                   )}
                 </div>
+                {/* Character count warning when approaching limit */}
+                {input.length > MAX_INPUT_LENGTH * 0.9 && (
+                  <div id="input-length-warning" className="text-xs text-muted-foreground w-[850px] flex justify-end" role="status" aria-live="polite">
+                    {input.length} / {MAX_INPUT_LENGTH} characters
+                    {input.length >= MAX_INPUT_LENGTH && (
+                      <span className="text-destructive ml-2">Maximum length reached</span>
+                    )}
+                  </div>
+                )}
                 <div className="items-center flex relative gap-2 w-[850px]">
                   {/* {
                   configContext?.fileUploads?.s3endpoint && (<UppyDashboard
@@ -802,10 +877,11 @@ export function ChatLayout({
                           size="icon"
                           className="shrink-0 relative"
                           onClick={() => setToolsSheetOpen(true)}
+                          aria-label={`Configure tools (${activeToolsCount} active)`}
                         >
                           <Wrench className="h-4 w-4" />
                           {activeToolsCount > 0 && (
-                            <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                            <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center" aria-hidden="true">
                               {activeToolsCount}
                             </span>
                           )}
@@ -826,6 +902,7 @@ export function ChatLayout({
                           size="icon"
                           className="shrink-0"
                           onClick={() => setPromptSelectorOpen(true)}
+                          aria-label="Insert prompt from library"
                         >
                           <FileText className="h-4 w-4" />
                         </Button>
@@ -1140,9 +1217,10 @@ export const UntypedToolPart = ({
   addToolApprovalResponse: ChatAddToolApproveResponseFunction
 }) => {
 
-  console.log("untypedToolPart", untypedToolPart)
+  if (process.env.NODE_ENV === 'development') {
+    console.log("Tool Call -", "type:", untypedToolPart.type, "state:", untypedToolPart.state);
+  }
   const output = untypedToolPart.output as any;
-  console.log("output", output)
   // Replace - and _, replace 'tool-' prefix
   let styleToolName = untypedToolPart.type?.replace(/ /g, "-")
   styleToolName = styleToolName?.replace(/tool-/g, "")
