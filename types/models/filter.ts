@@ -1,6 +1,6 @@
 export type FilterOperator = {
-    eq?: string,
-    ne?: string,
-    in?: string[],
-    contains?: string,
+    eq?: string | number,
+    ne?: string | number,
+    in?: string[] | number[],
+    contains?: string | number,
   }

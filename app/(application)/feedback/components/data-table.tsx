@@ -421,7 +421,7 @@ export function DataTable() {
 
           <Select
             value={
-              filters.find((f) => f.agent)?.agent?.eq ?? "all"
+              filters.find((f) => f.agent)?.agent?.eq?.toString() ?? "all"
             }
             onValueChange={filterByAgent}
           >
