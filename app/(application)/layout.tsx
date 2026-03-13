@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TanstackQueryClientProvider } from "@/app/(application)/query-client";
 import Authenticated from "@/app/(application)/authenticated";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { serverSideAuthCheck } from "@/lib/server-side-auth-check";
 import { ConfigContextProvider } from "@/components/config-context";
 import { config as api, BackendConfigType } from "@/util/api";
@@ -99,6 +100,7 @@ export default async function RootLayout({
                                 </div>
                             </main>
                             <Toaster />
+                            <SonnerToaster />
                         </ThemeProvider>
                     </LanguageProvider>
                 </ConfigContextProvider>

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, Filter } from "lucide-react";
+import { X, Bot } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,13 +11,16 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
-import { useUniquePromptTags } from "@/hooks/use-prompts";
+import { useQuery } from "@apollo/client";
+import { GET_AGENTS } from "@/queries/queries";
 
 interface PromptFiltersProps {
   sortBy: string;
   onSortChange: (sort: string) => void;
   selectedTags: string[];
   onTagsChange: (tags: string[]) => void;
+  selectedAgents: string[];
+  onAgentsChange: (agents: string[]) => void;
 }
 
 export function PromptFilters({
@@ -25,10 +28,15 @@ export function PromptFilters({
   onSortChange,
   selectedTags,
   onTagsChange,
+  selectedAgents,
+  onAgentsChange,
 }: PromptFiltersProps) {
 
-  const { data: tagsData, loading: tagsLoading } = useUniquePromptTags();
-  const availableTags = tagsData?.getUniquePromptTags || [];
+  // Fetch agents for filter
+  const { data: agentsData, loading: agentsLoading } = useQuery(GET_AGENTS, {
+    variables: { page: 1, limit: 100, filters: [] },
+  });
+  const availableAgents = agentsData?.agentsPagination?.items || [];
 
   const sortOptions = [
     { value: "updatedAt", label: "Recently Updated" },
@@ -38,16 +46,16 @@ export function PromptFilters({
     { value: "name", label: "Alphabetical" },
   ];
 
-  const handleToggleTag = (tag: string) => {
-    if (selectedTags.includes(tag)) {
-      onTagsChange(selectedTags.filter(t => t !== tag));
+  const handleToggleAgent = (agentId: string) => {
+    if (selectedAgents.includes(agentId)) {
+      onAgentsChange(selectedAgents.filter(a => a !== agentId));
     } else {
-      onTagsChange([...selectedTags, tag]);
+      onAgentsChange([...selectedAgents, agentId]);
     }
   };
 
-  const handleRemoveTag = (tagToRemove: string) => {
-    onTagsChange(selectedTags.filter(t => t !== tagToRemove));
+  const handleRemoveAgent = (agentToRemove: string) => {
+    onAgentsChange(selectedAgents.filter(a => a !== agentToRemove));
   };
 
   return (
@@ -74,60 +82,64 @@ export function PromptFilters({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Folder Filter Dropdown */}
+      {/* Agent Filter Dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline">
-            <Filter className="h-4 w-4 mr-2" />
-            Folders
-            {selectedTags.length > 0 && (
+            <Bot className="h-4 w-4 mr-2" />
+            Agents
+            {selectedAgents.length > 0 && (
               <Badge variant="secondary" className="ml-2 px-1.5">
-                {selectedTags.length}
+                {selectedAgents.length}
               </Badge>
             )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>Filter by Folders</DropdownMenuLabel>
+        <DropdownMenuContent align="end" className="w-56 max-h-[300px] overflow-y-auto">
+          <DropdownMenuLabel>Filter by Agents</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {tagsLoading ? (
+          {agentsLoading ? (
             <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-              Loading folders...
+              Loading agents...
             </div>
-          ) : availableTags.length === 0 ? (
+          ) : availableAgents.length === 0 ? (
             <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-              No folders available
+              No agents available
             </div>
           ) : (
-            availableTags.map((tag) => (
+            availableAgents.map((agent: any) => (
               <DropdownMenuCheckboxItem
-                key={tag}
-                checked={selectedTags.includes(tag)}
-                onCheckedChange={() => handleToggleTag(tag)}
+                key={agent.id}
+                checked={selectedAgents.includes(agent.id)}
+                onCheckedChange={() => handleToggleAgent(agent.id)}
               >
-                {tag}
+                {agent.name}
               </DropdownMenuCheckboxItem>
             ))
           )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Selected Tags Display */}
-      {selectedTags.length > 0 && (
+      {/* Selected Agents Display */}
+      {selectedAgents.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
-          {selectedTags.map((tag) => (
-            <Badge key={tag} variant="secondary" className="text-sm">
-              {tag}
-              <button
-                type="button"
-                onClick={() => handleRemoveTag(tag)}
-                className="ml-1.5 hover:text-destructive focus:outline-none"
-                aria-label={`Remove ${tag} filter`}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
+          {selectedAgents.map((agentId) => {
+            const agent = availableAgents.find((a: any) => a.id === agentId);
+            return (
+              <Badge key={agentId} variant="default" className="text-sm bg-primary/15 text-primary hover:bg-primary/25 border-primary/20">
+                <Bot className="h-3 w-3 mr-1" />
+                {agent?.name || agentId}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveAgent(agentId)}
+                  className="ml-1.5 hover:text-destructive focus:outline-none"
+                  aria-label={`Remove ${agent?.name || agentId} filter`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            );
+          })}
         </div>
       )}
     </div>

@@ -1062,6 +1062,10 @@ export function createColumns(
           return <div className="text-sm">Loading...</div>;
         }
 
+        if (!data?.agentById) {
+          return <div className="text-sm">No Agent</div>;
+        }
+
         return <div className="text-sm">
           <Link className="text-muted-foreground hover:text-primary hover:underline" href={`/agents/edit/${agent}`}>{data?.agentById.name}</Link>
         </div>;

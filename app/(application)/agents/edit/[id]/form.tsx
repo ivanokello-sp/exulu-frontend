@@ -453,8 +453,8 @@ export default function AgentForm({
   }, [toolsData?.tools?.items]);
 
   return (
-    <div className="h-full flex-col md:flex">
-      <div className="container flex flex-col items-start justify-between space-y-2 py-4 sm:flex-row sm:items-center sm:space-y-0 md:h-16">
+    <div className="flex flex-col min-h-0">
+      <div className="container flex flex-col items-start justify-between space-y-2 py-4 sm:flex-row sm:items-center sm:space-y-0 md:h-16 flex-shrink-0">
         <div className="ml-auto flex w-full space-x-2 sm:justify-end">
           {agent?.id && (
             <Button
@@ -524,8 +524,8 @@ export default function AgentForm({
         </div>
       </div>
       <Separator />
-      <Tabs defaultValue="complete" className="flex-1">
-        <div className="container py-6">
+      <Tabs defaultValue="complete" className="flex-1 min-h-0 flex flex-col">
+        <div className="container py-6 flex-1 overflow-auto">
           <div className="grid items-stretch gap-6">
             <div className="md:order-1">
               <div className="flex flex-col space-y-4">

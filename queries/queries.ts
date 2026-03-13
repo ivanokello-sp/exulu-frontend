@@ -2224,6 +2224,7 @@ const PROMPT_LIBRARY_FIELDS = `
   created_by
   createdAt
   updatedAt
+  history
   RBAC {
     type
     users {
@@ -2310,6 +2311,7 @@ export const UPDATE_PROMPT = gql`
     $rights_mode: String
     $RBAC: RBACInput
     $assigned_agents: JSON
+    $history: JSON
   ) {
     prompt_libraryUpdateOneById(
       id: $id
@@ -2321,6 +2323,7 @@ export const UPDATE_PROMPT = gql`
         rights_mode: $rights_mode
         RBAC: $RBAC
         assigned_agents: $assigned_agents
+        history: $history
       }
     ) {
       item {
