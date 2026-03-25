@@ -398,19 +398,6 @@ export function MessageRenderer({
                   </>
                 }
 
-                if (part.type?.toLowerCase().includes('preview_pdf') || part.type?.toLowerCase().includes('pdf_file_in_a_web_view')) {
-                  const dynamicToolPart = part as any;
-                  const output = JSON.parse(dynamicToolPart.output?.result ?? '{}') as {
-                    url: string
-                    page: number
-                  };
-                  if (!output?.url) {
-                    return <div>No URL provided for PDF preview {JSON.stringify(output)}</div>;
-                  }
-                  const pdfUrl = `${output.url}#page=${output.page ?? 1}`;
-                  return <iframe src={pdfUrl} style={{ width: '100%', height: '100vh' }} title="PDF viewer" />
-                }
-
                 if (part.type?.toLowerCase() === 'tool-todo_write') {
                   const dynamicToolPart = part as any;
                   const output = dynamicToolPart.output as {

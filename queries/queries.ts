@@ -334,7 +334,7 @@ export const GET_ITEM_BY_ID = (context: string, fields: string[], chunks: boolea
     query ${context}ById($id: ID!) {
       ${context}_itemsById(id: $id) {
         ${ITEM_FIELDS(fields)}
-        ${chunks ? "chunks { chunk_content chunk_source chunk_index chunk_id chunk_created_at chunk_updated_at }" : ""}
+        ${chunks ? "chunks { chunk_content chunk_source chunk_index chunk_id chunk_created_at chunk_updated_at chunk_metadata }" : ""}
       }
     }
   `;

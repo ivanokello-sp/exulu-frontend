@@ -21,11 +21,10 @@ import {
 import { cn } from "@/lib/utils";
 import { UserRole } from "@/types/models/user-role";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
-import { ChevronUp, Moon, Sun, Code, MessageCircle, Users, Key, LayoutDashboard, Database, ListTodo, Bot, Route, Variable, FileCheck, Sparkles, Settings, LogOut, FileText, FolderOpen, Brain, Album, BookCheck, TextSelect, ClipboardType, BarChart2, BarChart, BarChart4, Workflow, Form, FileAudio, Languages, MessageSquare, ThumbsUp } from "lucide-react";
+import { ChevronUp, Moon, Sun, Code, MessageCircle, Users, Key, LayoutDashboard, Database, ListTodo, Bot, Route, Variable, FileCheck, Sparkles, Settings, LogOut, FileText, FolderOpen, Brain, Album, BookCheck, TextSelect, ClipboardType, BarChart2, BarChart, BarChart4, Workflow, Form, FileAudio, Languages, MessageSquare, ThumbsUp, Palette } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Avatar, AvatarFallback } from "../ui/avatar";
-import Logo from "../logo";
 import { useLanguage } from "@/components/language-provider";
 import { useTranslations } from "next-intl";
 
@@ -101,69 +100,70 @@ class NavigationErrorBoundary extends React.Component<
 }
 
 const buildNavigation = (user: User, role: UserRole, config: Config, t: any) => {
-  const navigationItems: { label: string; path: string; icon: React.ReactNode }[] = [];
+  const mainNavigationItems: { label: string; path: string; icon: React.ReactNode }[] = [];
+  const bottomNavigationItems: { label: string; path: string; icon: React.ReactNode }[] = [];
 
   if (user.super_admin) {
-    navigationItems.push({
+    mainNavigationItems.push({
       label: t('navigation.dashboard'),
       path: "dashboard",
-      icon: <BarChart4 className="h-5 w-5" strokeWidth={1.5} />,
+      icon: <BarChart4 className="h-4 w-4" strokeWidth={1.5} />,
     });
   }
 
-  navigationItems.push({
+  mainNavigationItems.push({
     label: t('navigation.knowledge'),
     path: "data",
-    icon: <Brain className="h-5 w-5" strokeWidth={1.5} />,
+    icon: <Brain className="h-4 w-4" strokeWidth={1.5} />,
   });
 
   if (user.super_admin || role.agents === "write") {
-    navigationItems.push({
+    mainNavigationItems.push({
       label: t('navigation.agents'),
       path: "agents",
-      icon: <Bot className="h-5 w-5" strokeWidth={1.5} />,
+      icon: <Bot className="h-4 w-4" strokeWidth={1.5} />,
     });
   }
 
-  navigationItems.push({
+  mainNavigationItems.push({
     label: t('navigation.prompts'),
     path: "prompts",
-    icon: <ClipboardType className="h-5 w-5" strokeWidth={1.5} />,
+    icon: <ClipboardType className="h-4 w-4" strokeWidth={1.5} />,
   });
 
-  navigationItems.push({
+  mainNavigationItems.push({
     label: t('navigation.projects'),
     path: "projects",
-    icon: <FolderOpen className="h-5 w-5" strokeWidth={1.5} />,
+    icon: <FolderOpen className="h-4 w-4" strokeWidth={1.5} />,
   });
 
-  navigationItems.push({
+  mainNavigationItems.push({
     label: t('navigation.chat'),
     path: "chat",
-    icon: <MessageCircle className="h-5 w-5" strokeWidth={1.5} />,
+    icon: <MessageCircle className="h-4 w-4" strokeWidth={1.5} />,
   });
 
   if (user.super_admin || role.workflows === "write") {
-    navigationItems.push({
+    mainNavigationItems.push({
       label: t('navigation.templates'),
       path: "workflows",
-      icon: <Form className="h-5 w-5" strokeWidth={1.5} />,
+      icon: <Form className="h-4 w-4" strokeWidth={1.5} />,
     });
   }
 
   if (user.super_admin || role.evals === "read" || role.evals === "write") {
-    navigationItems.push({
+    mainNavigationItems.push({
       label: t('navigation.evals'),
       path: "evals",
-      icon: <BookCheck className="h-5 w-5" strokeWidth={1.5} />,
+      icon: <BookCheck className="h-4 w-4" strokeWidth={1.5} />,
     });
   }
 
   if (user.super_admin) {
-    navigationItems.push({
+    mainNavigationItems.push({
       label: t('navigation.feedback'),
       path: "feedback",
-      icon: <ThumbsUp className="h-5 w-5" strokeWidth={1.5} />,
+      icon: <ThumbsUp className="h-4 w-4" strokeWidth={1.5} />,
     });
   }
 
@@ -171,54 +171,55 @@ const buildNavigation = (user: User, role: UserRole, config: Config, t: any) => 
     (user.super_admin || role.workflows === "write")
     && config.n8n?.enabled
   ) {
-    navigationItems.push({
+    mainNavigationItems.push({
       label: t('navigation.automation'),
       path: "n8n",
-      icon: <Workflow className="h-5 w-5" strokeWidth={1.5} />,
+      icon: <Workflow className="h-4 w-4" strokeWidth={1.5} />,
     });
   }
 
   if (user.super_admin || role.users === "write") {
-    navigationItems.push({
+    mainNavigationItems.push({
       label: t('navigation.users'),
       path: "users",
-      icon: <Users className="h-5 w-5" strokeWidth={1.5} />,
+      icon: <Users className="h-4 w-4" strokeWidth={1.5} />,
     });
   }
 
+  // Bottom navigation items
   if (user.super_admin || role.api === "write") {
-    navigationItems.push({
-      label: t('navigation.keys'),
-      path: "keys",
-      icon: <Key className="h-5 w-5" strokeWidth={1.5} />,
-    });
-  }
-
-  if (user.super_admin || role.variables === "write") {
-    navigationItems.push({
-      label: t('navigation.variables'),
-      path: "variables",
-      icon: <Variable className="h-5 w-5" strokeWidth={1.5} />,
-    });
-  }
-
-  if (user.super_admin || role.api === "write") {
-    navigationItems.push({
-      label: t('navigation.api'),
+    bottomNavigationItems.push({
+      label: t('navigation.apiPlayground'),
       path: "explorer",
-      icon: <Code className="h-5 w-5" strokeWidth={1.5} />,
+      icon: <Code className="h-4 w-4" strokeWidth={1.5} />,
     });
   }
 
   if (user.super_admin) {
-    navigationItems.push({
-      label: t('navigation.theme'),
+    bottomNavigationItems.push({
+      label: t('navigation.themeSettings'),
       path: "configuration",
-      icon: <Settings className="h-5 w-5" strokeWidth={1.5} />,
+      icon: <Palette className="h-4 w-4" strokeWidth={1.5} />,
     });
   }
 
-  return navigationItems;
+  if (user.super_admin || role.api === "write") {
+    bottomNavigationItems.push({
+      label: t('navigation.apiKeys'),
+      path: "keys",
+      icon: <Key className="h-4 w-4" strokeWidth={1.5} />,
+    });
+  }
+
+  if (user.super_admin || role.variables === "write") {
+    bottomNavigationItems.push({
+      label: t('navigation.systemVariables'),
+      path: "variables",
+      icon: <Variable className="h-4 w-4" strokeWidth={1.5} />,
+    });
+  }
+
+  return { mainNavigationItems, bottomNavigationItems };
 }
 
 function NavigationItems({ items }: { items: { label: string; path: string; icon: React.ReactNode }[] }) {
@@ -230,7 +231,7 @@ function NavigationItems({ items }: { items: { label: string; path: string; icon
   }
 
   return (
-    <SidebarMenu className="space-y-1">
+    <SidebarMenu className="space-y-0">
       {items.map((navItem) => {
         const isActive = pathname.includes(navItem.path);
         return (
@@ -240,7 +241,8 @@ function NavigationItems({ items }: { items: { label: string; path: string; icon
               isActive={isActive}
               tooltip={navItem.label}
               className={cn(
-                "h-10 transition-all duration-200"
+                "h-9 transition-all duration-200",
+                !isActive && "opacity-60 hover:opacity-100"
               )}
             >
               <Link
@@ -282,9 +284,9 @@ export function MainNavSidebar({ sidebarDefaultOpen, config }: { sidebarDefaultO
   const userInitial = userName.charAt(0).toUpperCase() || "U";
 
   // Memoize navigation items to prevent unnecessary rebuilds
-  const navigationItems = useMemo(
+  const { mainNavigationItems, bottomNavigationItems } = useMemo(
     () => {
-      if (!user || !user.role) return [];
+      if (!user || !user.role) return { mainNavigationItems: [], bottomNavigationItems: [] };
       return buildNavigation(user, user.role, config, t);
     },
     [user, user?.role, config, t]
@@ -364,17 +366,24 @@ export function MainNavSidebar({ sidebarDefaultOpen, config }: { sidebarDefaultO
       <div className="flex items-center gap-3 border-b bg-sidebar p-3 sticky top-0 z-10">
         <SidebarTrigger aria-label="Toggle sidebar navigation" />
         <div className="flex items-center gap-2">
-          <Logo alt="Logo" width={100} height={40} />
+          <span className="text-lg font-semibold group-data-[collapsible=icon]:hidden">AI Studio</span>
         </div>
       </div>
       <SidebarContent className="px-2">
         <SidebarGroup className="mt-4">
           <SidebarGroupContent>
-            <NavigationItems items={navigationItems} />
+            <NavigationItems items={mainNavigationItems} />
           </SidebarGroupContent>
         </SidebarGroup>
+        {bottomNavigationItems.length > 0 && (
+          <SidebarGroup className="mt-auto">
+            <SidebarGroupContent>
+              <NavigationItems items={bottomNavigationItems} />
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
-      <SidebarFooter className="border-t p-1.5">
+      <SidebarFooter className="border-t p-1.5 mt-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu

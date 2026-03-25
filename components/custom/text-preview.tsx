@@ -12,10 +12,12 @@ const LARGE_TEXT_THRESHOLD = 50000; // Characters threshold for automatic downlo
 
 export function TextPreview({
     text,
-    sliceLength
+    sliceLength,
+    metadata
 }: {
     text?: string;
     sliceLength?: number;
+    metadata?: Record<string, any>;
 }) {
     const { toast } = useToast();
     const displayLength = sliceLength ?? 200;
@@ -88,6 +90,27 @@ export function TextPreview({
                 <div className="prose prose-sm dark:prose-invert max-w-none border rounded-lg p-4 bg-muted max-h-[100%] overflow-y-auto">
                     <Response>{text}</Response>
                 </div>
+                {metadata && (
+                    <div className="mt-4">
+                        {/* Table, by iterating through the metadata keys and values */}
+                        <table className="w-full border-collapse border border-border text-xs text-muted-foreground">
+                            <thead>
+                                <tr>
+                                    <th className="px-4 py-2 text-left font-semibold border-b border-border bg-muted/50">Key</th>
+                                    <th className="px-4 py-2 text-left font-semibold border-b border-border bg-muted/50">Value</th>
+                                </tr>
+                            </thead>
+                        </table>
+                            <tbody>
+                                {Object.entries(metadata).map(([key, value]) => (
+                                    <tr key={key}>
+                                        <td className="px-4 py-2">{key}</td>
+                                        <td className="px-4 py-2">{value}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                    </div>
+                )}
             </DialogContent>
         </Dialog>
     );

@@ -376,6 +376,13 @@ const ItemsList = ({
                                                         {descriptionPreview}
                                                     </div>
                                                 )}
+                                                {
+                                                    item.external_id && (
+                                                        <div className="text-xs text-muted-foreground mt-1">
+                                                            {item.external_id}
+                                                        </div>
+                                                    )
+                                                }
                                                 {updatedAt && (
                                                     <div className="text-xs text-muted-foreground mt-1">
                                                         Updated {updatedAt.toLocaleDateString()} at {updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

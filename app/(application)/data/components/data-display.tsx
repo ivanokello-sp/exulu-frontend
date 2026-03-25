@@ -128,6 +128,7 @@ export function DataDisplay(props: DataDisplayProps) {
     fetchPolicy: "no-cache",
     nextFetchPolicy: "network-only",
     onCompleted: (data) => {
+      console.log("Item data", data);
       const item = data[props.context.id + "_itemsById"];
       setData({
         ...item,
@@ -1210,7 +1211,7 @@ export function DataDisplay(props: DataDisplayProps) {
                                 {chunk.chunk_index + 1}
                               </TableCell>
                               <TableCell>
-                                <TextPreview text={chunk.chunk_content} />
+                                <TextPreview text={chunk.chunk_content} metadata={chunk.chunk_metadata} />
                               </TableCell>
                               <TableCell>
                                 {new Date(chunk.chunk_created_at).toLocaleString()}

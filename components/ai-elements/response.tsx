@@ -370,10 +370,18 @@ const KnowledgeSourceCitationBadge = ({ itemName, chunkId, chunkIndex, context, 
 
   useEffect(() => {
     async function loadPdfUrl() {
+      console.log("Loading PDF URL for chunk", chunk);
+      let pdfUrl: string | null = null;
       if (chunk?.chunk_metadata?.pdf) {
+        pdfUrl = chunk?.chunk_metadata?.pdf;
+      } else if (chunk?.chunk_metadata?.document?.toLowerCase().includes('pdf')) {
+        pdfUrl = chunk?.chunk_metadata?.document;
+      }
+
+      if (pdfUrl) {
         setLoadingPdf(true);
         try {
-          const url = await getPresignedUrl(chunk.chunk_metadata.pdf);
+          const url = await getPresignedUrl(pdfUrl);
           setPdfUrl(url);
         } catch (error) {
           console.error('Error loading PDF URL:', error);
@@ -387,12 +395,12 @@ const KnowledgeSourceCitationBadge = ({ itemName, chunkId, chunkIndex, context, 
       }
     }
     loadPdfUrl();
-  }, [chunk?.chunk_metadata?.pdf]);
+  }, [chunk?.chunk_metadata?.pdf, chunk?.chunk_metadata?.document]);
 
   const page = chunk?.chunk_metadata?.page ? parseInt(chunk.chunk_metadata.page) : 1;
   const contextLabel = context.replaceAll('_', ' ');
   let preview: React.ReactNode | undefined = undefined;
-  if (chunk?.chunk_metadata?.pdf) {
+  if (pdfUrl) {
     if (loadingPdf) {
       preview = <div className="text-sm text-muted-foreground">Loading PDF preview...</div>;
     } else if (pdfUrl) {

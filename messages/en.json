@@ -15,6 +15,10 @@
     "keys": "Keys",
     "variables": "Variables",
     "api": "API",
+    "apiPlayground": "API Playground",
+    "apiKeys": "API Keys",
+    "systemVariables": "System Variables",
+    "themeSettings": "Theme",
     "theme": "Theme",
     "logout": "Logout",
     "terms": "Terms"

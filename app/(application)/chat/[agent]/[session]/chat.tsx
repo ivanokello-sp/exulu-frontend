@@ -840,7 +840,7 @@ export function ChatLayout({
                 } */}
 
                   {/* Select or add items to knowledge bases */}
-                  {/* <ItemsSelectionModal onConfirm={async (data) => {
+                   <ItemsSelectionModal onConfirm={async (data) => {
                     console.log("data", data)
                     let sessionToUse = currentSession;
                     // Call update session mutation to add the item to the session
@@ -865,7 +865,7 @@ export function ChatLayout({
                       }
                     })
                     setSessionItems(update);
-                  }} buttonText="" tooltipText="Select or create items from/for knowledge sources to add to the chat." /> */}
+                  }} buttonText="" tooltipText="Select or create items from/for knowledge sources to add to the chat." />
 
                   {/* Tools button */}
                   <TooltipProvider>

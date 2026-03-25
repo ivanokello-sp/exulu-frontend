@@ -23,7 +23,7 @@ export type FolderType = {
 
 const ContextLink = ({ index, folder, edit, indented, children }: { index: number, folder: FolderType, edit?: () => void, indented?: boolean, children?: React.ReactNode }) => {
     return (
-        <div className="flex flex-col   ">
+        <div className="flex flex-col">
             <div className={cn(
                 buttonVariants({ variant: folder.variant, size: "sm" }),
                 indented ? "pl-5" : null,

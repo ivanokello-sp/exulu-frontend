@@ -2,7 +2,6 @@
 
 import { useMutation, useQuery } from "@apollo/client";
 import { useRouter } from "next/navigation";
-import * as React from "react";
 import { useContext, useState, useMemo } from "react";
 import { UserContext } from "@/app/(application)/authenticated";
 import { AgentCard } from "@/app/(application)/agents/components/agent-card";

@@ -89,6 +89,7 @@ import { Response } from '@/components/ai-elements/response';
 import { PromptCard } from "@/app/(application)/prompts/components/prompt-card";
 import { AgentProviderSelector } from "../../components/agent-provider-selector";
 import { RerankerSelector } from "@/components/reranker-selector";
+import { AgentHierarchyView } from "./components/agent-hierarchy-view";
 
 const categories = [
   "marketing",
@@ -1567,206 +1568,58 @@ export default function AgentForm({
                                   </div>
 
                                   <div className="space-y-6">
-                                    {/* Show tools grouped by category */}
-                                    {Object.entries(toolsByCategory).map(([categoryName, categoryTools]) => {
-                                      const enabledInCategory = categoryTools.filter(tool =>
-                                        enabledTools.some(et => et.id === tool.id)
-                                      ).length;
-
-                                      const isCollapsed = collapsedCategories.has(categoryName);
-
-                                      return (
-                                        <Collapsible key={categoryName} open={!isCollapsed} onOpenChange={() => toggleCategoryCollapse(categoryName)}>
-                                          <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
-                                            <CollapsibleTrigger asChild>
-                                              <Button variant="ghost" className="flex items-center gap-2 p-0 h-auto font-medium">
-                                                <ChevronsUpDown className="h-4 w-4" />
-                                                <span className="capitalize">{categoryName}</span>
-                                                <Badge variant="secondary" className="text-xs">
-                                                  {enabledInCategory} enabled.
-                                                </Badge>
-                                              </Button>
-                                            </CollapsibleTrigger>
-
-                                            <div className="flex items-center gap-2">
-                                              <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => {
-                                                  // Bulk enable all tools in this category
-                                                  const newlyEnabled: AgentTool[] = categoryTools
-                                                    .filter(tool => !enabledTools.some(et => et.id === tool.id))
-                                                    .map(tool => ({
-                                                      id: tool.id,
-                                                      type: tool.type,
-                                                      name: tool.name,
-                                                      config: tool.config?.map(configItem => ({
-                                                        name: configItem.name,
-                                                        variable: '',
-                                                        type: configItem.type
-                                                      })) || []
-                                                    }));
-                                                  setEnabledTools([...enabledTools, ...newlyEnabled]);
-                                                }}
-                                                disabled={enabledInCategory === categoryTools.length}
-                                              >
-                                                Enable All
-                                              </Button>
-
-                                              <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => {
-                                                  // Bulk disable all tools in this category
-                                                  const categoryToolIds = categoryTools.map(t => t.id);
-                                                  const filtered = enabledTools.filter(et => !categoryToolIds.includes(et.id));
-                                                  setEnabledTools(filtered);
-                                                }}
-                                                disabled={enabledInCategory === 0}
-                                              >
-                                                Disable All
-                                              </Button>
-                                            </div>
-                                          </div>
-
-                                          <CollapsibleContent className="mt-2">
-                                            <div className="space-y-2 pl-4">
-                                              {categoryTools.map((exuluTool: ExuluTool) => {
-                                                if (exuluTool.id === "agentic_context_search") {
-                                                  return null;
-                                                }
-                                                const isEnabled = enabledTools.some(et => et.id === exuluTool.id);
-                                                const agentTool = enabledTools.find(et => et.id === exuluTool.id);
-                                                const requiredConfigCount = exuluTool.config?.length || 0;
-                                                const filledConfigCount = agentTool?.config?.filter(c => c.variable).length || 0;
-                                                const hasEmptyConfigs = isEnabled && requiredConfigCount > 0 && filledConfigCount < requiredConfigCount;
-
-                                                return (
-                                                  <div key={exuluTool?.id} className="rounded-lg border p-4">
-                                                    <div className="flex items-center justify-between">
-                                                      <div className="flex items-center flex-1">
-                                                        <div className="flex-1">
-                                                          <div className="flex items-center gap-2">
-                                                            <div className="font-medium capitalize">{exuluTool?.name?.replace(/_/g, " ")}</div>
-                                                            <div className="flex items-center gap-1">
-                                                              {
-                                                                requiredConfigCount > 0 && isEnabled && <>
-                                                                  <Badge variant="secondary" className="text-xs">
-                                                                    {filledConfigCount}/{requiredConfigCount}
-                                                                  </Badge>
-                                                                  {hasEmptyConfigs && (
-                                                                    <AlertCircle className="h-4 w-4 text-destructive" />
-                                                                  )}
-                                                                </>
-                                                              }
-                                                              <Badge variant={"outline"}>{exuluTool?.category}</Badge>
-                                                            </div>
-                                                          </div>
-                                                          <div className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                                            {exuluTool?.description}
-                                                          </div>
-                                                        </div>
-                                                        <Sheet open={sheetOpen === exuluTool.id} onOpenChange={() => {
-                                                          if (sheetOpen === exuluTool.id) {
-                                                            setSheetOpen(false);
-                                                          } else {
-                                                            setSheetOpen(exuluTool.id);
-                                                          }
-                                                        }}>
-                                                          {
-                                                            (requiredConfigCount > 0 && !isEnabled) ? <SheetTrigger asChild>
-                                                              <Button variant="ghost" size="sm">
-                                                                <Settings className="h-4 w-4" />
-                                                              </Button>
-                                                            </SheetTrigger> : <Button type="button" disabled={true} variant="ghost" size="sm">
-                                                              <Settings className="h-4 w-4" />
-                                                            </Button>
-                                                          }
-
-                                                          <SheetTrigger asChild>
-                                                            <Button className="mr-2" variant="ghost" size="sm">
-                                                              <Info className="h-4 w-4" />
-                                                            </Button>
-                                                          </SheetTrigger>
-                                                          <SheetContent className="w-[400px] sm:w-[540px]">
-                                                            <SheetHeader>
-                                                              <SheetTitle>{exuluTool?.name}</SheetTitle>
-                                                              <SheetDescription>
-                                                                {exuluTool?.description}
-                                                              </SheetDescription>
-                                                            </SheetHeader>
-                                                            <div className="py-6">
-                                                              <div className="space-y-4">
-                                                                {/* Tool Configuration in Sheet */}
-                                                                {exuluTool.config && exuluTool.config.length > 0 && (
-                                                                  <div className="space-y-4">
-                                                                    <div className="text-md font-medium">Configuration variables:</div>
-                                                                    {/* If configItem.type is boolean or number, show an input field instead of a variable selection element */}
-                                                                    <ToolConfigurationElement
-                                                                      tool={exuluTool}
-                                                                      config={agentTool?.config || []}
-                                                                      variables={variables}
-                                                                      update={(value, name) => {
-                                                                        console.log("value", value)
-                                                                        const updated = enabledTools.map(et => {
-                                                                          if (et.id === exuluTool.id) {
-                                                                            return {
-                                                                              ...et,
-                                                                              config: et.config.map(c =>
-                                                                                c.name === name
-                                                                                  ? { ...c, variable: value }
-                                                                                  : c
-                                                                              )
-                                                                            };
-                                                                          }
-                                                                          return et;
-                                                                        });
-                                                                        console.log("updated", updated)
-                                                                        setEnabledTools(updated);
-                                                                      }}
-                                                                    />
-                                                                  </div>
-                                                                )}
-                                                              </div>
-                                                            </div>
-                                                          </SheetContent>
-                                                        </Sheet>
-                                                      </div>
-                                                      <Switch
-                                                        checked={isEnabled}
-                                                        onCheckedChange={(value) => {
-                                                          let updated = [...enabledTools];
-                                                          if (value) {
-                                                            // Add tool with empty config initially
-                                                            const newToolConfig = {
-                                                              id: exuluTool.id,
-                                                              type: exuluTool.type,
-                                                              name: exuluTool.name,
-                                                              config: exuluTool.config?.map(configItem => ({
-                                                                name: configItem.name,
-                                                                variable: '',
-                                                                type: configItem.type
-                                                              })) || []
-                                                            };
-                                                            updated = [...enabledTools, newToolConfig];
-                                                            if (exuluTool.config?.length > 0) {
-                                                              setSheetOpen(exuluTool.id);
-                                                            }
-                                                          } else {
-                                                            updated = enabledTools.filter(t => t.id !== exuluTool.id);
-                                                          }
-                                                          setEnabledTools(updated);
-                                                        }}
-                                                      />
-                                                    </div>
-                                                  </div>
-                                                );
-                                              })}
-                                            </div>
-                                          </CollapsibleContent>
-                                        </Collapsible>
-                                      );
-                                    })}
+                                    {/* New Agent Hierarchy View */}
+                                    <AgentHierarchyView
+                                      tools={filteredTools}
+                                      enabledTools={enabledTools}
+                                      onToggle={(tool, enabled) => {
+                                        let updated = [...enabledTools];
+                                        if (enabled) {
+                                          const newToolConfig = {
+                                            id: tool.id,
+                                            type: tool.type,
+                                            name: tool.name,
+                                            config: tool.config?.map(configItem => ({
+                                              name: configItem.name,
+                                              variable: '',
+                                              type: configItem.type
+                                            })) || []
+                                          };
+                                          updated = [...enabledTools, newToolConfig];
+                                          if (tool.config?.length > 0) {
+                                            setSheetOpen(tool.id);
+                                          }
+                                        } else {
+                                          updated = enabledTools.filter(t => t.id !== tool.id);
+                                        }
+                                        setEnabledTools(updated);
+                                      }}
+                                      onConfigUpdate={(toolId, value, name) => {
+                                        const updated = enabledTools.map(et => {
+                                          if (et.id === toolId) {
+                                            return {
+                                              ...et,
+                                              config: et.config.map(c =>
+                                                c.name === name ? { ...c, variable: value } : c
+                                              )
+                                            };
+                                          }
+                                          return et;
+                                        });
+                                        setEnabledTools(updated);
+                                      }}
+                                      sheetOpen={sheetOpen}
+                                      setSheetOpen={setSheetOpen}
+                                      variables={variables}
+                                      renderConfigElement={(tool, config, update) => (
+                                        <ToolConfigurationElement
+                                          tool={tool}
+                                          config={config}
+                                          variables={variables}
+                                          update={update}
+                                        />
+                                      )}
+                                    />
 
                                     {/* Empty state when no tools match filters */}
                                     {filteredTools.length === 0 && (searchTerm || selectedCategory !== "all") && (
