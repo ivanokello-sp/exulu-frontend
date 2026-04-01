@@ -1,6 +1,5 @@
 'use client'
 
-import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
 import { getToken } from "@/util/api"
 import { Button } from "@/components/ui/button"
@@ -11,7 +10,6 @@ import { Copy, CheckCircle, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 
 export default function TokenPage() {
-  const { data: session, status } = useSession()
   const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
@@ -19,20 +17,18 @@ export default function TokenPage() {
 
   useEffect(() => {
     const fetchToken = async () => {
-      if (status === "authenticated") {
-        try {
-          const currentToken = await getToken()
-          setToken(currentToken)
-        } catch (error) {
-          console.error("Failed to get token:", error)
-          setToken(null)
-        }
+      try {
+        const currentToken = await getToken()
+        setToken(currentToken)
+      } catch (error) {
+        console.error("Failed to get token:", error)
+        setToken(null)
       }
       setLoading(false)
     }
 
     fetchToken()
-  }, [status])
+  }, [])
 
   const copyToClipboard = async () => {
     if (!token) return
@@ -54,35 +50,12 @@ export default function TokenPage() {
     }
   }
 
-  if (status === "loading" || loading) {
+  if (loading) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
         </div>
-      </div>
-    )
-  }
-
-  if (status === "unauthenticated") {
-    return (
-      <div className="container mx-auto my-auto p-6">
-        <Card className="max-w-md mx-auto">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-red-500" />
-              Authentication Required
-            </CardTitle>
-            <CardDescription>
-              You must be logged in to access your token.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Please log in to view and copy your authentication token.
-            </p>
-          </CardContent>
-        </Card>
       </div>
     )
   }

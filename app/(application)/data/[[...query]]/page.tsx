@@ -68,12 +68,23 @@ export default async function DataPage({
       )
     }
 
+    // Only render DataDisplay if there's a valid item ID
+    if (item) {
+      return (
+        <DataDisplay
+          actions={true}
+          context={data?.contextById}
+          itemId={item}
+        />
+      );
+    }
+
+    // If no item, show a message or return to list view
     return (
-      <DataDisplay
-        actions={true}
-        context={data?.contextById}
-        itemId={item}
-      />
+      <div className="p-8 text-center text-muted-foreground">
+        <h2 className="text-xl font-semibold mb-2">Select an item to view</h2>
+        <p className="text-sm">Navigate to a specific item or use the list view.</p>
+      </div>
     );
   } catch (error: any) {
     return <Alert variant="destructive">

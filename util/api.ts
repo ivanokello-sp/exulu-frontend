@@ -148,6 +148,13 @@ export const files = {
         const uris = await getUris();
         let url = `${uris.files}/s3/object`;
         const token = await getToken()
+        
+        // Prepend bucket name if not already present
+        // Backend expects format: bucket/key
+        if (!key.startsWith('exulu/')) {
+            key = `exulu/${key}`;
+        }
+        
         const response = await fetch(url, {
             method: "POST",
             body: JSON.stringify({ key }),
@@ -201,6 +208,12 @@ export const files = {
     download: async (key: string) => {
 
         const uris = await getUris();
+        
+        // Prepend bucket name if not already present
+        if (!key.startsWith('exulu/')) {
+            key = `exulu/${key}`;
+        }
+        
         let url = `${uris.files}/s3/download?key=${encodeURIComponent(key)}`;
 
         const token = await getToken()
@@ -220,6 +233,12 @@ export const files = {
     delete: async (key: string) => {
 
         const uris = await getUris();
+        
+        // Prepend bucket name if not already present
+        if (!key.startsWith('exulu/')) {
+            key = `exulu/${key}`;
+        }
+        
         let url = `${uris.files}/s3/delete?key=${key}`;
         const token = await getToken()
 

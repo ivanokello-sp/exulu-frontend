@@ -226,11 +226,35 @@ export const FileGalleryAndUpload = ({
   const deleteFile = useTanstackMutation({
     mutationFn: async ({ key }: { key: string }) => {
       await files.delete(key)
+      // Also remove from localStorage
+      setUploadedFiles(prev => {
+        const updated = prev.filter(file => file.Key !== key);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('uploadedFiles', JSON.stringify(updated));
+        }
+        return updated;
+      });
       refetch();
       return;
     }
   })
 
+  // Load uploaded files from localStorage on mount
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('uploadedFiles');
+      return stored ? JSON.parse(stored) : [];
+    }
+    return [];
+  });
+  
+  // Persist uploaded files to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== 'undefined' && uploadedFiles.length > 0) {
+      localStorage.setItem('uploadedFiles', JSON.stringify(uploadedFiles));
+    }
+  }, [uploadedFiles]);
+  
   const { data, isLoading: loading, error, refetch } = useTanstackQuery({
     queryKey: ['filesQuery', search, currentContinuationToken],
     staleTime: 30000,
@@ -243,7 +267,21 @@ export const FileGalleryAndUpload = ({
     },
   })
 
+  // Merge backend files with manually tracked uploaded files
+  const allFiles = {
+    ...data,
+    Contents: [
+      ...(data?.Contents || []),
+      ...uploadedFiles.filter(uploaded => 
+        // Only show uploaded files not already in the backend list
+        !data?.Contents?.some(existing => existing.Key === uploaded.Key)
+      )
+    ]
+  };
+
   console.log("!! data !!", data)
+  console.log("!! uploadedFiles !!", uploadedFiles)
+  console.log("!! allFiles !!", allFiles)
 
   const { theme } = useTheme()
   const uppy = useUppy(
@@ -266,6 +304,18 @@ export const FileGalleryAndUpload = ({
             s3key: `${user?.id}/${data.key}`
           }
           await createItemMutation({ variables: { input: item } }) */
+          
+          // Manually add the uploaded file to the list
+          setUploadedFiles(prev => [...prev, {
+            Key: data.key,
+            LastModified: new Date().toISOString(),
+            ETag: '',
+            Size: data.file?.size || 0,
+            StorageClass: 'STANDARD'
+          }]);
+          
+          // Also refetch to sync with backend
+          refetch();
         },
       },
       maxNumberOfFiles: 10,
@@ -315,7 +365,7 @@ export const FileGalleryAndUpload = ({
           )}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {
-              !loading && !data?.Contents?.length && (
+              !loading && !allFiles?.Contents?.length && (
                 <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
                   <FileWarning className="h-12 w-12 text-muted-foreground/50 mb-3" />
                   <p className="text-sm font-medium text-muted-foreground">Nothing to see here... yet!</p>
@@ -323,13 +373,20 @@ export const FileGalleryAndUpload = ({
                 </div>
               )
             }
-            {data?.Contents?.map((item: S3FileListOutput["Contents"][0]) => {
+            {allFiles?.Contents?.map((item: S3FileListOutput["Contents"][0]) => {
               return (
-                <FileItem s3Key={item.Key} onSelect={addSelected} active={selected.some((s) => s === item.Key)} onRemove={() => {
-                  deleteFile.mutate({
-                    key: item.Key
-                  })
-                }} disabled={!allowedFileTypes ? false : !allowedFileTypes?.some((type) => item.Key.endsWith(type))} />
+                <FileItem 
+                  key={item.Key}
+                  s3Key={item.Key} 
+                  onSelect={addSelected} 
+                  active={selected.some((s) => s === item.Key)} 
+                  onRemove={() => {
+                    deleteFile.mutate({
+                      key: item.Key
+                    })
+                  }} 
+                  disabled={!allowedFileTypes ? false : !allowedFileTypes?.some((type) => item.Key.endsWith(type))} 
+                />
               )
             })}
           </div>

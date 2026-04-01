@@ -16,7 +16,7 @@ import {
   XSquare,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { CodePreview } from "@/components/custom/code-preview";
@@ -117,18 +117,98 @@ export function DataDisplay(props: DataDisplayProps) {
   console.log("fields", fields);
   console.log("context", context);
 
+  const [retryCount, setRetryCount] = useState(0);
+
+  // Validate itemId before using it - must be a non-empty string
+  const isValidItemId = props.itemId && 
+    typeof props.itemId === 'string' && 
+    props.itemId.trim() !== '' &&
+    props.itemId !== 'null' &&
+    props.itemId !== 'undefined';
+  
+  // Skip query if no valid itemId or context
+  const shouldSkip = !isValidItemId || !props.context?.id;
+
+  // Memoize query config to ensure variables are only set when not skipping
+  const queryConfig = useMemo(() => {
+    if (shouldSkip) {
+      return {
+        skip: true,
+        fetchPolicy: "no-cache" as const,
+        nextFetchPolicy: "network-only" as const,
+        errorPolicy: "all" as const,
+      };
+    }
+    return {
+      skip: false,
+      variables: {
+        id: props.itemId!
+      },
+      fetchPolicy: "no-cache" as const,
+      nextFetchPolicy: "network-only" as const,
+      errorPolicy: "all" as const,
+    };
+  }, [shouldSkip, props.itemId]);
+
   const { loading, error, refetch } = useQuery<{
     item: Item;
   }>(GET_ITEM_BY_ID(props.context.id, fields, true), {
-    skip: !props.itemId || !props.context?.id,
-    variables: {
-      context: props.context.id,
-      id: props.itemId
+    ...queryConfig,
+    onError: (error) => {
+      // Check if error is due to null ID - this shouldn't happen if skip is working
+      if (error.message?.includes('must not be null') || error.message?.includes('Variable "$id"')) {
+        console.warn("[DataDisplay] Query attempted with null/undefined ID. itemId:", props.itemId, "shouldSkip:", shouldSkip);
+        return; // Don't log this as it's a validation issue
+      }
+      // Only log errors if we're not in a retry cycle (to avoid spam)
+      if (retryCount === 0) {
+        console.error("[DataDisplay] GraphQL error:", error);
+        console.error("[DataDisplay] Error message:", error.message);
+        console.error("[DataDisplay] GraphQL error details:", error.graphQLErrors);
+        console.error("[DataDisplay] Network error:", error.networkError);
+        if (error.networkError) {
+          console.error("[DataDisplay] Network error status:", error.networkError.statusCode);
+          console.error("[DataDisplay] Network error body:", error.networkError.bodyText);
+          if (error.networkError.result) {
+            console.error("[DataDisplay] Network error result:", error.networkError.result);
+          }
+        }
+        if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+          error.graphQLErrors.forEach((err, idx) => {
+            console.error(`[DataDisplay] GraphQL Error ${idx}:`, err.message, err.extensions);
+          });
+        } else if (error.networkError) {
+          // If it's a network error, try to parse the response
+          try {
+            const response = error.networkError.result;
+            if (response && response.errors) {
+              console.error("[DataDisplay] Errors from network response:", response.errors);
+            }
+          } catch (e) {
+            console.error("[DataDisplay] Could not parse network error:", e);
+          }
+        }
+      }
+      // If we're retrying and get an error, don't log it (it's expected during retries)
     },
-    fetchPolicy: "no-cache",
-    nextFetchPolicy: "network-only",
     onCompleted: (data) => {
+      console.log("[DataDisplay] Query completed, data:", data);
+      console.log("[DataDisplay] Looking for key:", props.context.id + "_itemsById");
+      console.log("[DataDisplay] Available keys:", Object.keys(data));
+      
       const item = data[props.context.id + "_itemsById"];
+      if (!item) {
+        console.error("[DataDisplay] Item not found in query response, retry count:", retryCount);
+        console.error("[DataDisplay] Context ID:", props.context.id, "Item ID:", props.itemId);
+        // Retry up to 5 times with short delays (for newly created items)
+        if (retryCount < 5) {
+          setTimeout(() => {
+            setRetryCount(retryCount + 1);
+            refetch();
+          }, 300); // Retry every 300ms
+        }
+        return;
+      }
       setData({
         ...item,
         tags: item.tags ? item.tags.split(",") : [],
@@ -140,6 +220,7 @@ export function DataDisplay(props: DataDisplayProps) {
         roles: item.RBAC?.roles,
         // projects: item.RBAC?.projects
       })
+      setRetryCount(0); // Reset retry count on success
     }
   });
 
@@ -314,6 +395,11 @@ export function DataDisplay(props: DataDisplayProps) {
     }
   }, [data?.id]);
 
+  // If no valid itemId, show nothing (parent should handle showing list view)
+  if (!isValidItemId) {
+    return null;
+  }
+
   if (loading) {
     return (
       <div className="p-8 text-center text-muted-foreground">
@@ -338,6 +424,18 @@ export function DataDisplay(props: DataDisplayProps) {
     )
   }
 
+  if (!loading && !data && retryCount >= 5) {
+    return (
+      <Alert variant="destructive">
+        <ExclamationTriangleIcon className="size-4" />
+        <AlertTitle>Item Not Found</AlertTitle>
+        <AlertDescription>
+          Item not found. It may have been deleted or you may not have permission to view it.
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
   return (
     <div className="flex h-full flex-col">
 
@@ -345,8 +443,8 @@ export function DataDisplay(props: DataDisplayProps) {
         <>
           {props.actions ? (
             <>
-              <div className="flex items-center p-2">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-end p-4">
+                <div className="flex items-center gap-3">
                   {data?.archived ? (
                     <>
                       <Tooltip>
@@ -370,19 +468,20 @@ export function DataDisplay(props: DataDisplayProps) {
                               });
                               router.push("./");
                             }}
-                            variant="ghost"
-                            size="icon"
+                            variant="outline"
+                            size="sm"
+                            className="shadow-md hover:shadow-lg transition-all duration-200 hover:border-primary/50 hover:bg-accent"
                             disabled={!data || updateItemMutationResult.loading}
                           >
                             {updateItemMutationResult.loading ? (
                               <Loading />
                             ) : (
-                              <PackageOpen className="size-4" />
+                              <PackageOpen className="size-4 mr-2" />
                             )}
-                            <span className="sr-only">Unarchive</span>
+                            Unarchive
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Unarchive</TooltipContent>
+                        <TooltipContent>Restore this item</TooltipContent>
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -398,19 +497,20 @@ export function DataDisplay(props: DataDisplayProps) {
                               });
                               router.push("./");
                             }}
-                            variant="ghost"
-                            size="icon"
+                            variant="destructive"
+                            size="sm"
+                            className="shadow-md hover:shadow-lg transition-all duration-200"
                             disabled={!data || deleteItemMutationResult.loading}
                           >
                             {deleteItemMutationResult.loading ? (
                               <Loading />
                             ) : (
-                              <Trash2 className="size-4" />
+                              <Trash2 className="size-4 mr-2" />
                             )}
-                            <span className="sr-only">Delete</span>
+                            Delete
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Delete</TooltipContent>
+                        <TooltipContent>Permanently delete</TooltipContent>
                       </Tooltip>
                     </>
                   ) : (
@@ -433,19 +533,20 @@ export function DataDisplay(props: DataDisplayProps) {
                             });
                             router.push("./");
                           }}
-                          variant="ghost"
-                          size="icon"
+                          variant="outline"
+                          size="sm"
+                          className="shadow-md hover:shadow-lg transition-all duration-200 hover:border-primary/50"
                           disabled={!data || updateItemMutationResult.loading}
                         >
                           {updateItemMutationResult.loading ? (
                             <Loading />
                           ) : (
-                            <Archive className="size-4" />
+                            <Archive className="size-4 mr-2" />
                           )}
-                          <span className="sr-only">Archive</span>
+                          Archive
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Archive</TooltipContent>
+                      <TooltipContent>Archive this item</TooltipContent>
                     </Tooltip>
                   )}
                   {editing ? (
@@ -456,14 +557,15 @@ export function DataDisplay(props: DataDisplayProps) {
                             onClick={() => {
                               setEditing(false);
                             }}
-                            variant="ghost"
-                            size="icon"
+                            variant="outline"
+                            size="sm"
+                            className="shadow-md hover:shadow-lg transition-all duration-200 hover:bg-muted"
                           >
-                            <XSquare className="size-4" />
-                            <span className="sr-only">Cancel</span>
+                            <XCircle className="size-4 mr-2" />
+                            Cancel
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Cancel</TooltipContent>
+                        <TooltipContent>Cancel editing</TooltipContent>
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -499,16 +601,19 @@ export function DataDisplay(props: DataDisplayProps) {
                               });
                               setEditing(false);
                             }}
-                            variant="ghost"
-                            size="icon"
+                            variant="default"
+                            size="sm"
+                            className="shadow-md hover:shadow-lg transition-all duration-200 bg-primary hover:bg-primary/90 text-primary-foreground"
                           >
-                            <SaveIcon className="size-4" />
-                            <span className="sr-only">
-                              Save {updateItemMutationResult.loading ?? <Loading />}
-                            </span>
+                            {updateItemMutationResult.loading ? (
+                              <Loading />
+                            ) : (
+                              <SaveIcon className="size-4 mr-2" />
+                            )}
+                            Save Changes
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Save</TooltipContent>
+                        <TooltipContent>Save your changes</TooltipContent>
                       </Tooltip>
                     </>
                   ) : (
@@ -518,15 +623,16 @@ export function DataDisplay(props: DataDisplayProps) {
                           onClick={() => {
                             setEditing(true);
                           }}
-                          variant="ghost"
-                          size="icon"
+                          variant="outline"
+                          size="sm"
+                          className="shadow-md hover:shadow-lg transition-all duration-200 hover:border-primary/50 hover:bg-accent"
                           disabled={!data || updateItemMutationResult.loading}
                         >
-                          <Edit className="size-4" />
-                          <span className="sr-only">Edit</span>
+                          <Edit className="size-4 mr-2" />
+                          Edit
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Edit</TooltipContent>
+                      <TooltipContent>Edit this item</TooltipContent>
                     </Tooltip>
                   )}
                 </div>
@@ -843,19 +949,6 @@ export function DataDisplay(props: DataDisplayProps) {
                             </TableCell>
                           </TableRow>
 
-                          {
-                            context.processor && (
-                              <TableRow key={"processor"}>
-                                <TableCell className="font-medium capitalize">
-                                  Last processed at
-                                </TableCell>
-                                <TableCell>
-                                  {data.last_processed_at}
-                                </TableCell>
-                              </TableRow>
-                            )
-                          }
-
                           {/* todo: add fixed  fields for "file" which can be a pdf, image, word doc etc...*/}
 
                           {context?.fields?.length &&
@@ -1092,7 +1185,7 @@ export function DataDisplay(props: DataDisplayProps) {
                                           ) : null}
 
                                           {contextField.type === "file" && (
-                                            <div>
+                                            <div className="space-y-2">
                                               <FileDataCard s3key={data[contextField.name]}>
                                                 <UppyDashboard
                                                   id={`item-${data.id}`}
@@ -1109,6 +1202,22 @@ export function DataDisplay(props: DataDisplayProps) {
                                                   }}
                                                 />
                                               </FileDataCard>
+                                              {data[contextField.name] && (
+                                                <Button
+                                                  variant="outline"
+                                                  size="sm"
+                                                  onClick={() => {
+                                                    setData({
+                                                      ...data,
+                                                      [contextField.name]: null,
+                                                    });
+                                                  }}
+                                                  className="w-full"
+                                                >
+                                                  <XCircle className="size-4 mr-2" />
+                                                  Remove Document
+                                                </Button>
+                                              )}
                                             </div>
                                           )}
                                         </TableCell>

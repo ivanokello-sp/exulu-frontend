@@ -24,10 +24,6 @@ export interface ItemFilters {
     updatedAt_lte?: string;
     embeddings_updated_at_gte?: string;
     embeddings_updated_at_lte?: string;
-    last_processed_at_gte?: string;
-    last_processed_at_lte?: string;
-    chunks_count_gte?: number;
-    chunks_count_lte?: number;
 }
 
 export const ItemsFilter = (props: {
@@ -84,25 +80,13 @@ export const ItemsFilter = (props: {
         if (filters.embeddings_updated_at_lte) {
             graphqlFilters.push({ embeddings_updated_at: { lte: filters.embeddings_updated_at_lte } });
         }
-        if (filters.last_processed_at_gte) {
-            graphqlFilters.push({ last_processed_at: { gte: filters.last_processed_at_gte } });
-        }
-        if (filters.last_processed_at_lte) {
-            graphqlFilters.push({ last_processed_at: { lte: filters.last_processed_at_lte } });
-        }
-        if (filters.chunks_count_gte !== undefined) {
-            graphqlFilters.push({ chunks_count: { gte: filters.chunks_count_gte } });
-        }
-        if (filters.chunks_count_lte !== undefined) {
-            graphqlFilters.push({ chunks_count: { lte: filters.chunks_count_lte } });
-        }
 
         return graphqlFilters;
     };
 
     // Query for preview items
     const { data: previewData, loading: previewLoading, refetch: refetchPreview } = useQuery(
-        GET_ITEMS(props.context, ["id", "name", "external_id", "chunks_count", "createdAt", "updatedAt", "embeddings_updated_at", "last_processed_at"]),
+        GET_ITEMS(props.context, ["id", "name", "external_id", "createdAt", "updatedAt", "embeddings_updated_at"]),
         {
             skip: !props.showPreview,
             variables: {
@@ -228,41 +212,7 @@ export const ItemsFilter = (props: {
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label>Last Processed Date</Label>
-                        <div className="grid grid-cols-2 gap-2">
-                            <Input
-                                type="datetime-local"
-                                value={filters.last_processed_at_gte || ''}
-                                onChange={(e) => setFilters({ ...filters, last_processed_at_gte: e.target.value })}
-                                placeholder="From"
-                            />
-                            <Input
-                                type="datetime-local"
-                                value={filters.last_processed_at_lte || ''}
-                                onChange={(e) => setFilters({ ...filters, last_processed_at_lte: e.target.value })}
-                                placeholder="To"
-                            />
-                        </div>
-                    </div>
 
-                    <div className="space-y-2">
-                        <Label>Chunks Count</Label>
-                        <div className="grid grid-cols-2 gap-2">
-                            <Input
-                                type="number"
-                                value={filters.chunks_count_gte ?? ''}
-                                onChange={(e) => setFilters({ ...filters, chunks_count_gte: e.target.value ? parseInt(e.target.value) : undefined })}
-                                placeholder="Min"
-                            />
-                            <Input
-                                type="number"
-                                value={filters.chunks_count_lte ?? ''}
-                                onChange={(e) => setFilters({ ...filters, chunks_count_lte: e.target.value ? parseInt(e.target.value) : undefined })}
-                                placeholder="Max"
-                            />
-                        </div>
-                    </div>
 
                     <Separator />
 
@@ -341,9 +291,6 @@ export const ItemsFilter = (props: {
                                                         });
                                                     }} className="size-8 cursor-copy hidden group-hover:block" />
 
-                                                    <Badge variant="secondary" className="text-xs shrink-0">
-                                                        {item.chunks_count || 0} chunks
-                                                    </Badge>
                                                 </div>
 
                                                 <div className="grid grid-cols-2 gap-2">
@@ -383,10 +330,6 @@ export const ItemsFilter = (props: {
                                                     <div className="space-y-1">
                                                         <p className="text-[10px] uppercase text-muted-foreground font-medium tracking-wide">Embeddings Updated</p>
                                                         <p className="text-xs font-medium">{formatDate(item.embeddings_updated_at) || "Never"}</p>
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <p className="text-[10px] uppercase text-muted-foreground font-medium tracking-wide">Last Processed</p>
-                                                        <p className="text-xs font-medium">{formatDate(item.last_processed_at) || "Never"}</p>
                                                     </div>
                                                 </div>
                                             </div>

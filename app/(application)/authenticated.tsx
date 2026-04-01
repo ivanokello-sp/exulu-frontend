@@ -8,7 +8,6 @@ import {
   InMemoryCache,
 } from "@apollo/client";
 import { setContext } from "@apollo/client/link/context";
-import { SessionProvider } from "next-auth/react";
 import * as React from "react";
 import { MainNavProvider } from "@/components/custom/main-nav";
 import { getToken } from "@/util/api";
@@ -79,11 +78,9 @@ const Authenticated = ({ children, user, sidebarDefaultOpen }: AuthenticatedProp
 
   return (
     <ApolloProvider client={client}>
-      <SessionProvider>
-        <User sidebarDefaultOpen={sidebarDefaultOpen} user={user}>
-          {children}
-        </User>
-      </SessionProvider>
+      <User sidebarDefaultOpen={sidebarDefaultOpen} user={user}>
+        {children}
+      </User>
     </ApolloProvider>
   );
 };

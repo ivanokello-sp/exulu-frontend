@@ -5,7 +5,6 @@ export interface Item {
     createdAt?: string;
     embeddings_updated_at?: string;
     last_processed_at?: string;
-    chunks_count?: number;
     updatedAt?: string;
     external_id?: string;
     source?: string;

@@ -204,12 +204,27 @@ export function DataList({
         }
     }>(CREATE_ITEM(activeFolder), {
         onCompleted: (data) => {
-            console.log("data", data);
-            const id = data ? data[activeFolder + CREATE_ONE_POSTFIX]?.item?.id : undefined;
+            console.log("[DataList] Create item response:", data);
+            const createKey = activeFolder + CREATE_ONE_POSTFIX;
+            console.log("[DataList] Looking for key:", createKey);
+            console.log("[DataList] Available keys:", data ? Object.keys(data) : []);
+            const id = data ? data[createKey]?.item?.id : undefined;
+            console.log("[DataList] Created item ID:", id);
             if (id) {
-                router.push(`/data/${activeFolder}/${id}`);
+                // Add a small delay to allow database transaction to complete
+                setTimeout(() => {
+                    console.log("[DataList] Navigating to:", `/data/${activeFolder}/${id}`);
+                    router.push(`/data/${activeFolder}/${id}`);
+                }, 500); // Increased delay to 500ms
+            } else {
+                console.error("[DataList] No item ID returned from create mutation!");
             }
             refetch();
+        },
+        onError: (error) => {
+            console.error("[DataList] Create item error:", error);
+            console.error("[DataList] GraphQL errors:", error.graphQLErrors);
+            console.error("[DataList] Network error:", error.networkError);
         }
     });
 

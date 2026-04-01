@@ -67,8 +67,6 @@ tags
 external_id
 createdAt
 embeddings_updated_at
-last_processed_at
-chunks_count
 updatedAt
 rights_mode
 RBAC {
@@ -114,7 +112,6 @@ modelName
 maxContextLength
 provider
 authenticationInformation
-systemInstructions
 slug
 category
 rateLimit {

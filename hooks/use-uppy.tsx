@@ -73,9 +73,20 @@ export const initializeUppy = async (options: InitializeOptions): Promise<Uppy> 
             }
             if (uploadSuccess) {
                 console.log("response", response)
+                
+                // Extract the full S3 key (including user prefix) from the upload URL
+                // URL format: https://api.minio.pipe44.ai/exulu/user_3/filename.pdf
+                // We want: user_3/filename.pdf (or 3/filename.pdf depending on backend version)
+                const urlParts = response.uploadURL.split("/");
+                const bucketIndex = urlParts.findIndex(part => part === "exulu");
+                let key = bucketIndex >= 0 ? urlParts.slice(bucketIndex + 1).join("/") : urlParts[urlParts.length - 1];
+                
+                // Decode URL encoding (%20 -> space, etc.)
+                key = decodeURIComponent(key);
+                
                 uploadSuccess({
                     file: file,
-                    key: response.uploadURL.split("/").pop() || "",
+                    key: key,
                     url: response.uploadURL,
                 });
             }

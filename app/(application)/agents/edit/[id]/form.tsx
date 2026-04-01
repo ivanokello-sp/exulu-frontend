@@ -687,33 +687,6 @@ export default function AgentForm({
                                       );
                                     }}
                                   />
-                                  {
-                                    agent.systemInstructions && <FormField
-                                      control={agentForm.control}
-                                      name={`instructions`}
-                                      render={({ field }: any) => {
-                                        return (
-                                          <FormItem>
-                                            <FormLabel>System Instructions</FormLabel>
-                                            <FormDescription>
-                                              These are system instructions set by the developer and 
-                                              cannot be changed via the UI. They are 
-                                              included in every session with this agent.
-                                            </FormDescription>
-                                            <FormControl>
-                                              <Textarea
-                                                disabled
-                                                rows={5}
-                                                className="resize-none"
-                                                value={agent.systemInstructions ?? ""}
-                                              />
-                                            </FormControl>
-                                            <FormMessage />
-                                          </FormItem>
-                                        );
-                                      }}
-                                    />
-                                  }
                                   <FormField
                                     control={agentForm.control}
                                     name={`instructions`}
