@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Reduced motion support for accessibility (WCAG 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 .recharts-surface {
   overflow: visible !important;
 }
@@ -9,8 +21,8 @@
 .striped-background {
   background-image: repeating-linear-gradient(
       45deg,
-      #626262 0,
-      #626262 1px,
+      hsl(var(--muted-foreground) / 0.3) 0,
+      hsl(var(--muted-foreground) / 0.3) 1px,
       transparent 0,
       transparent 50%
   );
@@ -145,6 +157,10 @@
   cursor: pointer;
 }
 
+.bg-sidebar {
+  background-color: hsl(var(--sidebar));
+}
+
 .text-wrap {
   text-wrap: balance;
 }
@@ -263,4 +279,95 @@
 
 .lucide {
   stroke-width: 1;
+}
+/* Markdown Editor Theme Integration */
+.markdown-editor {
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+[data-color-mode="light"] .w-md-editor {
+  --md-editor-border: hsl(var(--border));
+  --md-editor-background: hsl(var(--background));
+  --md-editor-toolbar-background: hsl(var(--muted));
+  --md-editor-toolbar-color: hsl(var(--foreground));
+  background-color: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+}
+
+[data-color-mode="dark"] .w-md-editor {
+  --md-editor-border: hsl(var(--border));
+  --md-editor-background: hsl(var(--card));
+  --md-editor-toolbar-background: hsl(var(--muted));
+  --md-editor-toolbar-color: hsl(var(--foreground));
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+}
+
+.w-md-editor-toolbar {
+  background-color: hsl(var(--muted) / 0.3);
+  border-bottom: 1px solid hsl(var(--border));
+  padding: 0.5rem;
+}
+
+.w-md-editor-toolbar button {
+  color: hsl(var(--foreground));
+  transition: all 150ms;
+}
+
+.w-md-editor-toolbar button:hover {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.w-md-editor-content {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.w-md-editor-text-pre {
+  color: hsl(var(--foreground));
+}
+
+.w-md-editor-text-pre > code {
+  font-family: var(--font-mono);
+}
+
+.wmde-markdown {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans);
+}
+
+.wmde-markdown code {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  padding: 0.2rem 0.4rem;
+  border-radius: calc(var(--radius) * 0.5);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.wmde-markdown pre code {
+  background-color: hsl(var(--muted));
+  display: block;
+  padding: 0.75rem;
+  border-radius: var(--radius);
+}
+
+.wmde-markdown blockquote {
+  border-left: 4px solid hsl(var(--primary));
+  padding-left: 1rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.wmde-markdown a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+}
+
+.wmde-markdown a:hover {
+  text-decoration: none;
 }

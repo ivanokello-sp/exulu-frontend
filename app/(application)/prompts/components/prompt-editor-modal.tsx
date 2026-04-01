@@ -11,8 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Badge } from "@/components/ui/badge";
-import { X, Lightbulb, Check, ChevronsUpDown } from "lucide-react";
+import { X, Lightbulb, Check, ChevronsUpDown, FileCode } from "lucide-react";
 import { PromptLibrary } from "@/types/models/prompt-library";
 import { UserWithRole } from "@/types/models/user";
 import { useCreatePrompt, useUpdatePrompt } from "@/hooks/use-prompts";
@@ -85,6 +86,8 @@ export function PromptEditorModal({
   const [rbacOpen, setRbacOpen] = useState(false);
   const [assignedAgents, setAssignedAgents] = useState<string[]>([]);
   const [agentSelectorOpen, setAgentSelectorOpen] = useState(false);
+  const [changeMessage, setChangeMessage] = useState("");
+  const [isMarkdownMode, setIsMarkdownMode] = useState(false);
 
   // Fetch agents
   const { data: agentsData } = useQuery(GET_AGENTS, {
@@ -135,6 +138,7 @@ export function PromptEditorModal({
     // setRbacProjects([]);
     setRbacOpen(false);
     setAssignedAgents([]);
+    setChangeMessage("");
   };
 
   const handleSubmit = async () => {
@@ -173,10 +177,58 @@ export function PromptEditorModal({
       };
 
       if (isEditing) {
+        // Create version history entry when editing
+        const existingHistory = prompt.history || [];
+        const currentVersion = existingHistory.length > 0
+          ? Math.max(...existingHistory.map(v => v.version)) + 1
+          : 1;
+
+        // Check if content actually changed (only create version if there are real changes)
+        const contentChanged = prompt.content !== content.trim();
+        const nameChanged = prompt.name !== name.trim();
+        const descriptionChanged = (prompt.description || "") !== (description.trim() || "");
+        const tagsChanged = JSON.stringify(prompt.tags) !== JSON.stringify(tags);
+
+        let updatedHistory = existingHistory;
+
+        if (contentChanged || nameChanged || descriptionChanged || tagsChanged) {
+          // Check for squashing: if last version was within 5 minutes by same user, update it
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+          const lastVersion = existingHistory[existingHistory.length - 1];
+          const shouldSquash = lastVersion &&
+            new Date(lastVersion.timestamp) > fiveMinutesAgo &&
+            lastVersion.changed_by === user.id.toString();
+
+          const newVersionEntry = {
+            version: shouldSquash ? lastVersion.version : currentVersion,
+            content: prompt.content,
+            name: prompt.name,
+            description: prompt.description,
+            tags: prompt.tags,
+            timestamp: new Date().toISOString(),
+            changed_by: user.id.toString(),
+            change_message: changeMessage.trim() || undefined,
+          };
+
+          if (shouldSquash) {
+            // Replace the last version
+            updatedHistory = [...existingHistory.slice(0, -1), newVersionEntry];
+          } else {
+            // Add new version
+            updatedHistory = [...existingHistory, newVersionEntry];
+          }
+
+          // Keep only last 50 versions
+          if (updatedHistory.length > 50) {
+            updatedHistory = updatedHistory.slice(-50);
+          }
+        }
+
         await updatePrompt({
           variables: {
             id: prompt.id,
             ...input,
+            history: updatedHistory,
           },
         });
         toast.success("Prompt updated successfully");
@@ -235,17 +287,41 @@ export function PromptEditorModal({
 
           {/* Content */}
           <div className="space-y-2">
-            <Label htmlFor="content">
-              Prompt Content <span className="text-destructive">*</span>
-            </Label>
-            <Textarea
-              id="content"
-              placeholder="You are helping {{customer_name}} with their {{issue}}..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={8}
-              className="font-mono text-sm"
-            />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="content">
+                Prompt Content <span className="text-destructive">*</span>
+              </Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsMarkdownMode(!isMarkdownMode)}
+                className="h-8 gap-2"
+              >
+                <FileCode className="h-3.5 w-3.5" />
+                {isMarkdownMode ? "Plain Text" : "Rich Text"}
+              </Button>
+            </div>
+
+            {isMarkdownMode ? (
+              <MarkdownEditor
+                value={content}
+                onChange={setContent}
+                placeholder="You are helping {{customer_name}} with their {{issue}}..."
+                height={400}
+                preview="live"
+              />
+            ) : (
+              <Textarea
+                id="content"
+                placeholder="You are helping {{customer_name}} with their {{issue}}..."
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={12}
+                className="font-mono text-sm"
+              />
+            )}
+
             <div className="flex items-start gap-2 text-xs text-muted-foreground">
               <Lightbulb className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
               <span>
@@ -256,6 +332,7 @@ export function PromptEditorModal({
                 </code>{" "}
                 format for dynamic content. Variable names can only contain letters,
                 numbers, and underscores.
+                {isMarkdownMode && " Markdown formatting is supported."}
               </span>
             </div>
 
@@ -405,6 +482,29 @@ export function PromptEditorModal({
               </CollapsibleContent>
             </div>
           </Collapsible>
+
+          {/* Change Message (only when editing) */}
+          {isEditing && (
+            <div className="space-y-2 pt-2 border-t">
+              <Label htmlFor="change-message" className="text-sm font-semibold flex items-center gap-2">
+                What changed? (Optional)
+                <Badge variant="outline" className="text-xs font-normal">
+                  Helps track version history
+                </Badge>
+              </Label>
+              <Textarea
+                id="change-message"
+                placeholder="e.g., Fixed typo, Added error handling, Updated for clarity..."
+                value={changeMessage}
+                onChange={(e) => setChangeMessage(e.target.value)}
+                rows={2}
+                className="text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                Describe your changes to help others understand what's different in this version
+              </p>
+            </div>
+          )}
         </div>
 
         <DialogFooter>

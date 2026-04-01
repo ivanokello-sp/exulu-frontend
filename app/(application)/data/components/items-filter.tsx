@@ -39,7 +39,6 @@ export const ItemsFilter = (props: {
 }) => {
 
     const { toast } = useToast();
-
     const [loading, setLoading] = useState(false);
 
     const formatDate = (dateString?: string) => {

@@ -14,6 +14,7 @@ export interface Item {
         chunk_id: string;
         chunk_index: number;
         chunk_content: string;
+        chunk_metadata: Record<string, any>;
         source: string;
         chunk_created_at: string;
         chunk_updated_at: string;

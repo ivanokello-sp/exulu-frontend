@@ -44,7 +44,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { columns } from "./columns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { SearchBar } from "./search-bar";
 import { Item } from "@EXULU_SHARED/models/item";
 import { CREATE_ITEM, CREATE_ONE_POSTFIX, DELETE_ITEM, GET_ITEMS, PAGINATION_POSTFIX, UPDATE_ITEM } from "@/queries/queries";
 import { ItemsFilter, ItemFilters } from "./items-filter";
@@ -202,7 +201,7 @@ export function DataList({
             }
             job: string;
         }
-    }>(CREATE_ITEM(activeFolder), {
+    }>(CREATE_ITEM(activeFolder, []), {
         onCompleted: (data) => {
             console.log("[DataList] Create item response:", data);
             const createKey = activeFolder + CREATE_ONE_POSTFIX;
@@ -338,7 +337,7 @@ export function DataList({
                                 ) : (
                                     <PackageOpen className="size-4" />
                                 )}
-                                <span className="ml-2">Unarchive selected</span>
+                                <span className="ml-2">Unarchive</span>
                             </Button>
                             <Button
                                 className="ml-2"
@@ -369,7 +368,7 @@ export function DataList({
                                 ) : (
                                     <Trash2 className="size-4" />
                                 )}
-                                <span className="ml-2">Delete selected</span>
+                                <span className="ml-2">Delete</span>
                             </Button>
                         </>
                     ) : (
@@ -403,7 +402,7 @@ export function DataList({
                             ) : (
                                 <Archive className="size-4" />
                             )}
-                            <span className="ml-2">Archive selected</span>
+                            <span className="ml-2">Archive</span>
                         </Button>
                     )}
                 </div>

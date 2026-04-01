@@ -146,13 +146,15 @@ export function PromptCard({ prompt, user, onUpdate, currentFolder, minimal = fa
 
   return (
     <>
-      <Card className="flex flex-col hover:shadow-md transition-shadow">
-        <CardHeader className={`pb-3 ${minimal ? "py-4" : ""}`}>
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-lg truncate">{prompt.name}</h3>
+      <Card className="group flex flex-col hover:shadow-xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-1 active:scale-[0.98] bg-card/50 backdrop-blur-sm">
+        <CardHeader className={`pb-4 ${minimal ? "py-4" : ""}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0 space-y-2">
+              <h3 className="font-bold text-xl leading-tight group-hover:text-primary transition-colors">
+                {prompt.name}
+              </h3>
               {prompt.description && (
-                <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
                   {prompt.description}
                 </p>
               )}
@@ -162,13 +164,13 @@ export function PromptCard({ prompt, user, onUpdate, currentFolder, minimal = fa
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`h-8 w-8 transition-all ${isFavoriting ? "scale-125" : ""
-                    } ${isFavorited ? "text-yellow-500" : ""}`}
+                  className={`h-9 w-9 transition-all hover:scale-110 ${isFavoriting ? "scale-125" : ""
+                    } ${isFavorited ? "text-yellow-500 bg-yellow-500/10" : ""}`}
                   onClick={handleToggleFavorite}
                   disabled={isFavoriting}
                 >
                   <ThumbsUp
-                    className={`h-4 w-4 transition-all ${isFavoriting ? "animate-pulse" : ""
+                    className={`h-5 w-5 transition-all ${isFavoriting ? "animate-pulse" : ""
                       } ${isFavorited ? "fill-yellow-400 text-yellow-400" : ""}`}
                   />
                 </Button>
@@ -214,64 +216,58 @@ export function PromptCard({ prompt, user, onUpdate, currentFolder, minimal = fa
 
         {!minimal && (
           <>
-            <CardContent className="flex-1 pb-3">
-              <div className="space-y-3">
-                {/* Content Preview */}
-                <p className="text-sm text-muted-foreground line-clamp-3">
-                  {prompt.content}
-                </p>
+            <CardContent className="flex-1 pb-4 space-y-4">
+              {/* Content Preview - More Prominent */}
+              <p className="text-base text-muted-foreground/90 line-clamp-3 leading-relaxed font-mono">
+                {prompt.content}
+              </p>
 
-                {/* Variables Badge */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Variables Badge - More Prominent */}
                 {variables.length > 0 && (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge variant="outline" className="text-xs font-semibold border-2 border-violet-500/30 bg-violet-500/5 text-violet-700 dark:text-violet-400 px-2.5 py-1">
                     {variables.length} variable{variables.length !== 1 ? "s" : ""}
                   </Badge>
                 )}
 
-                {/* Assigned Agents */}
+                {/* Assigned Agents - Inline */}
                 {assignedAgentNames.length > 0 && (
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Bot className="h-3 w-3" />
-                      <span className="font-medium">Works with:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {assignedAgentNames.slice(0, 2).map((name, index) => (
-                        <Badge
-                          key={index}
-                          variant="default"
-                          className="text-xs bg-primary/10 text-primary hover:bg-primary/20"
-                        >
-                          {name}
-                        </Badge>
-                      ))}
-                      {assignedAgentNames.length > 2 && (
-                        <Badge
-                          variant="default"
-                          className="text-xs bg-primary/10 text-primary hover:bg-primary/20"
-                        >
-                          +{assignedAgentNames.length - 2} more
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
+                  <>
+                    {assignedAgentNames.slice(0, 2).map((name, index) => (
+                      <Badge
+                        key={index}
+                        variant="default"
+                        className="text-xs font-medium bg-primary/15 text-primary hover:bg-primary/25 border-primary/20 px-2.5 py-1"
+                      >
+                        <Bot className="h-3 w-3 mr-1" />
+                        {name}
+                      </Badge>
+                    ))}
+                    {assignedAgentNames.length > 2 && (
+                      <Badge
+                        variant="default"
+                        className="text-xs font-medium bg-primary/15 text-primary hover:bg-primary/25 border-primary/20 px-2.5 py-1"
+                      >
+                        +{assignedAgentNames.length - 2}
+                      </Badge>
+                    )}
+                  </>
                 )}
               </div>
             </CardContent>
 
-            <CardFooter className="flex flex-col gap-3 pt-3 border-t">
-              {/* Stats Row */}
+            <CardFooter className="flex flex-col gap-4 pt-4 border-t-2 bg-gradient-to-br from-muted/20 to-muted/40">
+              {/* Stats Row - Bolder */}
               <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <div className={`flex items-center gap-1 transition-all ${isFavoriting ? "scale-125" : ""
-                    } ${isFavorited ? "text-yellow-500" : ""}`}>
-                    <ThumbsUp className="h-3.5 w-3.5" />
-                    <span>{prompt.favorite_count || 0}</span>
-
+                <div className="flex items-center gap-4 text-sm font-medium">
+                  <div className={`flex items-center gap-1.5 transition-all ${isFavoriting ? "scale-125" : ""
+                    } ${isFavorited ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground"}`}>
+                    <ThumbsUp className={`h-4 w-4 ${isFavorited ? "drop-shadow-sm" : ""}`} />
+                    <span className={isFavorited ? "font-bold" : ""}>{prompt.favorite_count || 0}</span>
                   </div>
-                  <div className="flex items-center gap-1" title="Times used">
-                    <Activity className="h-3.5 w-3.5" />
-                    <span>{prompt.usage_count || 0}</span>
+                  <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-500" title="Times used">
+                    <Activity className="h-4 w-4" />
+                    <span className="font-semibold">{prompt.usage_count || 0}</span>
                   </div>
                 </div>
                 <Button
@@ -279,27 +275,23 @@ export function PromptCard({ prompt, user, onUpdate, currentFolder, minimal = fa
                   size="sm"
                   type="button"
                   onClick={() => setIsEditModalOpen(true)}
+                  className="font-semibold group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-md transition-all"
                 >
-                  Details
+                  View Details
                 </Button>
               </div>
 
-              {/* Metadata Row */}
-              <div className="flex flex-col gap-1.5 text-xs text-muted-foreground w-full">
+              {/* Metadata Row - Condensed */}
+              <div className="flex items-center gap-3 text-xs text-muted-foreground w-full flex-wrap">
                 <div className="flex items-center gap-1">
-                  <User className="h-3 w-3" />
-                  <span>Created by {creatorName}</span>
+                  <User className="h-3.5 w-3.5 text-primary/70" />
+                  <span className="font-medium">{creatorName}</span>
                 </div>
+                <span className="text-muted-foreground/50">·</span>
                 <div className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
+                  <Clock className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-500" />
                   <span>
-                    Created {formatDistanceToNow(new Date(prompt.createdAt), { addSuffix: true })}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  <span>
-                    Updated {formatDistanceToNow(new Date(prompt.updatedAt), { addSuffix: true })}
+                    {formatDistanceToNow(new Date(prompt.updatedAt), { addSuffix: true })}
                   </span>
                 </div>
               </div>

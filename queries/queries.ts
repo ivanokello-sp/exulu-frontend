@@ -96,11 +96,25 @@ role
 favourite_agents
 `;
 
+const FEEDBACK_FIELDS = `
+id
+status
+agent
+description
+session
+score
+user
+createdAt
+`;
+
 const AGENT_FIELDS = `
 id
 name
 providerapikey
+feedback
+memory
 instructions
+welcomemessage
 description
 active
 image
@@ -114,6 +128,12 @@ provider
 authenticationInformation
 slug
 category
+workflows {
+  enabled
+  queue {
+    name
+  }
+}
 rateLimit {
   name
   rate_limit {
@@ -129,7 +149,7 @@ capabilities {
   audio
   video
 }
-backend
+provider
 rights_mode
 RBAC {
       type
@@ -173,6 +193,28 @@ export const GET_AGENTS = gql`
   }
 `;
 
+export const GET_FEEDBACK = gql`
+  query GetFeedback(
+    $page: Int!
+    $limit: Int!
+    $filters: [FilterFeedback]
+    $sort: SortBy = { field: "updatedAt", direction: DESC }
+  ) {
+    feedbackPagination(page: $page, limit: $limit, filters: $filters, sort: $sort) {
+      pageInfo {
+        pageCount
+        itemCount
+        currentPage
+        hasPreviousPage
+        hasNextPage
+      }
+      items {
+        ${FEEDBACK_FIELDS}
+      }
+    }
+  }
+`;
+
 export const GET_AGENT_SESSIONS = gql`
   query GetAgentSessions(
     $page: Int!
@@ -202,6 +244,7 @@ export const GET_AGENT_SESSIONS = gql`
           agent
           project
           rights_mode
+          session_items
           RBAC {
             type
             users {
@@ -238,6 +281,7 @@ export const GET_CONTEXT_BY_ID = gql`
 `;
 
 export const GET_ITEMS = (context: string, fields: string[]) => {
+  console.log("context", context);
   const upperCaseContext = context.charAt(0).toUpperCase() + context.slice(1)
   return gql`
     query ${context}Pagination($page: Int!, $limit: Int!, $filters: [Filter${upperCaseContext}_items], $sort: SortBy = { field: "updatedAt", direction: DESC }) {
@@ -287,24 +331,37 @@ export const GET_ITEM_BY_ID = (context: string, fields: string[], chunks: boolea
     query ${context}ById($id: ID!) {
       ${context}_itemsById(id: $id) {
         ${ITEM_FIELDS(fields)}
-        ${chunks ? "chunks { chunk_content chunk_source chunk_index chunk_id chunk_created_at chunk_updated_at }" : ""}
+        ${chunks ? "chunks { chunk_content chunk_source chunk_index chunk_id chunk_created_at chunk_updated_at chunk_metadata }" : ""}
       }
     }
   `;
 };
 
-export const CREATE_ITEM = (context: string) => {
+export const CREATE_ITEM = (context: string, fields?: string[]) => {
   return gql`
     mutation CreateOne${context}($input: ${context}_itemsInput!) {
       ${context}_itemsCreateOne(input: $input) {
         item {
           id
+          name
+          description
+          ${fields?.length ? fields?.join("\n") : ""}
         }
         job
       }
     }
   `;
 };
+
+export const CREATE_FEEDBACK = gql`
+  mutation CreateFeedback($input: feedbackInput!) {
+    feedbackCreateOne(input: $input) {
+      item {
+        ${FEEDBACK_FIELDS}
+      }
+    }
+  }
+`;
 
 export const DELETE_CHUNKS = (context: string) => {
   const upperCaseContext = context.charAt(0).toUpperCase() + context.slice(1)
@@ -317,7 +374,6 @@ export const DELETE_CHUNKS = (context: string) => {
     }
   `;
 };
-
 
 export const GENERATE_CHUNKS = (context: string) => {
   const upperCaseContext = context.charAt(0).toUpperCase() + context.slice(1)
@@ -429,6 +485,20 @@ export const UPDATE_AGENT_SESSION_TITLE = gql`
   }
 `;
 
+export const UPDATE_AGENT_SESSION_ITEMS = gql`
+  mutation UpdateAgentSessionTitle(
+    $id: ID!
+    $session_items: JSON!
+  ) {
+    agent_sessionsUpdateOneById(id: $id, input: {session_items: $session_items}) {
+      item {
+        id
+        session_items
+      }
+    }
+  }
+`;
+
 export const GET_AGENT_MESSAGES = gql`
   query GetAgentSessionMessages(
     $page: Int!
@@ -459,6 +529,41 @@ export const GET_AGENT_MESSAGES = gql`
   }
 `;
 
+export const GET_WORKFLOW_SCHEDULE = gql`
+  query GetWorkflowSchedule($workflow: ID!) {
+    workflowSchedule(workflow: $workflow) {
+      id
+      schedule
+      next
+      iteration
+    }
+  }
+`;
+
+export const UPSERT_WORKFLOW_SCHEDULE = gql`
+  mutation UpsertWorkflowSchedule($workflow: ID!, $schedule: String!) {
+    upsertWorkflowSchedule(workflow: $workflow, schedule: $schedule) {
+      status
+    }
+  }
+`;
+
+export const DELETE_WORKFLOW_SCHEDULE = gql`
+  mutation DeleteWorkflowSchedule($workflow: ID!) {
+    deleteWorkflowSchedule(workflow: $workflow) {
+      status
+    }
+  }
+`;
+
+export const DELETE_FEEDBACK = gql`
+  mutation DeleteFeedback($id: ID!) {
+    feedbackRemoveOneById(id: $id) {
+      id
+    }
+  }
+`;
+
 export const GET_JOB_RESULTS = gql`
   query GetJobResults(
     $page: Int!
@@ -485,6 +590,39 @@ export const GET_JOB_RESULTS = gql`
         createdAt
         updatedAt
         id
+      }
+      pageInfo {
+        pageCount
+        itemCount
+        currentPage
+        hasPreviousPage
+        hasNextPage
+      }
+    }
+  }
+`;
+
+export const GET_JOB_RESULTS_LIGHT = gql`
+  query GetJobResultsLight(
+    $page: Int!
+    $limit: Int!
+    $filters: [FilterJob_result]
+    $sort: SortBy = {
+      field: "createdAt",
+      direction: DESC
+    }
+  ) {
+    job_resultsPagination(
+      page: $page
+      limit: $limit
+      sort: $sort
+      filters: $filters
+    ) {
+      items {
+        id
+        state
+        label
+        createdAt
       }
       pageInfo {
         pageCount
@@ -583,6 +721,17 @@ export const GET_JOB_RESULT_BY_ID = gql`
     }
   }
 `;
+export const GET_RERANKERS = gql`
+  query GetRerankers {
+    rerankers {
+      items {
+        id
+        name
+        description
+      }
+    }
+  }
+`;
 export const GET_AGENT_BY_ID = gql`
   query GetAgentById($id: ID!, $project: ID) {
     agentById(id: $id, project: $project) {
@@ -607,6 +756,7 @@ export const GET_AGENT_SESSION_BY_ID = gql`
         agent
         created_by
         rights_mode
+        session_items
         project
         RBAC {
           type
@@ -748,7 +898,7 @@ export const CREATE_AGENT = gql`
     $name: String!
     $description: String!
     $rights_mode: String!
-    $backend: String!
+    $provider: String!
     $image: String
     $RBAC: RBACInput
   ) {
@@ -757,7 +907,7 @@ export const CREATE_AGENT = gql`
         name: $name
         description: $description
         rights_mode: $rights_mode
-        backend: $backend
+        provider: $provider
         image: $image
         RBAC: $RBAC
       }
@@ -822,8 +972,11 @@ export const UPDATE_AGENT_BY_ID = gql`
   mutation UpdateAgent(
     $id: ID!
     $name: String
-    $backend: String
+    $feedback: Boolean
+    $provider: String
     $description: String
+    $welcomemessage: String
+    $memory: String
     $instructions: String
     $rights_mode: String
     $animation_idle: String
@@ -835,10 +988,13 @@ export const UPDATE_AGENT_BY_ID = gql`
     $RBAC: RBACInput
   ) {
     agentsUpdateOneById(
-      input: { 
+      input: {
         name: $name
-        backend: $backend
+        feedback: $feedback
+        provider: $provider
         description: $description
+        welcomemessage: $welcomemessage
+        memory: $memory
         category: $category
         instructions: $instructions
         animation_idle: $animation_idle
@@ -855,7 +1011,10 @@ export const UPDATE_AGENT_BY_ID = gql`
           id
           name
           description
+          feedback
+          welcomemessage
           instructions
+          memory
           category
           animation_idle
           animation_responding
@@ -1182,13 +1341,13 @@ export const GET_WORKFLOW_TEMPLATES = gql`
       }
       items {
         id
+        agent
         name
         description
-        owner
         rights_mode
-        variables
+        created_by
         steps_json
-        example_metadata_json
+        variables
         createdAt
         updatedAt
         RBAC {
@@ -1212,12 +1371,11 @@ export const GET_WORKFLOW_TEMPLATE_BY_ID = gql`
     workflow_templateById(id: $id) {
       id
       name
+      agent
       description
-      owner
       rights_mode
-      variables
       steps_json
-      example_metadata_json
+      variables
       createdAt
       updatedAt
     }
@@ -1228,51 +1386,44 @@ export const CREATE_WORKFLOW_TEMPLATE = gql`
   mutation CreateWorkflowTemplate(
     $name: String!
     $description: String
-    $owner: Float!
     $rights_mode: String!
     $RBAC: RBACInput
-    $variables: JSON
+    $agent: String!
     $steps_json: JSON!
-    $example_metadata_json: JSON
   ) {
     workflow_templatesCreateOne(
       input: {
         name: $name
         description: $description
-        owner: $owner
         rights_mode: $rights_mode
+        agent: $agent
         RBAC: $RBAC
-        variables: $variables
         steps_json: $steps_json
-        example_metadata_json: $example_metadata_json
       }
     ) {
-      id
-      name
-      description
-      owner
-      rights_mode
-      rights_mode
-      RBAC {
-        type
-        users {
-          id
-          rights
+      item {
+        id
+        name
+        description
+        rights_mode
+        created_by
+        variables
+        RBAC {
+          type
+          users {
+            id
+            rights
+          }
+          roles {
+            id
+            rights
+          }
         }
-        roles {
-          id
-          rights
-        }
-        projects {
-          id
-          rights
-        }
+        steps_json
+        createdAt
+        agent
+        updatedAt
       }
-      variables
-      steps_json
-      example_metadata_json
-      createdAt
-      updatedAt
     }
   }
 `;
@@ -1284,9 +1435,8 @@ export const UPDATE_WORKFLOW_TEMPLATE = gql`
     $description: String
     $rights_mode: String
     $RBAC: RBACInput
-    $variables: JSON
     $steps_json: JSON
-    $example_metadata_json: JSON
+    $agent: String
   ) {
     workflow_templatesUpdateOneById(
       id: $id
@@ -1295,32 +1445,33 @@ export const UPDATE_WORKFLOW_TEMPLATE = gql`
         description: $description
         rights_mode: $rights_mode
         RBAC: $RBAC
-        variables: $variables
         steps_json: $steps_json
-        example_metadata_json: $example_metadata_json
+        agent: $agent
       }
     ) {
-      id
-      name
-      description
-      owner
-      rights_mode
-      RBAC {
-        type
-        users {
-          id
-          rights
+      item {
+        id
+        name
+        description
+        created_by
+        rights_mode
+        agent
+        variables
+        RBAC {
+          type
+          users {
+            id
+            rights
+          }
+          roles {
+            id
+            rights
+          }
         }
-        roles {
-          id
-          rights
-        }
+        steps_json
+        createdAt
+        updatedAt
       }
-      variables
-      steps_json
-      example_metadata_json
-      createdAt
-      updatedAt
     }
   }
 `;
@@ -1385,7 +1536,7 @@ export const GET_EMBEDDING_JOBS_STATISTICS = gql`
 
 export const GET_FUNCTION_CALLS_STATISTICS = gql`
   query FunctionCallsStatistics($from: Date!, $to: Date!) {
-    trackingStatistics(filters: {
+    trackingStatistics(limit: 10, filters: {
       type: { eq: TOOL_CALL }
       createdAt: { and: [{ gte: $from }, { lte: $to }] }
     }) {
@@ -1397,7 +1548,7 @@ export const GET_FUNCTION_CALLS_STATISTICS = gql`
 
 export const GET_AGENT_RUN_STATISTICS = gql`  
   query AgentCallsStatistics($from: Date!, $to: Date!) {
-    trackingStatistics(filters: {
+    trackingStatistics(limit: 10, filters: {
       type: { eq: AGENT_RUN }
       name: { eq: "count" }
       createdAt: { and: [{ gte: $from }, { lte: $to }] }
@@ -1410,7 +1561,7 @@ export const GET_AGENT_RUN_STATISTICS = gql`
 
 export const GET_TOKEN_USAGE_STATISTICS = gql`  
   query AgentCallsStatistics($from: Date!, $to: Date!) {
-    trackingStatistics(filters: {
+    trackingStatistics(limit: 10, filters: {
       name: { in: ["inputTokens", "outputTokens"] }
       createdAt: { and: [{ gte: $from }, { lte: $to }] }
     }) {
@@ -1426,6 +1577,7 @@ export const GET_TIME_SERIES_STATISTICS = gql`
   query TimeSeriesStatistics($type: typeEnum!, $from: Date!, $to: Date!, $names: [String!]) {
     trackingStatistics(
       groupBy: "createdAt"
+      limit: 12
       filters: {
         type: { eq: $type }
         createdAt: { and: [{ gte: $from }, { lte: $to }] }
@@ -1442,6 +1594,7 @@ export const GET_USER_STATISTICS = gql`
 query UserStatistics($from: Date!, $to: Date!, $names: [String!]) {
   trackingStatistics(
     groupBy: "user"
+    limit: 4
     filters: {
       type: { eq: AGENT_RUN }
       createdAt: { and: [{ gte: $from }, { lte: $to }] }
@@ -1458,6 +1611,7 @@ export const GET_PROJECT_STATISTICS = gql`
 query ProjectStatistics($from: Date!, $to: Date!, $names: [String!]) {
   trackingStatistics(
     groupBy: "project"
+    limit: 4
     filters: {
       type: { eq: AGENT_RUN }
       createdAt: { and: [{ gte: $from }, { lte: $to }] }
@@ -1474,6 +1628,7 @@ export const GET_AGENT_STATISTICS = gql`
 query AgentStatistics($from: Date!, $to: Date!, $names: [String!]) {
   trackingStatistics(
     groupBy: "label"
+    limit: 4
     filters: {
       type: { eq: AGENT_RUN }
       name: { in: $names }
@@ -1507,6 +1662,7 @@ export const GET_DONUT_STATISTICS = gql`
   query DonutStatistics($type: typeEnum!, $groupBy: String!, $from: Date!, $to: Date!, $names: [String!]) {
     trackingStatistics(
       groupBy: $groupBy
+      limit: 10
       filters: {
         type: { eq: $type }
         name: { in: $names }
@@ -1949,6 +2105,16 @@ export const RUN_EVAL = gql`
   }
 `;
 
+export const RUN_WORKFLOW = gql`
+  mutation RunWorkflow($id: ID!, $variables: JSON!) {
+    runWorkflow(id: $id, variables: $variables) {
+      result
+      job
+      metadata
+    }
+  }
+`;
+
 export const UPDATE_EVAL_RUN = gql`
   mutation UpdateEvalRun($id: ID!, $data: eval_runInput!) {
     eval_runsUpdateOneById(id: $id, input: $data) {
@@ -2055,6 +2221,7 @@ const PROMPT_LIBRARY_FIELDS = `
   created_by
   createdAt
   updatedAt
+  history
   RBAC {
     type
     users {
@@ -2141,6 +2308,7 @@ export const UPDATE_PROMPT = gql`
     $rights_mode: String
     $RBAC: RBACInput
     $assigned_agents: JSON
+    $history: JSON
   ) {
     prompt_libraryUpdateOneById(
       id: $id
@@ -2152,6 +2320,7 @@ export const UPDATE_PROMPT = gql`
         rights_mode: $rights_mode
         RBAC: $RBAC
         assigned_agents: $assigned_agents
+        history: $history
       }
     ) {
       item {

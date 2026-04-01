@@ -2,11 +2,10 @@
 
 import { DynamicToolUIPart, UIMessage } from "ai"
 import { Message, MessageContent } from '@/components/ai-elements/message'
-import { Actions, Action } from '@/components/ai-elements/actions'
 import { Response } from '@/components/ai-elements/response'
 import { Reasoning, ReasoningTrigger, ReasoningContent } from "@/components/ai-elements/reasoning"
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai-elements/source"
-import { RefreshCcwIcon, CopyIcon, ChevronDown, ChevronRight, Search, FileText, Database, ListChecks, LayoutList } from "lucide-react"
+import { RefreshCcwIcon, CopyIcon, ChevronDown, ChevronRight, Search, FileText, Database, ListChecks, LayoutList, EditIcon, Trash2Icon, DownloadIcon, ThumbsUp, ThumbsDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
@@ -14,15 +13,28 @@ import { TodoList } from "./ai-elements/todo-list"
 import { FileItem } from "./uppy-dashboard"
 import { Card, CardContent } from "@/components/ui/card";
 import { useRouter } from "next/navigation"
-import { KnowledgeSourceSearchResultChunk } from "@/types/models/knowledge-source-search-results"
+import { AgenticKnowledgeSourceSearchResults, KnowledgeSourceSearchResultChunk } from "@/types/models/knowledge-source-search-results"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useState, useEffect } from "react"
-import { Fragment } from 'react';
 import { MessageActions, MessageAction } from '@/components/ai-elements/message'
 import { Skeleton } from "./ui/skeleton"
-import { ShimmeringText } from "./ui/shadcn-io/shimmering-text"
+import { ChatAddToolApproveResponseFunction } from "ai"
 import { GradientText } from "./ui/shadcn-io/gradient-text"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea";
+import { CheckIcon, XIcon } from "lucide-react"
+import { ToolCallApproval } from "./tool-call-approval"
+import { Agent } from "@/types/models/agent"
+import {
+  Tool,
+  ToolContent,
+  ToolHeader,
+  ToolOutput,
+  ToolInput,
+} from '@/components/ai-elements/tool';
+
 interface ItemWithChunks {
   id: string,
   external_id: string,
@@ -56,17 +68,26 @@ function camelCaseToLabel(camelCaseString) {
 interface MessageRendererProps {
   messages: UIMessage[]
   status?: "streaming" | "idle" | "error" | "submitted" | "ready"
+  handleFeedback?: (messageId: string, feedback: 'positive' | 'negative') => void
   className?: string
   showActions?: boolean
+  showEdit?: boolean
+  agent?: Agent
+  showRemove?: boolean
+  showTokens?: boolean
+  addToolApprovalResponse?: ChatAddToolApproveResponseFunction
   onRegenerate?: () => void
-  onAddToolResult?: (args: { tool: string; toolCallId: string; output: string }) => void
+  onUpdate?: (messages: UIMessage[]) => void
   UntypedToolPartComponent?: React.ComponentType<{
+    agent: Agent
     untypedToolPart: DynamicToolUIPart
     callId: string
     addToContext: (item: any) => void
+    addToolApprovalResponse: ChatAddToolApproveResponseFunction
   }>
   addToContext?: (item: any) => void
   writeAccess?: boolean
+  AgentVisualComponent?: React.ComponentType<any>
   config?: {
     marginTopFirstMessage?: string
     customAssistantClassnames?: string
@@ -76,16 +97,69 @@ interface MessageRendererProps {
 export function MessageRenderer({
   messages,
   status = "idle",
+  agent,
   className,
   showActions = true,
+  showTokens = true,
+  showEdit = false,
+  showRemove = false,
   onRegenerate,
-  onAddToolResult,
+  onUpdate,
   UntypedToolPartComponent,
   addToContext,
   writeAccess = true,
-  config
+  AgentVisualComponent,
+  config,
+  addToolApprovalResponse,
+  handleFeedback
 }: MessageRendererProps) {
   const { toast } = useToast()
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [editedText, setEditedText] = useState<string>("")
+
+  const handleStartEdit = (messageId: string, currentText: string) => {
+    setEditingMessageId(messageId)
+    setEditedText(currentText)
+  }
+
+  const handleRemove = (messageId: string) => {
+    if (!onUpdate) return
+    const index = messages.findIndex(msg => msg.id === messageId)
+    const nextMessage = messages[index + 1]
+    let updatedMessages = messages.filter(msg => msg.id !== messageId)
+
+    // If the next message is a placeholder message, remove it
+    if ((nextMessage?.metadata as any)?.type === 'placeholder') {
+      updatedMessages = updatedMessages.filter(msg => msg.id !== nextMessage.id)
+    }
+    onUpdate(updatedMessages)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null)
+    setEditedText("")
+  }
+
+  const handleConfirmEdit = (messageId: string) => {
+    if (!onUpdate) return
+    const updatedMessages = messages.map(msg => {
+      if (msg.id === messageId) {
+        return {
+          ...msg,
+          parts: msg.parts?.map(part =>
+            part.type === 'text'
+              ? { ...part, text: editedText }
+              : part
+          )
+        }
+      }
+      return msg
+    })
+
+    onUpdate(updatedMessages)
+    setEditingMessageId(null)
+    setEditedText("")
+  }
 
   const todoToolType = 'tool-todo_write';
 
@@ -93,7 +167,7 @@ export function MessageRenderer({
   const todoMessageIndices = messages
     ?.map((message, index) => ({
       index,
-      hasTodoPart: message.parts.some(part => part.type.toLowerCase() === todoToolType)
+      hasTodoPart: message.parts?.some(part => part.type.toLowerCase() === todoToolType)
     }))
     .filter(item => item.hasTodoPart)
     .map(item => item.index) ?? [];
@@ -137,18 +211,24 @@ export function MessageRenderer({
   }, [streamingTexts.length]);
 
 
+  // Find the index of the last assistant message
+  const lastAssistantMessageIndex = messagesToRender?.map((msg, idx) =>
+    msg.role === 'assistant' ? idx : -1
+  ).filter(idx => idx !== -1).pop() ?? -1;
+
   return (
     <>
       {messagesToRender?.map((message, messageIndex) => {
         const isFirstMessage = messageIndex === 0
         const isLastMessage =
           messageIndex === messages.length - 1;
+        const isLastAssistantMessage = messageIndex === lastAssistantMessageIndex;
         const messageMetadata = message.metadata as any
 
         // iterate through all parts and find the ones that have a type of 'text' and contain '<file name="', if so
         // extract the filename and content, and return an array of objects with the filename and content
         // Remove the <file name="...">...</file> from the text and return the text without the file parts
-        const files: { s3Key: string, content: string }[] = message.parts.filter(
+        const files: { s3Key: string, content: string }[] = message.parts?.filter(
           (part) => part.type === 'text' &&
             part.text?.includes('<file name="')
         )?.flatMap((part) => {
@@ -163,7 +243,7 @@ export function MessageRenderer({
         }) ?? [];
         console.log("files", files);
 
-        return (
+        const messageElement = (
           <Message
             className={cn(
               message.role === 'assistant' && (
@@ -176,25 +256,29 @@ export function MessageRenderer({
             from={message.role}
             key={message.id}
           >
-            <MessageContent>
-              {message.parts.map((part, i) => {
+            <MessageContent id={"message_id_" + message.id}>
+              {message.parts?.map((part, i) => {
+
                 if (part.type === 'step-start') {
                   return null
                 }
 
                 if (part.type === 'text') {
+
                   let text = part.text.replace(/<file name="([^"]+)">([^<]+)<\/file>/g, '');
 
                   // Check if text contains JSON citations
                   // Create a more robust regex that matches all field orders
                   const flexibleCitationRegex = /\{[^}]*?item_name\s*:\s*[^,}]+[^}]*?\}/g;
-                  const hasCitations = flexibleCitationRegex.test(text);
+                  const webSearchCitationRegex = /\{[^}]*?url\s*:\s*[^,}]+[^}]*?\}/g;
+                  const hasKnowledgeSourceCitations = flexibleCitationRegex.test(text);
+                  const hasWebSearchCitations = webSearchCitationRegex.test(text);
 
-                  if (hasCitations) {
+                  if (hasKnowledgeSourceCitations) {
                     // Transform JSON citations into cite-marker format
                     text = text.replace(/\{([^}]+)\}/g, (match, content) => {
                       // Check if this looks like a citation object
-                      if (!content.includes('item_name:')) {
+                      if (!content.includes('item_name')) {
                         return match; // Not a citation, keep original
                       }
 
@@ -211,15 +295,15 @@ export function MessageRenderer({
                         // Extract required fields
                         const itemName = fields.item_name;
                         const itemId = fields.item_id;
-                        const context = fields.context;
+                        const context = fields.context || ''; // Context can be empty
                         const chunkId = fields.chunk_id;
                         const chunkIndex = fields.chunk_index;
 
-                        // Validate that we have all required fields (chunk_index is optional)
-                        if (itemName && itemId && context && chunkId) {
+                        // Validate that we have all required fields (context and chunk_index are optional)
+                        if (itemName && itemId) {
                           // Create citation string: item_name|item_id|chunk_id|chunk_index|context
-                          const citationData = `${itemName}|${itemId}|${chunkId}|${chunkIndex || ''}|${context}`;
-                          return `<cite-marker data-citation="${encodeURIComponent(citationData)}"></cite-marker>`;
+                          const knowledgeSourceCitationData = `${itemName}|${itemId}|${chunkId || ''}|${chunkIndex || ''}|${context}`;
+                          return `<cite-marker-knowledge-source data-citation="${encodeURIComponent(knowledgeSourceCitationData)}"></cite-marker-knowledge-source>`;
                         }
 
                         return match; // Missing required fields, keep original
@@ -230,71 +314,88 @@ export function MessageRenderer({
                     });
                   }
 
-                  return <Response className="chat-response-container" key={`${message.id}-${i}` + "_response"}>
-                    {text}
-                  </Response>
-                }
+                  if (hasWebSearchCitations) {
+                    text = text.replace(/\{([^}]+)\}/g, (match, content) => {
+                      // Check if this looks like a citation object
+                      if (!content.includes('url:')) {
+                        return match; // Not a citation, keep original
+                      }
 
-                if (part.type === 'tool-askForConfirmation' && onAddToolResult) {
-                  const callId = part.toolCallId
+                      try {
+                        // Parse fields more carefully to handle commas in values
+                        // Match pattern: field_name: value (where value continues until we hit ", next_field:" or "}")
+                        const fields: Record<string, string> = {};
+                        const fieldPattern = /(\w+)\s*:\s*(.*?)(?=,\s*\w+\s*:|$)/g;
+                        let fieldMatch: RegExpExecArray | null;
 
-                  switch (part.state) {
-                    case 'input-streaming':
-                      return (
-                        <div key={callId}>Loading confirmation request...</div>
-                      )
-                    case 'input-available':
-                      return (
-                        <div key={callId}>
-                          {(part.input as { message: string }).message}
-                          <div>
-                            <button
-                              onClick={() =>
-                                onAddToolResult({
-                                  tool: 'askForConfirmation',
-                                  toolCallId: callId,
-                                  output: 'Yes, confirmed',
-                                })
-                              }
-                            >
-                              Yes
-                            </button>
-                            <button
-                              onClick={() =>
-                                onAddToolResult({
-                                  tool: 'askForConfirmation',
-                                  toolCallId: callId,
-                                  output: 'No, denied',
-                                })
-                              }
-                            >
-                              No
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    case 'output-available':
-                      return (
-                        <div key={callId}>
-                          Tool call allowed: {part.output as string}
-                        </div>
-                      )
-                    case 'output-error':
-                      return <div key={callId}>Error: {part.errorText}</div>
+                        while ((fieldMatch = fieldPattern.exec(content)) !== null) {
+                          const key = fieldMatch[1].trim();
+                          const value = fieldMatch[2].trim().replace(/,$/, ''); // Remove trailing comma if present
+                          fields[key] = value;
+                        }
+
+                        // Extract required fields
+                        const url = fields.url;
+                        const title = fields.title;
+                        const snippet = fields.snippet;
+
+                        // Validate that we have all required fields
+                        if (url && title && snippet) {
+                          // Create citation string using a delimiter that's unlikely to appear in the content
+                          // Using ⟪⟫ as delimiter since it's rare in text
+                          const webSearchCitationData = `${url}⟪⟫${title}⟪⟫${snippet}`;
+                          return `<cite-marker-web-search data-citation="${encodeURIComponent(webSearchCitationData)}"></cite-marker-web-search>`;
+                        }
+
+                        return match; // Missing required fields, keep original
+                      } catch (error) {
+                        console.error('Error parsing citation:', error);
+                        return match; // Keep original on error
+                      }
+                    });
                   }
-                }
 
-                if (part.type?.toLowerCase().includes('preview_pdf') || part.type?.toLowerCase().includes('pdf_file_in_a_web_view')) {
-                  const dynamicToolPart = part as any;
-                  const output = JSON.parse(dynamicToolPart.output?.result ?? '{}') as {
-                    url: string
-                    page: number
-                  };
-                  if (!output?.url) {
-                    return <div>No URL provided for PDF preview {JSON.stringify(output)}</div>;
-                  }
-                  const pdfUrl = `${output.url}#page=${output.page ?? 1}`;
-                  return <iframe src={pdfUrl} style={{ width: '100%', height: '100vh' }} title="PDF viewer" />
+                  const isEditing = editingMessageId === message.id
+
+                  return <>
+                    {isEditing ? (
+                      <div className="items-center gap-2" key={`${message.id}-${i}` + "_edit"}>
+                        <div>
+                          <Textarea
+                            value={editedText}
+                            rows={3}
+                            onChange={(e) => setEditedText(e.target.value)}
+                            className="flex-1 w-full min-w-[500px] resize-none"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 justify-end mt-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-destructive"
+                            onClick={handleCancelEdit}>
+                            <span className="text-destructive">Cancel</span>
+                            <XIcon className="size-4 ml-2 text-destructive" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-green-500"
+                            onClick={() => handleConfirmEdit(message.id)}>
+                            <span className="text-green-500">Confirm</span>
+                            <CheckIcon className="size-4 ml-2 text-green-500" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="relative" key={`${message.id}-${i}` + "_response_wrapper"}>
+                        <Response className="chat-response-container">
+                          {text}
+                        </Response>
+                      </div>
+                    )}
+                  </>
                 }
 
                 if (part.type?.toLowerCase() === 'tool-todo_write') {
@@ -321,64 +422,107 @@ export function MessageRenderer({
                 }
 
                 if (part.type?.toLowerCase().includes('context_search')) {
+
+                  if (
+                    (
+                      (part as any)?.state === 'approval-requested' ||
+                      (part as any)?.state === 'approval-responded'
+                    ) && agent && addToolApprovalResponse
+                  ) {
+                    return (
+                      <ToolCallApproval agent={agent} part={part as any} addToolApprovalResponse={addToolApprovalResponse} />
+                    )
+                  }
+
                   const dynamicToolPart = part as any;
                   let output = dynamicToolPart.output as {
-                    result: KnowledgeSourceSearchResultChunk[]
+                    result: KnowledgeSourceSearchResultChunk[] | AgenticKnowledgeSourceSearchResults
                   };
+
                   if (typeof output === "string") {
                     output = JSON.parse(output)
                   }
                   if (typeof output?.result === "string") {
-                    output.result = JSON.parse(output?.result)
+                    try {
+                      output.result = JSON.parse(output?.result)
+                    } catch (error) {
+                      // Means the output is not a valid JSON, so treating it as text
+                      return null;
+
+                    }
                   }
                   console.log("output", output);
                   console.log("output.result", output?.result);
-                  if (!output?.result?.length) {
-                    return null;
-                  }
+
+                  const chunks = Array.isArray(output?.result) ? output?.result : output?.result?.chunks;
+                  const reasoning: {
+                    text: string;
+                    tools: {
+                      name: string;
+                      id: string;
+                      input: any;
+                      output: any;
+                    }[]
+                  }[] = !Array.isArray(output?.result) ? output?.result?.reasoning : [];
+
                   // Map the chunks to items
                   const itemsMap = new Map<string, ItemWithChunks>();
-                  const uniqueContexts = new Set(output.result.map(chunk => chunk.context?.name.replaceAll('_', ' ')));
+                  const uniqueContexts = new Set(chunks?.map(chunk => {
+                    return chunk.context?.name ? chunk.context.name.replaceAll('_', ' ') : '';
+                  }));
                   const contextNames = Array.from(uniqueContexts).join(', ');
-                  for (const chunk of output.result) {
-                    if (itemsMap.has(chunk.item_id)) {
-                      itemsMap.get(chunk.item_id)?.chunks.push(chunk);
-                    } else {
-                      itemsMap.set(chunk.item_id, {
-                        id: chunk.item_id,
-                        updatedAt: chunk.item_updated_at,
-                        createdAt: chunk.item_created_at,
-                        external_id: chunk.item_external_id,
-                        name: chunk.item_name,
-                        context: {
-                          name: chunk.context?.name,
-                          id: chunk.context?.id
-                        },
-                        chunks: [chunk]
-                      });
+                  if (chunks) {
+                    for (const chunk of chunks) {
+
+                      if (itemsMap.has(chunk.item_id)) {
+                        itemsMap.get(chunk.item_id)?.chunks.push(chunk);
+                      } else {
+                        itemsMap.set(chunk.item_id, {
+                          id: chunk.item_id,
+                          updatedAt: chunk.item_updated_at,
+                          createdAt: chunk.item_created_at,
+                          external_id: chunk.item_external_id,
+                          name: chunk.item_name,
+                          context: {
+                            name: chunk.context?.name,
+                            id: chunk.context?.id
+                          },
+                          chunks: [chunk]
+                        });
+                      }
                     }
                   }
                   return (
-                    <ContextSearchResults
-                      key={`${message.id}-${i}`}
-                      input={dynamicToolPart.input}
-                      contextNames={contextNames}
-                      items={Array.from(itemsMap.values())}
-                      totalChunks={output.result.length}
-                    />
+                    <>
+                      <ContextSearchResults
+                        key={`${message.id}-${i}`}
+                        part={dynamicToolPart}
+                        input={dynamicToolPart.input}
+                        state={dynamicToolPart.state}
+                        contextNames={contextNames}
+                        streaming={status !== "ready" && status !== "error" && isLastMessage && message.role === 'assistant'}
+                        items={Array.from(itemsMap.values())}
+                        reasoning={reasoning}
+                        totalChunks={chunks?.length ?? 0}
+                      />
+                    </>
                   )
                 }
 
                 if (
                   (part.type.startsWith('tool-') || part.type === 'dynamic-tool') &&
                   UntypedToolPartComponent &&
-                  addToContext
+                  addToContext &&
+                  agent &&
+                  addToolApprovalResponse
                 ) {
                   const untypedToolPart = part as DynamicToolUIPart
                   const callId = untypedToolPart.toolCallId
                   return (
                     <UntypedToolPartComponent
                       key={callId}
+                      agent={agent}
+                      addToolApprovalResponse={addToolApprovalResponse}
                       untypedToolPart={untypedToolPart}
                       callId={callId}
                       addToContext={addToContext}
@@ -404,12 +548,12 @@ export function MessageRenderer({
                   return (
                     <Sources key={`${message.id}-${i}`}>
                       <SourcesTrigger
-                        count={message.parts.filter(
+                        count={message.parts?.filter(
                           (part) => part.type === 'source-url'
                         ).length}
                       />
                       <SourcesContent key={`${message.id}`}>
-                        {message.parts.map((part, i) => {
+                        {message.parts?.map((part, i) => {
                           switch (part.type) {
                             case 'source-url':
                               return (
@@ -431,6 +575,7 @@ export function MessageRenderer({
                     <Reasoning
                       key={`${message.id}-${i}`}
                       className="w-full"
+                      defaultOpen={false}
                       isStreaming={status === 'streaming'}
                     >
                       <ReasoningTrigger />
@@ -462,11 +607,13 @@ export function MessageRenderer({
                 </div>
               )}
 
-              {showActions && (
-
-                message.role === 'assistant' && (
+              {(
+                ((showActions && message.role === 'assistant') || showEdit || showRemove) &&
+                !editingMessageId &&
+                (message.metadata as any)?.type !== 'placeholder'
+              ) && (
                   <MessageActions className="mt-2">
-                    {onRegenerate && (
+                    {(showActions && message.role === 'assistant' && onRegenerate) && (
                       <MessageAction
                         className="mr-1"
                         onClick={() => onRegenerate()}
@@ -476,145 +623,393 @@ export function MessageRenderer({
                         <RefreshCcwIcon className="size-3" />
                       </MessageAction>
                     )}
-                    <MessageAction
-                      className="mr-1"
-                      onClick={() => {
-                        navigator.clipboard.writeText(
-                          message.parts.map((part: any) => part?.text || "").join('\n')
-                        )
-                        toast({
-                          title: "Copied message",
-                          description: "The message was copied to your clipboard.",
-                        })
-                      }}
-                      label="Copy"
-                    >
-                      <CopyIcon className="size-3" />
-                    </MessageAction>
-                    {messageMetadata?.totalTokens && (
+                    {showActions && message.role === 'assistant' && (
+                      <MessageAction
+                        className="mr-1"
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            message.parts?.map((part: any) => part?.text || "").join('\n')
+                          )
+                          toast({
+                            title: "Copied message",
+                            description: "The message was copied to your clipboard.",
+                          })
+                        }}
+                        label="Copy"
+                      >
+                        <CopyIcon className="size-3" />
+                      </MessageAction>
+                    )}
+                    {showActions && message.role === 'assistant' && (
+                      <MessageAction
+                        className="mr-1"
+                        onClick={() => {
+                          const messageText = message.parts?.map((part: any) => part?.text || "").join('\n')
+
+                          // Create a blob with the text content
+                          const blob = new Blob([messageText], { type: 'text/plain' })
+                          const url = URL.createObjectURL(blob)
+
+                          // Create a temporary link and trigger download
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = `message-${new Date().getTime()}.txt`
+                          document.body.appendChild(a)
+                          a.click()
+
+                          // Cleanup
+                          document.body.removeChild(a)
+                          URL.revokeObjectURL(url)
+
+                          toast({
+                            title: "Downloaded message",
+                            description: "The message was downloaded as a text file.",
+                          })
+                        }}
+                        label="Download"
+                      >
+                        <DownloadIcon className="size-3" />
+                      </MessageAction>
+                    )}
+                    {showEdit && message.role === 'user' && (
+                      <MessageAction
+                        className="mr-1"
+                        label="Edit"
+                        onClick={() => handleStartEdit(
+                          message.id,
+                          message.parts?.map((part: any) => part?.text || "").join('\n')
+                        )}
+                      >
+                        <EditIcon className="size-3" />
+                      </MessageAction>
+                    )}
+                    {showRemove && (
+                      <MessageAction
+                        className="mr-1"
+                        label="Remove"
+                        onClick={() => handleRemove(message.id)}
+                      >
+                        <Trash2Icon className="size-3" />
+                      </MessageAction>
+                    )}
+                    {
+                      agent?.feedback && (
+                        <>
+                          <MessageAction
+                            className="mr-1"
+                            label="Feedback"
+                            onClick={() => handleFeedback?.(message.id, 'positive')}
+                          >
+                            <ThumbsUp className="size-3" />
+                          </MessageAction>
+                          <MessageAction
+                            className="mr-1"
+                            label="Feedback"
+                            onClick={() => handleFeedback?.(message.id, 'negative')}
+                          >
+                            <ThumbsDown className="size-3" />
+                          </MessageAction>
+                        </>
+                      )
+                    }
+                    {(showTokens && message.role === 'assistant' && messageMetadata?.totalTokens) && (
                       <small className="text-muted-foreground">
                         {Intl.NumberFormat('en-US').format(messageMetadata?.totalTokens)} tokens
                       </small>
                     )}
                   </MessageActions>
-                )
-              )}
+
+                )}
             </MessageContent>
-          </Message>
-        )
+          </Message >
+        );
+
+        // Wrap the last assistant message with AgentVisual on the left
+        if (isLastAssistantMessage && message.role === 'assistant' && AgentVisualComponent && agent) {
+          return (
+            <div key={message.id + '_wrapper'} className="flex items-start gap-3 w-full">
+              <div className="shrink-0 mt-1">
+                <AgentVisualComponent agent={agent} status={status} className="w-12 h-12" />
+              </div>
+              {messageElement}
+            </div>
+          );
+        }
+
+        return messageElement;
       })}
     </>
   )
 }
 
 const ContextSearchResults = ({
+  reasoning,
+  streaming,
   contextNames,
   input,
   items,
-  totalChunks
+  state,
+  totalChunks,
+  part,
 }: {
+  streaming: boolean;
+  reasoning: {
+    text: string;
+    tools: {
+      name: string;
+      id: string;
+      input: any;
+      output: any;
+    }[]
+  }[];
   contextNames: string;
   input: Record<string, any>;
   items: ItemWithChunks[];
   totalChunks: number;
+  part: DynamicToolUIPart
+  state: "input-streaming" | "input-available" | "output-available" | "output-error" | "approval-requested" | "approval-responded"
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showAllItems, setShowAllItems] = useState(false);
+  const [showAllReasoning, setShowAllReasoning] = useState(false);
 
   const uniqueContexts = new Set(items.map(item => item.context.name));
   const displayItems = showAllItems ? items : items.slice(0, 3);
 
-  return (
-    <div className="my-3 border rounded-lg overflow-hidden bg-card">
-      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger className="w-full">
-          <div className="flex items-center justify-between p-4 hover:bg-accent/50 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-md bg-primary/10">
-                <Search className="h-4 w-4 text-primary" />
-              </div>
-              <div className="text-left">
-                <div className="font-medium text-sm flex items-center gap-2">
-                  Context search results for {contextNames}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
-                  {uniqueContexts.size > 0 && (
-                    <span className="flex items-center gap-1">
-                      <Database className="h-3 w-3" />
-                      {uniqueContexts.size} {uniqueContexts.size === 1 ? 'context' : 'contexts'}
+  // Render a single reasoning step
+  const renderReasoningStep = (step: {
+    text: string; tools: {
+      name: string;
+      id: string;
+      input: any;
+      output: {
+        chunk_index: number;
+        item_name: string;
+        item_id: string;
+        context: {
+          name: string;
+          id: string;
+        }
+      }[]
+    }[]
+  }, index: number, animate: boolean = true) => (
+    <div
+      key={index}
+      className={cn(
+        "flex items-start gap-2",
+        animate && "animate-in fade-in slide-in-from-left-3 duration-500"
+      )}
+      style={animate ? { animationDelay: `${index * 100}ms`, animationFillMode: 'backwards' } : undefined}
+    >
+      <div
+        className={cn(
+          "w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-medium text-primary shrink-0 mt-0.5",
+          animate && "animate-in zoom-in duration-300"
+        )}
+        style={animate ? { animationDelay: `${index * 100 + 200}ms`, animationFillMode: 'backwards' } : undefined}
+      >
+        {index + 1}
+      </div>
+      <div className="text-muted-foreground text-xs leading-relaxed flex-1">
+        <span>{step.text}</span>
+        {step.tools.length > 0 && (
+          <span
+            className={cn(
+              "ml-1",
+              animate && "animate-in fade-in duration-300"
+            )}
+            style={animate ? { animationDelay: `${index * 100 + 400}ms`, animationFillMode: 'backwards' } : undefined}
+          >
+            (using{' '}
+            {step.tools.map((tool, toolIndex) => (
+              <TooltipProvider key={tool.id}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="font-semibold text-foreground cursor-help underline decoration-dotted">
+                      {tool.name}
                     </span>
-                  )}
-                  <span className="flex items-center gap-1">
-                    <FileText className="h-3 w-3" />
-                    {items.length} {items.length === 1 ? 'item' : 'items'}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <LayoutList className="h-3 w-3" />
-                    {totalChunks} chunks
-                  </span>
-                </div>
-              </div>
-            </div>
-            {isOpen ? (
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            )}
-          </div>
-        </CollapsibleTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-md max-h-96 overflow-auto">
+                    <pre className="text-xs whitespace-pre-wrap">
+                      {JSON.stringify(tool.input, null, 2)}
+                    </pre>
+                    {tool.output?.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        <span className="font-semibold text-foreground">Output:</span>
+                        {tool.output.map((chunk) => (
+                          <div key={chunk.item_id + chunk.chunk_index}>
+                            <span className="font-semibold text-foreground">Item:</span>
+                            <span className="text-muted-foreground">{chunk.item_name}</span>
+                            <span className="font-semibold text-foreground">Chunk:</span>
+                            <span className="text-muted-foreground">{chunk.chunk_index}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )).reduce((prev, curr, i) => [prev, i === step.tools.length - 1 ? '' : ', ', curr] as any)}
+            )
+          </span>
+        )}
+      </div>
+    </div>
+  );
 
-        <CollapsibleContent>
-          <div className="border-t">
-            {/* Search Parameters */}
-            {Object.keys(input).length > 0 && (
-              <div className="p-4 bg-muted/30 border-b">
-                <div className="text-xs font-medium text-muted-foreground mb-2">Search Parameters</div>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(input).map(([key, value]) => (
-                    <Badge key={key} variant="outline" className="text-xs">
-                      <span className="font-medium">{camelCaseToLabel(key)}:</span>
-                      <span className="ml-1 font-normal">
-                        {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                      </span>
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
+  return (
+    <>
+      {/* Sequential Reasoning Steps Visualization */}
+      {reasoning && reasoning.length > 0 && (
+        <div className="mt-3 space-y-3">
+          {streaming ? (
+            // Show latest 5 steps while streaming with animations
+            <>
+              {reasoning.length > 5 && !showAllReasoning && (
+                <button
+                  onClick={() => setShowAllReasoning(true)}
+                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors group w-full"
+                >
+                  <div className="flex-1 border-t border-dashed border-muted-foreground/30 group-hover:border-foreground/30 transition-colors" />
+                  <span className="shrink-0">{reasoning.length - 5} more reasoning {reasoning.length - 5 === 1 ? 'step' : 'steps'} - show all</span>
+                  <div className="flex-1 border-t border-dashed border-muted-foreground/30 group-hover:border-foreground/30 transition-colors" />
+                </button>
+              )}
+              {showAllReasoning
+                ? reasoning.map((step, index) => renderReasoningStep(step, index, true))
+                : reasoning.slice(-5).map((step, index) => {
+                  const actualIndex = reasoning.length - 5 + index;
+                  return renderReasoningStep(step, actualIndex >= 0 ? actualIndex : index, true);
+                })
+              }
+            </>
+          ) : (
+            // Show collapsed view when not streaming
+            <>
+              {!showAllReasoning && reasoning.length > 1 && (
+                <button
+                  onClick={() => setShowAllReasoning(true)}
+                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors group w-full"
+                >
+                  <div className="flex-1 border-t border-dashed border-muted-foreground/30 group-hover:border-foreground/30 transition-colors" />
+                  <span className="shrink-0">{reasoning.length} reasoning {reasoning.length === 1 ? 'step' : 'steps'} - show details</span>
+                  <div className="flex-1 border-t border-dashed border-muted-foreground/30 group-hover:border-foreground/30 transition-colors" />
+                </button>
+              )}
 
-            {/* Results Grid */}
-            <div className="p-4">
-              {items.length > 0 ? (
+              {showAllReasoning && (
+                // Show all steps without animation when expanded
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-3">
-                    {displayItems.map((item) => (
-                      <SearchResultItem key={item.id} item={item} />
-                    ))}
-                  </div>
-                  {items.length > 3 && (
-                    <div className="mt-4 text-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowAllItems(!showAllItems);
-                        }}
-                        className="text-sm text-primary hover:underline"
-                      >
-                        {showAllItems ? 'Show less' : `Show ${items.length - 3} more items`}
-                      </button>
-                    </div>
+                  {reasoning.map((step, index) => renderReasoningStep(step, index, false))}
+                  {reasoning.length > 1 && (
+                    <button
+                      onClick={() => setShowAllReasoning(false)}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-7"
+                    >
+                      Show less
+                    </button>
                   )}
                 </>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  No items found.
-                </div>
               )}
-            </div>
+            </>
+          )}
+        </div>
+      )}
+      {
+        state === "output-available" && items?.length > 0 && !streaming && (
+          <div className="my-3 border rounded-lg overflow-hidden bg-card">
+            <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+              <CollapsibleTrigger className="w-full">
+                <div className="flex items-center justify-between p-4 hover:bg-accent/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-md bg-primary/10">
+                      <Search className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-medium text-sm flex items-center gap-2">
+                        Context search results {contextNames}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+                        {uniqueContexts.size > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Database className="h-3 w-3" />
+                            {uniqueContexts.size} {uniqueContexts.size === 1 ? 'context' : 'contexts'}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1">
+                          <FileText className="h-3 w-3" />
+                          {items.length} {items.length === 1 ? 'item' : 'items'}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <LayoutList className="h-3 w-3" />
+                          {totalChunks} chunks
+                        </span>
+                      </div>
+
+                    </div>
+                  </div>
+                  {isOpen ? (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+              </CollapsibleTrigger>
+
+              <CollapsibleContent>
+                <div className="border-t">
+                  {/* Search Parameters */}
+                  {(input && Object.keys(input).length > 0) && (
+                    <div className="p-4 bg-muted/30 border-b">
+                      <div className="text-xs font-medium text-muted-foreground mb-2">Search Parameters</div>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(input).map(([key, value]) => (
+                          <Badge key={key} variant="outline" className="text-xs">
+                            <span className="font-medium">{camelCaseToLabel(key)}:</span>
+                            <span className="ml-1 font-normal">
+                              {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                            </span>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Results Grid */}
+                  <div className="p-4">
+                    {items.length > 0 ? (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-3">
+                          {displayItems.map((item) => (
+                            <SearchResultItem key={item.id} item={item} />
+                          ))}
+                        </div>
+                        {items.length > 3 && (
+                          <div className="mt-4 text-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowAllItems(!showAllItems);
+                              }}
+                              className="text-sm text-primary hover:underline"
+                            >
+                              {showAllItems ? 'Show less' : `Show ${items.length - 3} more items`}
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground text-sm">
+                        No items found.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
+        )}
+    </>
   );
 };
 

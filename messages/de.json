@@ -1,0 +1,179 @@
+{
+  "navigation": {
+    "dashboard": "Dashboard",
+    "feedback": "Feedback",
+    "knowledge": "Wissen",
+    "agents": "Agenten",
+    "prompts": "Prompts",
+    "projects": "Projekte",
+    "chat": "Chat",
+    "transcriptions": "Transkriptionen",
+    "templates": "Vorlagen",
+    "evals": "Evaluationen",
+    "automation": "Automatisierung",
+    "users": "Benutzer",
+    "keys": "Schlüssel",
+    "variables": "Variablen",
+    "api": "API",
+    "apiPlayground": "API Playground",
+    "apiKeys": "API-Schlüssel",
+    "systemVariables": "Systemvariablen",
+    "themeSettings": "Design",
+    "theme": "Design",
+    "logout": "Abmelden",
+    "terms": "Bedingungen"
+  },
+  "language": {
+    "switchTo": "Wechseln zu {language}",
+    "german": "Deutsch",
+    "english": "Englisch"
+  },
+  "agentSelection": {
+    "searchPlaceholder": "Agenten suchen...",
+    "noAgentsFound": "Keine Agenten gefunden, die Ihrer Suche entsprechen",
+    "noAgentsAvailable": "Keine Agenten verfügbar",
+    "sessionCreated": "Sitzung erfolgreich erstellt! In einem Projekt gestartete Sitzungen können von Projektmitgliedern eingesehen werden.",
+    "sessionError": "Fehler beim Erstellen der Sitzung. Bitte versuchen Sie es erneut.",
+    "newSession": "Neue Sitzung mit {agentName}"
+  },
+  "common": {
+    "success": "Erfolg",
+    "error": "Fehler",
+    "loading": "Wird geladen...",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "create": "Erstellen",
+    "search": "Suchen",
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "enabled": "Aktiviert",
+    "name": "Name",
+    "description": "Beschreibung",
+    "backend": "Backend"
+  },
+  "agents": {
+    "title": "Agenten",
+    "subtitle": "Verwalten Sie Ihre KI-Agenten und erstellen Sie neue.",
+    "searchPlaceholder": "Agenten suchen...",
+    "errorLoading": "Fehler beim Laden der Agenten",
+    "errorLoadingDescription": "Beim Laden Ihrer Agenten ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.",
+    "createNewAgent": "Neuen Agenten erstellen",
+    "noDescriptionAvailable": "Keine Beschreibung verfügbar",
+    "createDialog": {
+      "title": "Neuen Agenten erstellen",
+      "description": "Geben Sie Ihrem neuen Agenten einen Namen und eine Beschreibung (optional).",
+      "generateImageLabel": "KI-Bild für diesen Agenten generieren",
+      "imageStyle": "Bildstil",
+      "imageStylePlaceholder": "Bildstil auswählen",
+      "generatingImages": "Ihre Agentenbilder werden generiert...",
+      "generatingProgress": "Erstelle {current}/4 Bildoptionen",
+      "complete": "Abgeschlossen",
+      "generating": "Generiere...",
+      "buttonCreate": "Agent erstellen",
+      "buttonGenerating": "Generiere...",
+      "buttonGenerateImages": "Bilder generieren",
+      "fillAllFields": "Bitte füllen Sie alle Felder aus",
+      "imageGenerationFailed": "Fehler beim Generieren der Bilder. Bitte versuchen Sie es erneut.",
+      "createFailed": "Fehler beim Erstellen des Agenten. Bitte versuchen Sie es erneut.",
+      "imageInfoAlert": "Exulu kann ein cooles Bild für Ihren Agenten generieren, wenn ein OPENAI_IMAGE_GENERATION_API_KEY zu Ihrer Variablenseite hinzugefügt wurde."
+    },
+    "detailsSheet": {
+      "noModelSelected": "Kein Modell ausgewählt",
+      "description": "Beschreibung",
+      "noDescriptionAvailable": "Keine Beschreibung verfügbar.",
+      "capabilities": "Fähigkeiten",
+      "tools": "Werkzeuge",
+      "noToolsEnabled": "Keine Werkzeuge aktiviert",
+      "security": "Sicherheit",
+      "protected": "Geschützt",
+      "unprotected": "Ungeschützt",
+      "active": "Aktiv",
+      "accessControl": "Zugriffskontrolle",
+      "scanners": {
+        "promptGuard": "Prompt-Schutz",
+        "codeShield": "Code-Schutz",
+        "agentAlignment": "Agenten-Ausrichtung",
+        "hiddenAscii": "Versteckte ASCII-Erkennung",
+        "piiDetection": "PII-Erkennung"
+      },
+      "capabilityLabels": {
+        "images": "Bilder",
+        "files": "Dateien",
+        "audio": "Audio",
+        "video": "Video",
+        "none": "Keine"
+      }
+    },
+    "deleteDialog": {
+      "title": "Diesen Agenten löschen",
+      "confirmationPrompt": "Geben Sie \"{confirmation}\" ein, um zu bestätigen",
+      "confirmationText": "diesen Agenten löschen",
+      "buttonDelete": "Löschen"
+    },
+    "imageStyles": {
+      "origami": "Origami",
+      "anime": "Anime",
+      "japanese_anime": "Japanisches Anime",
+      "vaporwave": "Vaporwave",
+      "lego": "Lego",
+      "paper_cut": "Papierschnitt",
+      "felt_puppet": "Filzpuppe",
+      "3d": "3D",
+      "app_icon": "App-Symbol",
+      "pixel_art": "Pixel-Art",
+      "isometric": "Isometrisch"
+    }
+  },
+  "dashboard": {
+    "title": "Analyse-Dashboard",
+    "subtitle": "Überwachen Sie Ihre KI-Workflows und Leistungsmetriken.",
+    "summary": "Zusammenfassung",
+    "summaryCards": {
+      "agentSessions": "Agenten-Sitzungen",
+      "agentCalls": "Agenten-Aufrufe",
+      "tokenUsage": "Token-Nutzung",
+      "workflowRuns": "Workflow-Durchläufe",
+      "functionCalls": "Funktionsaufrufe"
+    },
+    "leaderboards": {
+      "title": "Bestenlisten",
+      "viewToggle": {
+        "count": "Anzahl",
+        "tokens": "Tokens"
+      },
+      "topUsers": {
+        "title": "Top-Benutzer",
+        "subtitleCount": "Aktivste Benutzer nach Agenten-Aufrufen",
+        "subtitleTokens": "Aktivste Benutzer nach Token-Nutzung"
+      },
+      "topProjects": {
+        "title": "Top-Projekte",
+        "subtitleCount": "Aktivste Projekte nach Agenten-Aufrufen",
+        "subtitleTokens": "Aktivste Projekte nach Token-Nutzung"
+      },
+      "topAgents": {
+        "title": "Top-Agenten",
+        "subtitleCount": "Am häufigsten verwendete Agenten nach Aufrufanzahl",
+        "subtitleTokens": "Am häufigsten verwendete Agenten nach Token-Nutzung"
+      },
+      "valueLabels": {
+        "calls": "Aufrufe",
+        "tokens": "Tokens"
+      }
+    },
+    "timeSeriesAnalytics": {
+      "title": "Zeitreihen-Analysen",
+      "unitOptions": {
+        "tokens": "Tokens",
+        "count": "Anzahl"
+      },
+      "groupByOptions": {
+        "label": "Bezeichnung",
+        "user": "Benutzer",
+        "role": "Rolle"
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "@apollo/client";
-import { Loader2, Plus, MessageSquare, Info, Sparkles, Settings2, FileText, AlertCircle } from "lucide-react";
+import { Loader2, Plus, MessageSquare, Info, Sparkles, AlertCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CREATE_TEST_CASE, UPDATE_TEST_CASE, GET_TOOLS } from "@/queries/queries";
 import { useToast } from "@/components/ui/use-toast";
 import { TestCase } from "@/types/models/test-case";
-import { Tool } from "@EXULU_SHARED/models/tool";
+import { ExuluTool as Tool } from "@EXULU_SHARED/models/tool";
 import { UIMessage, FileUIPart } from "ai";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -183,7 +183,7 @@ export function TestCaseModal({
     },
   });
 
-  const handleAddMessage = () => {
+  const handleAddMessage = async () => {
     if (!currentInput.trim() && currentFileParts.length === 0) return;
 
     const parts: any[] = [];
@@ -205,6 +205,9 @@ export function TestCaseModal({
       role: "user",
       parts,
     };
+
+    // wait 1 second to avoid the new message and the placeholder message having the same id to avoid the issue of the placeholder message being deleted when the new message is added
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     const placeholderMessage: UIMessage = {
       id: `msg-${Date.now()}`,
@@ -317,7 +320,7 @@ export function TestCaseModal({
   };
 
   const getFileCount = (message: UIMessage) => {
-    return message.parts.filter(part => part.type === "file").length;
+    return message.parts?.filter(part => part.type === "file").length || 0;
   };
 
   return (
@@ -425,23 +428,29 @@ export function TestCaseModal({
                       <Conversation className="max-h-[350px] overflow-y-auto border rounded-lg bg-muted/30 transition-all duration-300 ease-in-out">
                         {/* @ts-ignore */}
                         <ConversationContent className="px-6 py-4">
-                          <div className="animate-in fade-in duration-500">
+                          <div className="animate-in fade-in duration-500 space-y-4">
                             <MessageRenderer
-                              messages={inputs}
+                              messages={inputs || []}
                               config={{
                                 marginTopFirstMessage: 'mt-0',
-                                customAssistantClassnames: 'bg-secondary/50 rounded-lg px-3 py-1 border-l-2 border-primary/30'
+                                customAssistantClassnames: 'bg-secondary/50 rounded-lg px-4 py-4 border-l-2 border-primary/30'
+                              }}
+                              onUpdate={(messages) => {
+                                setInputs(messages);
                               }}
                               status={"ready"}
-                              showActions={false}
-                              writeAccess={false}
+                              showActions={true}
+                              showEdit={true}
+                              showRemove={true}
+                              showTokens={false}
+                              writeAccess={true}
                             />
                           </div>
                         </ConversationContent>
                       </Conversation>
                     )}
 
-                    <div className="space-y-3 pt-2 border-t">
+                    <div className="space-y-3 pt-2">
                       <Label htmlFor="currentInput" className="text-sm font-semibold">Add User Message</Label>
                       <div className="space-y-3">
                         <Textarea
@@ -451,10 +460,10 @@ export function TestCaseModal({
                           onChange={(e) => setCurrentInput(e.target.value)}
                           disabled={loading}
                           rows={2}
-                          onKeyDown={(e) => {
+                          onKeyDown={async (e) => {
                             if (e.key === "Enter" && !e.shiftKey) {
                               e.preventDefault();
-                              handleAddMessage();
+                              await handleAddMessage();
                             }
                           }}
                         />
@@ -477,7 +486,9 @@ export function TestCaseModal({
                           <Button
                             type="button"
                             variant="outline"
-                            onClick={handleAddMessage}
+                            onClick={async () => {
+                              await handleAddMessage();
+                            }}
                             disabled={loading || (!currentInput.trim() && currentFileParts.length === 0)}
                             className="ml-auto"
                             size="default"

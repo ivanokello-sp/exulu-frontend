@@ -224,7 +224,7 @@ export function DataTable<TData, TValue>({
                 ) : (
                   <Trash2 className="size-4" />
                 )}
-                <span className="ml-2">Delete selected</span>
+                <span className="ml-2">Delete</span>
               </Button>
             </div>
           ) : null}

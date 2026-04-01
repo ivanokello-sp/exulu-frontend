@@ -10,6 +10,8 @@ import { Search, Bot } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Badge } from "@/components/ui/badge";
 
 export const AgentSelectionModalContentWrapper = () => {
     const router = useRouter();
@@ -31,6 +33,7 @@ export const AgentSelectionModalContent = ({
     }) => void;
     project?: string;
 }) => {
+    const t = useTranslations();
     const { data: agentsData, loading: agentsLoading } = useQuery(GET_AGENTS, {
         variables: {
             page: 1,
@@ -48,7 +51,7 @@ export const AgentSelectionModalContent = ({
         try {
             const result = await createAgentSession({
                 variables: {
-                    title: `New session with ${agent.name}`,
+                    title: t('agentSelection.newSession', { agentName: agent.name }),
                     agent: agent.id,
                     project: project,
                     rights_mode: "private",
@@ -62,8 +65,8 @@ export const AgentSelectionModalContent = ({
 
             if (sessionId) {
                 toast({
-                    title: "Success",
-                    description: "Session created successfully! Sessions started in a project are accessible for viewing by project members.",
+                    title: t('common.success'),
+                    description: t('agentSelection.sessionCreated'),
                 });
 
                 setAgentSearch("");
@@ -77,8 +80,8 @@ export const AgentSelectionModalContent = ({
         } catch (error: any) {
             console.error("Error creating session:", error);
             toast({
-                title: "Error",
-                description: error.message || "Failed to create session. Please try again.",
+                title: t('common.error'),
+                description: error.message || t('agentSelection.sessionError'),
                 variant: "destructive",
             });
         }
@@ -97,7 +100,7 @@ export const AgentSelectionModalContent = ({
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                    placeholder="Search agents..."
+                    placeholder={t('agentSelection.searchPlaceholder')}
                     value={agentSearch}
                     onChange={(e) => setAgentSearch(e.target.value)}
                     className="pl-10"
@@ -134,8 +137,12 @@ export const AgentSelectionModalContent = ({
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="font-medium truncate">{agent.name}</p>
-                                        <p className="text-sm text-muted-foreground truncate">
-                                            {agent.description || `${agent.type} agent`}
+                                        {/* Badge showing the modelName */}
+                                        <Badge variant="secondary" className="text-xs">
+                                            {agent.modelName}
+                                        </Badge>
+                                        <p className="text-sm text-muted-foreground">
+                                            {(agent.description || agent.type || "")} {agent.modelName && `(${agent.modelName})`}
                                         </p>
                                     </div>
                                 </div>
@@ -145,7 +152,7 @@ export const AgentSelectionModalContent = ({
                 ) : (
                     <div className="text-center py-8 text-muted-foreground">
                         <Bot className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                        <p>{agentSearch ? "No agents found matching your search" : "No agents available"}</p>
+                        <p>{agentSearch ? t('agentSelection.noAgentsFound') : t('agentSelection.noAgentsAvailable')}</p>
                     </div>
                 )}
             </div>

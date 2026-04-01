@@ -195,7 +195,6 @@ export function DataDisplay(props: DataDisplayProps) {
       console.log("[DataDisplay] Query completed, data:", data);
       console.log("[DataDisplay] Looking for key:", props.context.id + "_itemsById");
       console.log("[DataDisplay] Available keys:", Object.keys(data));
-      
       const item = data[props.context.id + "_itemsById"];
       if (!item) {
         console.error("[DataDisplay] Item not found in query response, retry count:", retryCount);
@@ -949,9 +948,21 @@ export function DataDisplay(props: DataDisplayProps) {
                             </TableCell>
                           </TableRow>
 
+                          {
+                            context.processor ? (
+                              <TableRow key={"processor"}>
+                                <TableCell className="font-medium capitalize">
+                                  Last processed at
+                                </TableCell>
+                                <TableCell>
+                                  {data.last_processed_at}
+                                </TableCell>
+                              </TableRow>
+                            ) : null
+                          }
                           {/* todo: add fixed  fields for "file" which can be a pdf, image, word doc etc...*/}
 
-                          {context?.fields?.length &&
+                          {context?.fields?.length ?
                             context.fields.map(
                               (
                                 contextField,
@@ -1226,7 +1237,7 @@ export function DataDisplay(props: DataDisplayProps) {
                                   </TableRow>
                                 );
                               },
-                            )}
+                            ) : null}
                         </TableBody>
                       </Table>
 
@@ -1319,7 +1330,7 @@ export function DataDisplay(props: DataDisplayProps) {
                                 {chunk.chunk_index + 1}
                               </TableCell>
                               <TableCell>
-                                <TextPreview text={chunk.chunk_content} />
+                                <TextPreview text={chunk.chunk_content} metadata={chunk.chunk_metadata} />
                               </TableCell>
                               <TableCell>
                                 {new Date(chunk.chunk_created_at).toLocaleString()}

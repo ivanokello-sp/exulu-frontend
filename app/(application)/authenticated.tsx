@@ -8,6 +8,7 @@ import {
   InMemoryCache,
 } from "@apollo/client";
 import { setContext } from "@apollo/client/link/context";
+import { SessionProvider } from "next-auth/react";
 import * as React from "react";
 import { MainNavProvider } from "@/components/custom/main-nav";
 import { getToken } from "@/util/api";
@@ -18,22 +19,28 @@ interface AuthenticatedProps {
   children: React.ReactNode;
   user: User & { role: { id: string } };
   sidebarDefaultOpen: boolean;
+  config: {
+    n8n: {
+      enabled?: boolean;
+      url?: string;
+    };
+  };
 }
 
 export const UserContext = React.createContext<any>(null);
 
-const User = ({ children, user, sidebarDefaultOpen }: AuthenticatedProps) => {
+const User = ({ children, user, sidebarDefaultOpen, config }: AuthenticatedProps) => {
 
   return (
     <UserContext.Provider value={{ user }}>
-      <MainNavProvider sidebarDefaultOpen={sidebarDefaultOpen}>
+      <MainNavProvider sidebarDefaultOpen={sidebarDefaultOpen} config={config}>
         {children}
       </MainNavProvider>
 
     </UserContext.Provider>
   );
 };
-const Authenticated = ({ children, user, sidebarDefaultOpen }: AuthenticatedProps) => {
+const Authenticated = ({ children, user, sidebarDefaultOpen, config }: AuthenticatedProps) => {
 
   const configContext = React.useContext(ConfigContext);
 
@@ -78,9 +85,16 @@ const Authenticated = ({ children, user, sidebarDefaultOpen }: AuthenticatedProp
 
   return (
     <ApolloProvider client={client}>
-      <User sidebarDefaultOpen={sidebarDefaultOpen} user={user}>
-        {children}
-      </User>
+      <SessionProvider>
+        <User sidebarDefaultOpen={sidebarDefaultOpen} user={user} config={{
+          n8n: {
+            enabled: config.n8n?.enabled,
+            url: config.n8n?.url,
+          }
+        }}>
+          {children}
+        </User>
+      </SessionProvider>
     </ApolloProvider>
   );
 };

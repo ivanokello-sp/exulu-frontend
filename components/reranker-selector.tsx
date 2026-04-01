@@ -1,45 +1,48 @@
 "use client";
 
 import * as React from "react";
-import { AgentBackend } from "@EXULU_SHARED/models/agent-backend";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@apollo/client";
-import { GET_PROVIDERS } from "@/queries/queries";
+import { GET_RERANKERS } from "@/queries/queries";
 import { Input } from "@/components/ui/input";
 
-export function AgentBackendSelector({
+export function RerankerSelector({
+  disabled,
+  value,
   onSelect,
-}: any & { onSelect: (id) => void}) {
+}: any & { disabled: boolean, value: string, onSelect: (id) => void}) {
 
-  const [selected, setSelected] = React.useState<AgentBackend | undefined>();
+  const [selected, setSelected] = React.useState<{ id: string, name: string, description: string } | undefined>();
   const [searchTerm, setSearchTerm] = React.useState("");
   const searchInputRef = React.useRef<HTMLInputElement>(null);
-  const { loading: isLoading, error, data, refetch, previousData } = useQuery(GET_PROVIDERS, {
+  const { loading: isLoading, error, data, refetch, previousData } = useQuery(GET_RERANKERS, {
     fetchPolicy: "no-cache",
     nextFetchPolicy: "network-only",
   });
 
-  let providers: AgentBackend[] = []
-  providers = data?.providers?.items || [];
+  let rerankers: { id: string, name: string, description: string }[] = []
+  rerankers = data?.rerankers?.items || [];
 
-  const filteredProviders = providers.filter((provider) =>
-    `${provider.provider} - ${provider.name}`.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredRerankers = rerankers.filter((reranker) =>
+    `${reranker.name}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <Select
+      disabled={disabled}
+      value={value || undefined}
       onOpenChange={(open) => {
         if (open) {
           setTimeout(() => searchInputRef.current?.focus(), 0);
         }
       }}
       onValueChange={(value) => {
-        setSelected(providers?.find((agent) => agent.id === value))
+        setSelected(rerankers?.find((reranker) => reranker.id === value))
         onSelect(value);
       }}
     >
       <SelectTrigger>
-        <SelectValue placeholder={selected?.name || `Select an agent backend`} />
+        <SelectValue placeholder={selected?.name || `Select a reranker`} />
       </SelectTrigger>
       <SelectContent>
         <div className="p-2">
@@ -58,9 +61,9 @@ export function AgentBackendSelector({
               Loading...
             </SelectItem>
           ) :
-            filteredProviders?.map((agent) => (
-              <SelectItem key={agent.id} value={agent.id}>
-                {agent.provider + " - " + agent.name}
+            filteredRerankers?.map((reranker) => (
+              <SelectItem key={reranker.id} value={reranker.id}>
+                {reranker.name}
               </SelectItem>
             ))
         }

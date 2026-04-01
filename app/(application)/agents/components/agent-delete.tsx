@@ -1,3 +1,5 @@
+"use client";
+
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import * as React from "react";
@@ -13,14 +15,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loading } from "@/components/ui/loading";
+import { useTranslations } from "next-intl";
 
 export function AgentDelete({
   deleteAgent,
   deleteAgentResult,
   agent,
 }) {
+  const t = useTranslations();
 
-  const confirmation = "delete this agent";
+  const confirmation = t('agents.deleteDialog.confirmationText');
   const [value, setValue] = useState("");
 
   return (
@@ -32,11 +36,11 @@ export function AgentDelete({
       </DialogTrigger>
       <DialogContent className="sm:max-w-[475px]">
         <DialogHeader>
-          <DialogTitle>Delete this agent</DialogTitle>
+          <DialogTitle>{t('agents.deleteDialog.title')}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="name">Type "{confirmation}" to confirm</Label>
+            <Label htmlFor="name">{t('agents.deleteDialog.confirmationPrompt', { confirmation })}</Label>
             <Input
               onChange={(e) => {
                 setValue(e.target.value);
@@ -59,7 +63,7 @@ export function AgentDelete({
             variant={"destructive"}
             type="submit"
           >
-            Delete {deleteAgentResult.loading && <Loading />}
+            {t('agents.deleteDialog.buttonDelete')} {deleteAgentResult.loading && <Loading />}
           </Button>
         </DialogFooter>
       </DialogContent>

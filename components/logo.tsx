@@ -2,6 +2,7 @@
 
 import { ConfigContext } from "./config-context";
 import { useContext } from "react";
+import { useTheme } from "next-themes";
 
 interface LogoProps {
     width?: number;
@@ -12,22 +13,27 @@ interface LogoProps {
 
 const Logo = ({ width = 64, height = 32, className = "", alt = "Logo" }: LogoProps) => {
     const configContext = useContext(ConfigContext);
+    const { theme } = useTheme()
     return (
         <>
-            <img
-                src={configContext?.backend + "/logo_dark.png"}
-                alt={alt}
-                width={width}
-                height={height}
-                className={className + "hidden dark:block"}
-            />
-            <img
-                src={configContext?.backend + "/logo_light.png"}
-                alt={alt}
-                width={width}
-                height={height}
-                className={className + "block dark:hidden"}
-            />
+            {theme !== "dark" && (
+                <img
+                    src={configContext?.backend + "/logo_light.png"}
+                    alt={alt}
+                    width={width}
+                    height={height}
+                    className={className}
+                />
+            )}
+            {theme === "dark" && (
+                <img
+                    src={configContext?.backend + "/logo_dark.png"}
+                    alt={alt}
+                    width={width}
+                    height={height}
+                    className={className}
+                />
+            )}
         </>
     )
 }

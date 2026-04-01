@@ -18,6 +18,7 @@ interface PromptVariableFormProps {
   variables: string[];
   promptName: string;
   onSubmit: (values: Record<string, string>) => void;
+  submitButtonText?: string;
 }
 
 export function PromptVariableForm({
@@ -26,6 +27,7 @@ export function PromptVariableForm({
   variables,
   promptName,
   onSubmit,
+  submitButtonText = "Insert Prompt",
 }: PromptVariableFormProps) {
   const [values, setValues] = useState<Record<string, string>>({});
 
@@ -81,7 +83,7 @@ export function PromptVariableForm({
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={!allFieldsFilled}>
-            Insert Prompt
+            {submitButtonText}
           </Button>
         </DialogFooter>
       </DialogContent>

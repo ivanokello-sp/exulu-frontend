@@ -69,6 +69,11 @@ export const config = {
                     "Authorization": `Bearer ${token}`,
                 },
             })
+            console.log("[EXULU] res", res)
+            if (!res.ok) {
+                console.error("[EXULU] Error fetching theme config:", res.statusText)
+                throw new Error("Failed to fetch theme config.")
+            }
             const json = await res.json();
             return json.theme;
         } catch (error) {

@@ -92,7 +92,7 @@ export function DateRangeSelector({ dateRange, onDateRangeChange, className, max
             disabled={disabledDays}
             numberOfMonths={2}
           />
-          <div className="p-3 pt-0 text-xs text-muted-foreground border-t">
+          <div className="p-3 pt-3 text-xs text-muted-foreground border-t">
             Maximum range: {maxDays} days
           </div>
         </PopoverContent>

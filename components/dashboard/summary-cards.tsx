@@ -17,10 +17,10 @@ interface SummaryCardProps {
 function SummaryCardElement({ title, currentValue, previousValue, isLoading }: SummaryCardProps) {
   if (isLoading) {
     return (
-      <Card className="animate-pulse">
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-          <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">{title}</CardTitle>
-          <div className="p-2 rounded-full">
+          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+          <div className="p-2 rounded-full bg-muted">
             <div className="h-4 w-4 rounded" />
           </div>
         </CardHeader>
@@ -40,26 +40,26 @@ function SummaryCardElement({ title, currentValue, previousValue, isLoading }: S
   const isNeutral = percentageChange === 0;
 
   const TrendIcon = isNeutral ? Minus : isPositive ? TrendingUp : TrendingDown;
-  const trendColor = isNeutral ? "text-muted-foreground" : isPositive ? "text-green-600" : "text-red-600";
+  const trendColor = isNeutral ? "text-muted-foreground" : isPositive ? "text-green-600 dark:text-green-500" : "text-red-600 dark:text-red-500";
 
   return (
-    <Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+    <Card className="hover:shadow-md transition-shadow duration-200">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">{title}</CardTitle>
-        <div className={`p-2 rounded-full ${isNeutral ? 'bg-gray-200 dark:bg-gray-700' : isPositive ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        <div className={`p-2 rounded-full ${isNeutral ? 'bg-muted' : isPositive ? 'bg-green-500/10 dark:bg-green-500/20' : 'bg-red-500/10 dark:bg-red-500/20'}`}>
           <TrendIcon className={`h-4 w-4 ${trendColor}`} />
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent mb-2">
+        <div className="text-3xl font-bold text-foreground mb-2">
           {currentValue.toLocaleString()}
         </div>
-        <p className="text-xs text-slate-600 dark:text-slate-400">
+        <p className="text-xs text-muted-foreground">
           <span className={`font-medium ${trendColor}`}>
             {isNeutral ? "No change" : `${Math.abs(percentageChange).toFixed(1)}% ${isPositive ? "increase" : "decrease"}`}
           </span>
           <br />
-          <span className="text-slate-500 dark:text-slate-500">
+          <span className="text-muted-foreground/70">
             vs 7-day avg: {previousValue.toLocaleString()}
           </span>
         </p>

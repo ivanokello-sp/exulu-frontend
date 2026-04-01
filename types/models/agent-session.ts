@@ -7,6 +7,7 @@ export interface AgentSession {
     project: string;
     title: string;
     created_by: string | number;
+    session_items: string[];
     rights_mode: ExuluRightsMode
     RBAC?: {
         type?: string;

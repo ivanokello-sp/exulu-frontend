@@ -1,5 +1,16 @@
 import { ExuluRightsMode } from "./agent-session";
 
+export interface PromptVersion {
+  version: number;
+  content: string;
+  name?: string;
+  description?: string;
+  tags?: string[];
+  timestamp: string;
+  changed_by: string;
+  change_message?: string;
+}
+
 export interface PromptLibrary {
   id: string;
   name: string;
@@ -20,6 +31,7 @@ export interface PromptLibrary {
   favorite_count: number;
   assigned_agents?: string[];
   is_favorited?: boolean; // Computed per user on frontend
+  history?: PromptVersion[]; // Version history
 }
 
 export interface PromptFavorite {
@@ -55,6 +67,7 @@ export interface UpdatePromptInput {
     // projects?: Array<{ id: string; rights: "read" | "write" }>;
   };
   assigned_agents?: string[];
+  change_message?: string; // Optional message describing changes
 }
 
 export type PromptSortBy =
