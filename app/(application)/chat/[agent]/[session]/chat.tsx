@@ -624,23 +624,20 @@ export function ChatLayout({
           </div>
         ) : null}
         {/* Context/token counter - moved outside Conversation to prevent scroll interference */}
-        <div className={`flex justify-between absolute left-0 right-0 items-center px-4 py-2 border-b z-10 dark:bg-black bg-white ${agent.maxContextLength ? 'top-4' : 'top-0'}`}>
-          <div className="flex items-center gap-4">
+        <div className={`flex justify-between absolute left-0 right-0 items-center px-4 py-1.5 border-b z-10 dark:bg-black bg-white ${agent.maxContextLength ? 'top-4' : 'top-0'}`}>
+          <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-xs">
               {agent.modelName}
             </Badge>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Form className="w-4 h-4" />
-              Turn this conversation into a reusable template
-            </div>
           </div>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             disabled={!canCreateWorkflow}
             onClick={() => setShowSaveWorkflowModal(true)}
-            aria-label="Save conversation as reusable template">
-            <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
+            aria-label="Save conversation as reusable template"
+            className="text-xs text-muted-foreground h-7">
+            <Plus className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
             Save as Template
           </Button>
         </div>
@@ -691,7 +688,7 @@ export function ChatLayout({
           {messages?.length === 0 ?
             <div className="size-full flex justify-center items-center">
               <div className="flex flex-col gap-4 items-center max-w-2xl w-full px-4 my-auto">
-                <Logo alt="Logo" width={120} height={120} className="h-30 w-40 object-contain" />
+                <Logo alt="Logo" width={80} height={32} className="object-contain" />
                 {
                   !agent.welcomemessage && (
                     <p className="text-center text-lg text-muted-foreground">
@@ -770,13 +767,14 @@ export function ChatLayout({
           <>
             <form
               onSubmit={onSubmit}
-              className="px-6 border-input flex mx-5 p-5 flex-col gap-2 mb-2">
-              <div className="items-center flex flex-col relative gap-2 w-full">
-                <div className="flex relative gap-2 w-[850px]">
+              className="flex flex-col gap-1.5 px-4 pb-2 max-w-[850px] mx-auto w-full">
+              <div className="flex flex-col gap-1.5 w-full">
+                <div className="flex relative gap-2 w-full">
                   <TextareaAutosize
                     autoComplete="off"
                     autoFocus={true}
-                    minRows={1}
+                    minRows={2}
+                    maxRows={8}
                     maxLength={MAX_INPUT_LENGTH}
                     value={input}
                     ref={inputRef}
@@ -784,44 +782,44 @@ export function ChatLayout({
                     onChange={(e) => setInput(e.target.value)}
                     name="message"
                     placeholder={`Ask me anything...`}
-                    className="border max-h-40 px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 w-full items-center h-28 resize-none overflow-hidden dark:bg-card/35"
+                    className="border px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 w-full resize-none rounded-md dark:bg-card/35"
                     aria-label="Chat message input"
                     aria-describedby={input.length > MAX_INPUT_LENGTH * 0.9 ? "input-length-warning" : undefined}
                   />
                   {status !== "streaming" ? (
                     <Button
-                      className="shrink-0"
+                      className="shrink-0 self-end"
                       variant="secondary"
                       size="icon"
                       type="submit"
                       disabled={status === "submitted" || !input?.trim()}
                       aria-label="Send message"
                     >
-                      <ArrowUp className=" size-6 text-muted-foreground" />
+                      <ArrowUp className="size-4 text-muted-foreground" />
                     </Button>
                   ) : (
                     <Button
-                      className="shrink-0"
+                      className="shrink-0 self-end"
                       variant="secondary"
                       size="icon"
                       type="button"
                       onClick={stop}
                       aria-label="Stop generating response"
                     >
-                      <StopIcon className="size-6 text-muted-foreground" />
+                      <StopIcon className="size-4 text-muted-foreground" />
                     </Button>
                   )}
                 </div>
                 {/* Character count warning when approaching limit */}
                 {input.length > MAX_INPUT_LENGTH * 0.9 && (
-                  <div id="input-length-warning" className="text-xs text-muted-foreground w-[850px] flex justify-end" role="status" aria-live="polite">
+                  <div id="input-length-warning" className="text-xs text-muted-foreground flex justify-end" role="status" aria-live="polite">
                     {input.length} / {MAX_INPUT_LENGTH} characters
                     {input.length >= MAX_INPUT_LENGTH && (
                       <span className="text-destructive ml-2">Maximum length reached</span>
                     )}
                   </div>
                 )}
-                <div className="items-center flex relative gap-2 w-[850px]">
+                <div className="items-center flex relative gap-2 w-full">
                   {/* {
                   configContext?.fileUploads?.s3endpoint && (<UppyDashboard
                     id={`chat-${currentSession?.id || 'new'}`}
@@ -914,7 +912,7 @@ export function ChatLayout({
                   </TooltipProvider>
                 </div>
               </div>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 w-[850px] mx-auto">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 w-full">
                 {/* Show  selected files */}
                 {fileItems?.map((item) => (
                   <FileItem s3Key={item} disabled={true} active={false} onRemove={() => {

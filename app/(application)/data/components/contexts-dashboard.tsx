@@ -14,7 +14,7 @@ import { GET_CONTEXTS, GET_ITEMS, PAGINATION_POSTFIX } from "@/queries/queries";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Database, FileText, Clock, Plus, ArrowLeft, Sparkles } from "lucide-react";
+import { Database, FileText, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
@@ -75,26 +75,20 @@ function AdminDashboard({
   setGroupBy: (groupBy: string) => void;
 }) {
   return (
-    <div className="flex-1 flex flex-col p-8 pt-6 h-screen">
+    <div className="flex-1 flex flex-col p-6 gap-5 h-screen overflow-auto">
       {/* Header Section */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="space-y-2">
-          <h2 className="text-4xl font-bold tracking-tight bg-clip-text">
-            Contexts Dashboard
-          </h2>
-          <p className="text-lg">
+      <div className="flex items-center justify-between border-b border-border/50 pb-4">
+        <div>
+          <h2 className="text-lg font-semibold">Contexts Dashboard</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
             Monitor your contexts and their usage.
           </p>
         </div>
-
-        {/* Date Range Selector - moved to header */}
-        <div className="flex items-center space-x-2">
-          <DateRangeSelector
-            dateRange={dateRange}
-            onDateRangeChange={setDateRange}
-            maxDays={30}
-          />
-        </div>
+        <DateRangeSelector
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          maxDays={30}
+        />
       </div>
 
       {/* Charts Grid - Improved layout and spacing */}
@@ -165,17 +159,13 @@ function RecentItemsView() {
   }, [contextsLoading, contexts.length, hasAnyItems]);
 
   return (
-    <div className="flex-1 flex flex-col p-8 pt-6 h-screen overflow-auto">
+    <div className="flex-1 flex flex-col p-6 gap-5 h-screen overflow-auto">
       {/* Header Section */}
-      <div className="mb-8">
-        <div className="space-y-2">
-          <h2 className="text-4xl font-bold tracking-tight bg-clip-text">
-            Recent Items
-          </h2>
-          <p className="text-lg text-muted-foreground">
-            Browse recent items across all your knowledge sources.
-          </p>
-        </div>
+      <div className="border-b border-border/50 pb-4">
+        <h2 className="text-lg font-semibold">Recent Items</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Browse recent items across all your knowledge sources.
+        </p>
       </div>
 
       {/* Loading state */}
@@ -358,58 +348,18 @@ function ContextRecentItems({
 // Empty State when no contexts exist
 function EmptyStateNoContexts() {
   return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <Card className="max-w-2xl w-full border-dashed">
-        <CardContent className="py-16 px-8">
-          <div className="flex flex-col items-center text-center space-y-6">
-            {/* Icon Group */}
-            <div className="relative">
-              <div className="absolute inset-0 blur-3xl bg-primary/20 rounded-full" />
-              <div className="relative flex items-center justify-center w-24 h-24 rounded-full bg-primary/10">
-                <Database className="h-12 w-12 text-primary" />
-              </div>
-            </div>
-
-            {/* Text Content */}
-            <div className="space-y-3">
-              <h3 className="text-2xl font-semibold">No Knowledge Sources Yet</h3>
-              <p className="text-muted-foreground max-w-md text-base">
-                Knowledge sources help you organize and search through your data. Get started by creating your first knowledge source.
-              </p>
-            </div>
-
-            {/* Instructions */}
-            <div className="pt-4 space-y-3 text-left w-full max-w-md">
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                <div className="mt-0.5">
-                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                    1
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Navigate to Knowledge Sources</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Find "Knowledge Sources" in the sidebar on the left
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                <div className="mt-0.5">
-                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                    2
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Create a Knowledge Source</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Click the "+" button to set up a new knowledge source
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="flex items-center justify-center flex-1">
+      <div className="flex flex-col items-center gap-3 text-center max-w-sm px-6">
+        <div className="p-3 rounded-full bg-muted">
+          <Database className="h-6 w-6 text-muted-foreground" strokeWidth={1} />
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-medium">No knowledge sources yet</p>
+          <p className="text-xs text-muted-foreground">
+            Create a knowledge source in the sidebar to get started.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -419,79 +369,22 @@ function EmptyStateNoItems() {
   const router = useRouter();
 
   return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <Card className="w-full border-dashed">
-        <CardContent className="py-16 px-8">
-          <div className="flex flex-col items-center text-center space-y-6">
-            {/* Icon Group with animated elements */}
-            <div className="relative">
-              <div className="absolute inset-0 blur-3xl bg-gradient-to-br from-primary/20 to-purple-500/20 rounded-full animate-pulse" />
-              <div className="relative flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-primary/10 to-purple-500/10">
-                <div className="absolute top-2 right-2">
-                  <Sparkles className="h-5 w-5 text-primary animate-pulse" />
-                </div>
-                <FileText className="h-12 w-12 text-primary" />
-              </div>
-            </div>
-
-            {/* Text Content */}
-            <div className="space-y-3">
-              <h3 className="text-2xl font-semibold">Ready to Add Your First Items?</h3>
-              <p className="text-muted-foreground max-w-md text-base">
-                Your knowledge sources are set up! Now it's time to populate them with data. Items will appear here once added.
-              </p>
-            </div>
-
-            {/* Visual Guide */}
-            <div className="pt-4 space-y-4 text-left w-full max-w-md">
-              <div className="flex items-start gap-3 p-4 rounded-lg bg-gradient-to-r from-primary/5 to-purple-500/5 border border-primary/20">
-                <div className="mt-0.5">
-                  <ArrowLeft className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Look in the sidebar</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Navigate to <span className="font-semibold text-foreground">Knowledge Sources</span> on the left to add items to your sources
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-lg bg-muted/50 border border-dashed">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Plus className="h-4 w-4 text-primary" />
-                    <p className="text-xs font-medium">Add Items</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Upload files or add data to your sources
-                  </p>
-                </div>
-                <div className="p-3 rounded-lg bg-muted/50 border border-dashed">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Database className="h-4 w-4 text-primary" />
-                    <p className="text-xs font-medium">Organize</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Structure your knowledge for easy access
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Optional CTA */}
-            <div className="pt-2">
-              <Button
-                onClick={() => router.push('/data')}
-                className="gap-2"
-                size="lg"
-              >
-                <Database className="h-4 w-4" />
-                Go to Knowledge Sources
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="flex items-center justify-center flex-1">
+      <div className="flex flex-col items-center gap-3 text-center max-w-sm px-6">
+        <div className="p-3 rounded-full bg-muted">
+          <FileText className="h-6 w-6 text-muted-foreground" strokeWidth={1} />
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-medium">No items yet</p>
+          <p className="text-xs text-muted-foreground">
+            Select a knowledge source in the sidebar and add items to get started.
+          </p>
+        </div>
+        <Button onClick={() => router.push('/data')} variant="outline" size="sm" className="gap-2 mt-1">
+          <Database className="h-3.5 w-3.5" />
+          Browse sources
+        </Button>
+      </div>
     </div>
   );
 }

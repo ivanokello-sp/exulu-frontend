@@ -201,7 +201,7 @@ export function ContextSources(props: DataDisplayProps) {
                             <ScrollArea className="max-h-[600px]">
                                 <div className="space-y-6 pr-4">
                                     <div>
-                                        <h2 className="text-xl font-bold">{context.name}</h2>
+                                        <h2 className="text-base font-semibold">{context.name}</h2>
                                         <p className="text-muted-foreground mt-1">{context.description}</p>
                                     </div>
                                 </div>

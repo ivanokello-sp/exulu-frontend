@@ -51,7 +51,7 @@ function SummaryCardElement({ title, currentValue, previousValue, isLoading }: S
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-3xl font-bold text-foreground mb-2">
+        <div className="text-2xl font-semibold text-foreground mb-2">
           {currentValue.toLocaleString()}
         </div>
         <p className="text-xs text-muted-foreground">

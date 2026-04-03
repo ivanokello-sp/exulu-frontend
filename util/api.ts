@@ -58,9 +58,9 @@ export const config = {
             },
         })
     },
-    theme: async (): Promise<ThemeConfig> => {
+    theme: async (serverToken?: string): Promise<ThemeConfig> => {
         try {
-            const token = await getToken();
+            const token = serverToken ?? await getToken();
             const uris = await getUris();
             const res = await fetch(`${uris.base}/theme`, {
                 method: "GET",

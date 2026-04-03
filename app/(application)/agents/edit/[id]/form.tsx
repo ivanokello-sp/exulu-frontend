@@ -662,7 +662,7 @@ export default function AgentForm({
                                   }}
                                 />
                                 {
-                                  agent.systemInstructions && <FormField
+                                  (agent as any).systemInstructions && <FormField
                                     control={agentForm.control}
                                     name={`instructions`}
                                     render={({ field }: any) => {
@@ -678,7 +678,7 @@ export default function AgentForm({
                                             <Textarea
                                               disabled
                                               rows={5}
-                                              value={agent.systemInstructions ?? ""}
+                                              value={(agent as any).systemInstructions ?? ""}
                                             />
                                           </FormControl>
                                           <FormMessage />

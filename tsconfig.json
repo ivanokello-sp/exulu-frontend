@@ -14,7 +14,7 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noImplicitAny": false,
@@ -29,9 +29,6 @@
     "paths": {
       "@/*": [
         "./*"
-      ],
-      "react": [
-        "./node_modules/@types/react"
       ],
       "@EXULU_SHARED/*": [
         "./types/*"

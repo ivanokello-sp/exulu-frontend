@@ -14,6 +14,8 @@ import { serverSideAuthCheck } from "@/lib/server-side-auth-check";
 import { ConfigContextProvider } from "@/components/config-context";
 import { config as api, BackendConfigType } from "@/util/api";
 import { config as apiConfig } from "@/util/api";
+import { getServerSession } from "next-auth";
+import { getAuthOptions } from "@/app/api/auth/[...nextauth]/options";
 import { LanguageProvider } from "@/components/language-provider";
 import { LOCALE_COOKIE, Locale, defaultLocale } from "@/i18n/config";
 
@@ -50,7 +52,10 @@ export default async function RootLayout({
         ...json
     }
 
-    const themeConfig = await apiConfig.theme();
+    const authOptions = await getAuthOptions();
+    const session: any = await getServerSession(authOptions);
+    const serverJwt: string | undefined = session?.user?.jwt;
+    const themeConfig = await apiConfig.theme(serverJwt);
 
     return (
         <html lang="en" suppressHydrationWarning>
@@ -87,8 +92,7 @@ export default async function RootLayout({
                     <LanguageProvider initialLocale={locale} initialMessages={messages}>
                         <ThemeProvider
                             attribute="class"
-                            defaultTheme="system"
-                            enableSystem
+                            forcedTheme="dark"
                             disableTransitionOnChange>
                             <main className="grow flex min-w-0 w-full">
                                 <div className="grow flex flex-col min-w-0 w-full">

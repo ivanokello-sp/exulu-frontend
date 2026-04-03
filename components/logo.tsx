@@ -1,7 +1,7 @@
 "use client";
 
 import { ConfigContext } from "./config-context";
-import { useContext } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 
 interface LogoProps {
@@ -13,28 +13,23 @@ interface LogoProps {
 
 const Logo = ({ width = 64, height = 32, className = "", alt = "Logo" }: LogoProps) => {
     const configContext = useContext(ConfigContext);
-    const { theme } = useTheme()
+    const { resolvedTheme } = useTheme();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => setMounted(true), []);
+
+    const src = mounted && resolvedTheme === "dark"
+        ? configContext?.backend + "/logo_dark.png"
+        : configContext?.backend + "/logo_light.png";
+
     return (
-        <>
-            {theme !== "dark" && (
-                <img
-                    src={configContext?.backend + "/logo_light.png"}
-                    alt={alt}
-                    width={width}
-                    height={height}
-                    className={className}
-                />
-            )}
-            {theme === "dark" && (
-                <img
-                    src={configContext?.backend + "/logo_dark.png"}
-                    alt={alt}
-                    width={width}
-                    height={height}
-                    className={className}
-                />
-            )}
-        </>
+        <img
+            src={src}
+            alt={alt}
+            width={width}
+            height={height}
+            className={className}
+        />
     )
 }
 

@@ -126,41 +126,34 @@ export default function PromptsPage() {
   }, [prompts]);
 
   return (
-    <div className="h-full flex-1 flex-col p-4 sm:p-6 lg:p-8">
-      {/* Hero Header - Editorial Style */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 sm:gap-0 border-b border-border/50 pb-6 sm:pb-8 mb-6 sm:mb-8">
-        <div className="space-y-2 sm:space-y-4 max-w-3xl animate-in fade-in slide-in-from-left-8 duration-700">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter leading-none">
-            Prompt
-            <br />
-            <span className="text-primary">Library</span>
-          </h1>
-          <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-xl">
-            Craft, organize, and deploy production-grade prompts across your AI infrastructure.
+    <div className="h-full flex-1 flex-col p-4 sm:p-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between gap-4 border-b border-border/50 pb-4 mb-4">
+        <div>
+          <h1 className="text-xl font-semibold">Prompt Library</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Craft, organize, and deploy prompts across your AI agents.
           </p>
         </div>
-        <div className="w-full sm:w-auto animate-in fade-in slide-in-from-right-8 duration-700">
-          <Button
-            onClick={() => setIsCreateModalOpen(true)}
-            size="lg"
-            className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-8 text-base font-semibold shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 active:translate-y-0 active:shadow-md transition-all duration-150 bg-primary hover:bg-primary/90"
-          >
-            <Plus className="mr-2 h-5 w-5" />
-            <span className="hidden xs:inline">New Prompt</span>
-            <span className="xs:hidden">New</span>
-          </Button>
-        </div>
+        <Button
+          onClick={() => setIsCreateModalOpen(true)}
+          size="sm"
+          className="shrink-0"
+        >
+          <Plus className="mr-1.5 h-4 w-4" />
+          New Prompt
+        </Button>
       </div>
 
       {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 lg:gap-6 mb-4">
-        <div className="relative flex-1 min-w-0 sm:min-w-[280px] sm:max-w-lg">
-          <Search className="absolute left-3 sm:left-4 top-1/2 h-4 sm:h-5 w-4 sm:w-5 -translate-y-1/2 text-muted-foreground" />
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
+        <div className="relative flex-1 min-w-0 sm:max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search prompts..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 sm:pl-12 h-11 sm:h-12 text-sm sm:text-base border-2 focus-visible:ring-offset-2 sm:focus-visible:ring-offset-4 focus-visible:border-primary/50 focus-visible:shadow-lg focus-visible:shadow-primary/10 transition-all duration-200"
+            className="pl-9 h-9 text-sm"
           />
         </div>
 
@@ -176,19 +169,19 @@ export default function PromptsPage() {
 
       {/* Selectable Tag Chips */}
       {availableTags.length > 0 && (
-        <div className="mb-6 sm:mb-8">
-          <div className="flex items-center gap-2 mb-3">
-            <Tag className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm font-medium text-muted-foreground">Folders</p>
+        <div className="mb-3">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+            <p className="text-xs font-medium text-muted-foreground">Folders</p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {availableTags.map((tag) => {
               const isSelected = selectedTags.includes(tag);
               return (
                 <Badge
                   key={tag}
                   variant={isSelected ? "default" : "outline"}
-                  className={`capitalize cursor-pointer transition-all duration-200 text-sm px-3 py-1.5 ${
+                  className={`capitalize cursor-pointer transition-colors text-xs px-2 py-0.5 ${
                     isSelected
                       ? "bg-primary text-primary-foreground hover:bg-primary/90"
                       : "hover:bg-accent hover:text-accent-foreground"
@@ -224,7 +217,7 @@ export default function PromptsPage() {
       ) : (
         <>
           {/* List View - Side by Side on Desktop, Stacked on Mobile */}
-          <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 h-auto lg:h-[calc(100vh-280px)] animate-in fade-in duration-500">
+          <div className="flex flex-col lg:flex-row gap-3 h-auto lg:h-[calc(100vh-220px)]">
               {/* Left Panel - Prompt List */}
               <div className="w-full lg:w-80 xl:w-96 flex flex-col border rounded-lg shadow-sm bg-card overflow-hidden max-h-[50vh] lg:max-h-none">
                 <div className="p-3 sm:p-4 border-b bg-muted/30">

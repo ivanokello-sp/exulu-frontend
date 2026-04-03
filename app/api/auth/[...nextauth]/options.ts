@@ -8,7 +8,7 @@ import { Pool } from "pg"
 import bcrypt from "bcryptjs";
 import { SignJWT, importJWK } from "jose"
 import GoogleProvider from "next-auth/providers/google";
-import { Provider } from "next-auth/providers";
+import type { Provider } from "next-auth/providers/index";
 
 const generateJWT = async (payload) => {
   const secret = process.env.NEXTAUTH_SECRET;

@@ -167,10 +167,11 @@ export function DataDisplay(props: DataDisplayProps) {
         console.error("[DataDisplay] GraphQL error details:", error.graphQLErrors);
         console.error("[DataDisplay] Network error:", error.networkError);
         if (error.networkError) {
-          console.error("[DataDisplay] Network error status:", error.networkError.statusCode);
-          console.error("[DataDisplay] Network error body:", error.networkError.bodyText);
-          if (error.networkError.result) {
-            console.error("[DataDisplay] Network error result:", error.networkError.result);
+          const netErr = error.networkError as any;
+          console.error("[DataDisplay] Network error status:", netErr.statusCode);
+          console.error("[DataDisplay] Network error body:", netErr.bodyText);
+          if (netErr.result) {
+            console.error("[DataDisplay] Network error result:", netErr.result);
           }
         }
         if (error.graphQLErrors && error.graphQLErrors.length > 0) {
@@ -180,7 +181,7 @@ export function DataDisplay(props: DataDisplayProps) {
         } else if (error.networkError) {
           // If it's a network error, try to parse the response
           try {
-            const response = error.networkError.result;
+            const response = (error.networkError as any).result;
             if (response && response.errors) {
               console.error("[DataDisplay] Errors from network response:", response.errors);
             }

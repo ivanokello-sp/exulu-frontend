@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Logo from "@/components/logo";
 import { useParams, usePathname } from "next/navigation";
 import * as React from "react";
 import { useContext, useEffect, useMemo, useState, useCallback } from "react";
@@ -365,8 +366,8 @@ export function MainNavSidebar({ sidebarDefaultOpen, config }: { sidebarDefaultO
     <Sidebar collapsible="icon" className="border-r">
       <div className="flex items-center gap-3 border-b bg-sidebar p-3 sticky top-0 z-10">
         <SidebarTrigger aria-label="Toggle sidebar navigation" />
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-semibold group-data-[collapsible=icon]:hidden">AI Studio</span>
+        <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
+          <Logo width={96} height={32} alt="Logo" />
         </div>
       </div>
       <SidebarContent className="px-2">

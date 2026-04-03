@@ -15,7 +15,6 @@ import {
   User,
   Clock,
   MoreVertical,
-  ExternalLink,
   Share2,
 } from "lucide-react";
 import {
@@ -178,69 +177,40 @@ export function PromptPreview({ prompt, onUpdate, onEdit }: PromptPreviewProps) 
   };
 
   return (
-    <div className="h-full flex flex-col bg-background border rounded-lg shadow-sm overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
-      {/* Browser Chrome */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-full bg-red-500/80" />
-            <div className="h-3 w-3 rounded-full bg-yellow-500/80" />
-            <div className="h-3 w-3 rounded-full bg-green-500/80" />
-          </div>
-          <div className="ml-4 px-3 py-1 rounded bg-background border text-xs text-muted-foreground font-mono flex items-center gap-2">
-            <ExternalLink className="h-3 w-3" />
-            prompt-library/{prompt.name.toLowerCase().replace(/\s+/g, '-')}
-          </div>
+    <div className="h-full flex flex-col bg-background border rounded-lg shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/20">
+        <div className="flex items-center gap-2 min-w-0">
+          <h2 className="text-sm font-semibold truncate">{prompt.name}</h2>
         </div>
-
-        <div className="flex items-center gap-1">
-          {/* Share button */}
+        <div className="flex items-center gap-1 shrink-0">
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 transition-all hover:scale-110"
+            className="h-7 w-7"
             onClick={handleShareLink}
             title="Share link"
           >
-            <Share2 className="h-4 w-4" />
+            <Share2 className="h-3.5 w-3.5" />
           </Button>
-
-          {/* Favorite button */}
           <Button
             variant="ghost"
             size="icon"
-            className={cn(
-              "h-8 w-8 transition-all hover:scale-110",
-              isFavoriting ? "scale-125" : "",
-              isFavorited ? "text-amber-600 dark:text-amber-500 bg-amber-500/10" : ""
-            )}
+            className={cn("h-7 w-7", isFavorited ? "text-amber-500" : "")}
             onClick={handleToggleFavorite}
             disabled={isFavoriting}
-            title={isFavorited ? "Remove from favorites" : "Add to favorites"}
           >
-            <ThumbsUp
-              className={cn(
-                "h-4 w-4 transition-all",
-                isFavoriting ? "animate-pulse" : "",
-                isFavorited ? "fill-amber-400 text-amber-400" : ""
-              )}
-            />
+            <ThumbsUp className={cn("h-3.5 w-3.5", isFavorited ? "fill-amber-400" : "")} />
           </Button>
-
-          {/* Actions dropdown (for users with write access) */}
           {hasWriteAccess && (
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreVertical className="h-4 w-4" />
+                <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <MoreVertical className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => {
-                  if (onEdit) {
-                    onEdit();
-                  }
-                }}>
+                <DropdownMenuItem onClick={() => onEdit?.()}>
                   <Edit className="mr-2 h-4 w-4" />
                   Edit
                 </DropdownMenuItem>
@@ -259,111 +229,76 @@ export function PromptPreview({ prompt, onUpdate, onEdit }: PromptPreviewProps) 
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="space-y-3">
-          <h2 className="text-2xl font-bold leading-tight">{prompt.name}</h2>
-          {prompt.description && (
-            <p className="text-base text-muted-foreground leading-relaxed">
-              {prompt.description}
-            </p>
-          )}
-        </div>
+      <div className="flex-1 overflow-auto p-4 space-y-4">
+        {/* Description */}
+        {prompt.description && (
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {prompt.description}
+          </p>
+        )}
 
-        {/* Metadata */}
-        <div className="flex items-center gap-4 flex-wrap text-sm">
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <User className="h-4 w-4 text-primary/70" />
-            <span className="font-medium">{creatorName}</span>
+        {/* Metadata row */}
+        <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <User className="h-3.5 w-3.5" />
+            <span>{creatorName}</span>
           </div>
-          <span className="text-muted-foreground/50">·</span>
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Clock className="h-4 w-4 text-cyan-600 dark:text-cyan-500" />
-            <span>
-              {formatDistanceToNow(new Date(prompt.updatedAt), { addSuffix: true })}
-            </span>
+          <span className="text-muted-foreground/40">·</span>
+          <div className="flex items-center gap-1">
+            <Clock className="h-3.5 w-3.5" />
+            <span>{formatDistanceToNow(new Date(prompt.updatedAt), { addSuffix: true })}</span>
           </div>
-        </div>
-
-        {/* Stats & Tags */}
-        <div className="flex items-center gap-4 flex-wrap">
-          <div
-            className={cn(
-              "flex items-center gap-1.5 text-sm font-medium transition-all",
-              isFavorited ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground"
-            )}
-          >
-            <ThumbsUp className={cn("h-4 w-4", isFavorited ? "drop-shadow-sm" : "")} />
-            <span className={isFavorited ? "font-bold" : ""}>{prompt.favorite_count || 0}</span>
+          <span className="text-muted-foreground/40">·</span>
+          <div className="flex items-center gap-1">
+            <ThumbsUp className={cn("h-3.5 w-3.5", isFavorited ? "fill-amber-400 text-amber-400" : "")} />
+            <span>{prompt.favorite_count || 0}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600 dark:text-emerald-500">
-            <Activity className="h-4 w-4" />
+          <div className="flex items-center gap-1">
+            <Activity className="h-3.5 w-3.5" />
             <span>{prompt.usage_count || 0}</span>
           </div>
-
-          {variables.length > 0 && (
-            <Badge variant="outline" className="text-xs font-semibold border-2 border-violet-500/30 bg-violet-500/5 text-violet-700 dark:text-violet-400 px-2.5 py-1">
-              {variables.length} variable{variables.length !== 1 ? "s" : ""}
-            </Badge>
-          )}
-
-          {prompt.tags && prompt.tags.map((tag) => (
-            <Badge key={tag} variant="secondary" className="text-xs px-2.5 py-1">
-              {tag}
-            </Badge>
-          ))}
         </div>
 
-        {/* Assigned Agents */}
-        {assignedAgentNames.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-muted-foreground">Assigned Agents</h3>
-            <div className="flex items-center gap-2 flex-wrap">
-              {assignedAgentNames.map((name, index) => (
-                <Badge
-                  key={index}
-                  variant="default"
-                  className="text-xs font-medium bg-primary/15 text-primary hover:bg-primary/25 border-primary/20 px-2.5 py-1"
-                >
-                  <Bot className="h-3 w-3 mr-1" />
-                  {name}
-                </Badge>
-              ))}
-            </div>
+        {/* Tags & badges */}
+        {(variables.length > 0 || (prompt.tags && prompt.tags.length > 0) || assignedAgentNames.length > 0) && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {variables.length > 0 && (
+              <Badge variant="outline" className="text-xs border-violet-500/30 bg-violet-500/5 text-violet-400 px-2 py-0.5">
+                {variables.length} var{variables.length !== 1 ? "s" : ""}
+              </Badge>
+            )}
+            {prompt.tags?.map((tag) => (
+              <Badge key={tag} variant="secondary" className="text-xs px-2 py-0.5">
+                {tag}
+              </Badge>
+            ))}
+            {assignedAgentNames.map((name, i) => (
+              <Badge key={i} variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20 px-2 py-0.5">
+                <Bot className="h-3 w-3 mr-1" />
+                {name}
+              </Badge>
+            ))}
           </div>
         )}
 
         {/* Prompt Content */}
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-muted-foreground">Prompt Content</h3>
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground">Content</p>
           <div
             onClick={handleCopyContent}
-            className="p-4 rounded-lg border-2 bg-muted/20 font-mono text-sm leading-relaxed whitespace-pre-wrap"
+            className="p-3 rounded-md border bg-muted/20 font-mono text-xs leading-relaxed whitespace-pre-wrap cursor-copy hover:border-primary/40 transition-colors"
             dangerouslySetInnerHTML={{ __html: renderContentWithVariables() }}
           />
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-3 pt-4">
-          <Button
-            size="lg"
-            onClick={handleUsePrompt}
-            className="shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 active:translate-y-0 active:shadow-md transition-all duration-150"
-          >
-            Use This Prompt
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={handleUsePrompt}>
+            Use Prompt
           </Button>
           {hasWriteAccess && (
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => {
-                if (onEdit) {
-                  onEdit();
-                }
-              }}
-              className="border-2 hover:border-primary hover:text-primary hover:bg-primary/5"
-            >
-              <Edit className="mr-2 h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={() => onEdit?.()}>
+              <Edit className="mr-1.5 h-3.5 w-3.5" />
               Edit
             </Button>
           )}

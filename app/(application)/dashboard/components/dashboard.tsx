@@ -38,34 +38,28 @@ export default function DashboardComponent() {
     const [leaderboardView, setLeaderboardView] = useState<"count" | "tokens">("count");
 
     return (
-        <div className="flex-1 flex flex-col p-8 pt-6 h-screen">
+        <div className="flex-1 flex flex-col p-6 gap-5 h-screen overflow-auto">
             {/* Header Section */}
-            <div className="flex items-center justify-between mb-8">
-                <div className="space-y-2">
-                    <h2 className="text-4xl font-bold tracking-tight bg-clip-text">
+            <div className="flex items-center justify-between border-b border-border/50 pb-4">
+                <div>
+                    <h2 className="text-lg font-semibold">
                         {t('dashboard.title')}
                     </h2>
-                    <p className="text-lg">
+                    <p className="text-sm text-muted-foreground mt-0.5">
                         {t('dashboard.subtitle')}
                     </p>
                 </div>
-
-                {/* Date Range Selector - moved to header */}
-                <div className="flex items-center space-x-2">
-                    <DateRangeSelector
-                        dateRange={dateRange}
-                        onDateRangeChange={setDateRange}
-                        maxDays={30}
-                    />
-                </div>
+                <DateRangeSelector
+                    dateRange={dateRange}
+                    onDateRangeChange={setDateRange}
+                    maxDays={30}
+                />
             </div>
 
-            {/* Summary Cards - Enhanced with better spacing */}
-            <div className="mb-8">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-2xl font-bold">{t('dashboard.summary')}</h3>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            {/* Summary Cards */}
+            <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">{t('dashboard.summary')}</p>
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
                     <SummaryCard query={GET_AGENT_SESSIONS_STATISTICS} entity="agent_sessions" title={t('dashboard.summaryCards.agentSessions')} />
                     <SummaryCard query={GET_AGENT_RUN_STATISTICS} entity="tracking" title={t('dashboard.summaryCards.agentCalls')} />
                     <SummaryCard query={GET_TOKEN_USAGE_STATISTICS} entity="tracking" title={t('dashboard.summaryCards.tokenUsage')} />
@@ -77,22 +71,22 @@ export default function DashboardComponent() {
             {/* Leaderboards Section */}
             <div className="mb-5">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-2xl font-bold">{t('dashboard.leaderboards.title')}</h3>
-                    <div className="flex items-center gap-2 bg-secondary-foreground/10 dark:bg-secondary-foreground/20 p-1 rounded-lg">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('dashboard.leaderboards.title')}</p>
+                    <div className="flex items-center gap-1 bg-muted p-1 rounded-lg">
                         <button
                             onClick={() => setLeaderboardView("count")}
-                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${leaderboardView === "count"
-                                ? "bg-white dark:bg-primary shadow-sm text-secondary"
-                                : "hover:text-primary dark:hover:text-primary"
+                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${leaderboardView === "count"
+                                ? "bg-background shadow-sm text-foreground"
+                                : "text-muted-foreground hover:text-foreground"
                                 }`}
                         >
                             {t('dashboard.leaderboards.viewToggle.count')}
                         </button>
                         <button
                             onClick={() => setLeaderboardView("tokens")}
-                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${leaderboardView === "tokens"
-                                ? "bg-white dark:bg-primary shadow-sm text-secondary"
-                                : "hover:text-primary dark:hover:text-primary"
+                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${leaderboardView === "tokens"
+                                ? "bg-background shadow-sm text-foreground"
+                                : "text-muted-foreground hover:text-foreground"
                                 }`}
                         >
                             {t('dashboard.leaderboards.viewToggle.tokens')}
@@ -147,7 +141,7 @@ export default function DashboardComponent() {
 
             <div className="mb-5 pb-5">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-2xl font-bold">{t('dashboard.timeSeriesAnalytics.title')}</h3>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('dashboard.timeSeriesAnalytics.title')}</p>
                 </div>
                 <div className="flex-1 grid gap-6 md:grid-cols-3">
                     <div className="rounded-lg border md:col-span-2 p-6 flex flex-col">

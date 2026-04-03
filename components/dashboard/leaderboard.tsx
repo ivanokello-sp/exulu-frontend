@@ -143,7 +143,7 @@ export function Leaderboard({
       <Card className="h-full flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <div className="space-y-1">
-            <CardTitle className="text-xl font-bold flex items-center gap-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
               {icon}
               {title}
             </CardTitle>
@@ -164,7 +164,7 @@ export function Leaderboard({
       <Card className="h-full flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <div className="space-y-1">
-            <CardTitle className="text-xl font-bold flex items-center gap-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
               {icon}
               {title}
             </CardTitle>
@@ -202,7 +202,7 @@ export function Leaderboard({
             >
               {/* Progress bar background */}
               <div
-                className="absolute inset-0 bg-gradient-to-r from-blue-100/50 to-transparent dark:from-blue-900/20 transition-all duration-500"
+                className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent transition-all duration-500"
                 style={{ width: `${percentage}%` }}
               />
 
@@ -222,7 +222,7 @@ export function Leaderboard({
                 </div>
 
                 <div className="flex-shrink-0 text-right">
-                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  <p className="text-lg font-bold text-foreground">
                     {entry.value.toLocaleString()}
                   </p>
                   <p className="text-xs text-muted-foreground">

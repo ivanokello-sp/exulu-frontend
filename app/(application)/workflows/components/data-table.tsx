@@ -23,7 +23,7 @@ import {
   useReactTable,
   VisibilityState,
 } from "@tanstack/react-table";
-import { Trash2 } from "lucide-react";
+import { Trash2, LayoutTemplate } from "lucide-react";
 import { useState } from "react";
 import * as React from "react";
 import {
@@ -288,11 +288,16 @@ export function DataTable<TData, TValue>({
               ))
             ) : (
               <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No workflows found.
+                <TableCell colSpan={columns.length} className="h-48">
+                  <div className="flex flex-col items-center justify-center gap-3 text-center">
+                    <div className="p-3 rounded-full bg-muted">
+                      <LayoutTemplate className="h-5 w-5 text-muted-foreground" strokeWidth={1} />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">No templates yet</p>
+                      <p className="text-xs text-muted-foreground">Save a chat conversation as a template to get started.</p>
+                    </div>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

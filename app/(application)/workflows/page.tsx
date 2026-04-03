@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { QueueManagement } from "../evals/[id]/runs/components/queue-management";
 import { QueueJob } from "@/types/models/job";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export const dynamic = "force-dynamic";
 
@@ -87,26 +86,23 @@ export default function WorkflowsPage() {
 
   return (
     <>
-      <div className="hidden h-full flex-1 flex-col space-y-8 p-8 md:flex">
-        <div className="flex items-center justify-between space-y-2">
+      <div className="hidden h-full flex-1 flex-col gap-4 p-6 md:flex">
+        <div className="flex items-center justify-between border-b border-border/50 pb-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">Templates</h2>
-            <p className="text-muted-foreground">
+            <h2 className="text-lg font-semibold">Templates</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
               Manage your templates and monitor running jobs.
             </p>
           </div>
         </div>
 
-        {/* Info Alert */}
-        <Alert className="border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/20">
-          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          <AlertTitle className="text-blue-900 dark:text-blue-100">How to create a new conversation template</AlertTitle>
-          <AlertDescription className="text-blue-800 dark:text-blue-200">
-            Start a new chat with an agent, then save your conversation as a template.
-            You can run saved templates on-demand or schedule them to run automatically using CRON expressions
-            if a queue is configured for the agent running the template and you have setup workers to process the queue.
-          </AlertDescription>
-        </Alert>
+        {/* Info callout */}
+        <div className="flex items-start gap-3 rounded-md border border-border bg-muted/30 px-4 py-3 text-sm">
+          <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+          <p className="text-muted-foreground leading-relaxed">
+            Start a chat with an agent, then save it as a template. Templates can run on-demand or on a CRON schedule when workers and a queue are configured.
+          </p>
+        </div>
 
         {/* Templates Table */}
         <DataTable columns={columns} />
@@ -120,71 +116,56 @@ export default function WorkflowsPage() {
       }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-xl">Start Template Run</DialogTitle>
+            <DialogTitle>Run Template</DialogTitle>
             <DialogDescription>
-              Configure and start your template execution
+              Configure inputs and start the template execution.
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-4 py-4">
             {/* Execution Mode Info */}
-            <Alert className={dialogOpen?.queue ? "border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/20" : "border-green-500/50 bg-green-50/50 dark:bg-green-950/20"}>
-              <div className="flex items-start gap-3">
-                {dialogOpen?.queue ? (
-                  <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                ) : (
-                  <Zap className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
-                )}
-                <div className="flex-1">
-                  <AlertTitle className="text-base font-semibold mb-1">
-                    {dialogOpen?.queue ? "Scheduled Execution" : "Immediate Execution"}
-                  </AlertTitle>
-                  <AlertDescription className="text-sm">
-                    {dialogOpen?.queue ? (
-                      <>
-                        This template will be queued for execution in the{" "}
-                        <span className="font-semibold text-blue-700 dark:text-blue-300">{dialogOpen.queue}</span> queue.
-                        Jobs are processed asynchronously based on queue priority and availability.
-                      </>
-                    ) : (
-                      <>
-                        This template will execute immediately without queuing.
-                        No queue is configured for the agent running this template.
-                      </>
-                    )}
-                  </AlertDescription>
-                </div>
+            <div className="flex items-start gap-3 rounded-md border border-border bg-muted/30 px-4 py-3 text-sm">
+              {dialogOpen?.queue ? (
+                <Clock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              ) : (
+                <Zap className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              )}
+              <div className="flex-1">
+                <p className="font-medium text-foreground mb-0.5">
+                  {dialogOpen?.queue ? "Queued Execution" : "Immediate Execution"}
+                </p>
+                <p className="text-muted-foreground">
+                  {dialogOpen?.queue ? (
+                    <>
+                      Will be queued in{" "}
+                      <span className="font-medium text-foreground">{dialogOpen.queue}</span>.
+                      {" "}Jobs are processed asynchronously based on queue priority.
+                    </>
+                  ) : (
+                    <>This template will execute immediately — no queue is configured for this agent.</>
+                  )}
+                </p>
               </div>
-            </Alert>
+            </div>
 
             {/* Input Variables Section */}
             {dialogOpen?.variables && dialogOpen.variables.length > 0 && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 border-b pb-2">
-                  <Info className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="text-sm font-semibold">Input Variables</h3>
-                  <span className="text-xs text-muted-foreground">
-                    ({dialogOpen.variables.length} required)
-                  </span>
-                </div>
-
-                <div className="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-2">
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Input Variables ({dialogOpen.variables.length})
+                </p>
+                <div className="flex flex-col gap-3 max-h-[280px] overflow-y-auto">
                   {dialogOpen.variables.map((variable) => (
                     <div key={variable} className="space-y-1.5">
-                      <Label
-                        className="text-sm font-medium flex items-center gap-1.5"
-                        htmlFor={variable}
-                      >
-                        <span className="capitalize">{variable?.replaceAll("_", " ")}</span>
-                        <span className="text-red-500">*</span>
+                      <Label className="text-sm capitalize" htmlFor={variable}>
+                        {variable?.replaceAll("_", " ")}
+                        <span className="text-destructive ml-1">*</span>
                       </Label>
                       <Input
                         id={variable}
                         placeholder={`Enter ${variable?.replaceAll("_", " ")}...`}
-                        className="h-10"
-                        {...reactForm.register(`variables.${variable}`, {
-                          required: true
-                        })}
+                        className="h-9"
+                        {...reactForm.register(`variables.${variable}`, { required: true })}
                       />
                     </div>
                   ))}
@@ -194,9 +175,9 @@ export default function WorkflowsPage() {
 
             {/* No Variables Message */}
             {(!dialogOpen?.variables || dialogOpen.variables.length === 0) && (
-              <div className="text-center py-6 text-sm text-muted-foreground border rounded-lg bg-muted/30">
-                No input variables required for this template
-              </div>
+              <p className="text-sm text-muted-foreground text-center py-4 border rounded-md bg-muted/20">
+                No input variables required
+              </p>
             )}
           </div>
 

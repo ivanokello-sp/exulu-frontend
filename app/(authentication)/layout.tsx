@@ -51,7 +51,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               fontVariables
             )}
           >
-            <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+            <ThemeProvider attribute="class" forcedTheme="dark" disableTransitionOnChange>
               <main className="grow flex">
                 <div className="grow flex flex-col">{children}</div>
               </main>
